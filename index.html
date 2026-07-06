@@ -416,71 +416,130 @@ function prioridade(top,store,acertoArea){
   return {score,nivel,motivos};
 }
 function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeTopico,onAssinar}){
-  const [aberto,setAberto]=useState(null);const [recall,setRecall]=useState({});
-  const ranked=useMemo(()=>CURRICULO.map(t=>({...t,...prioridade(t,store,acertoArea)})).sort((a,b)=>b.score-a.score),[store,acertoArea]);
-  const liberado=t=>isPro||t.id===freeTopico;
-  // no free o "estude agora" aponta para o unico topico liberado
-  const top1=isPro?ranked[0]:(ranked.find(t=>t.id===freeTopico)||ranked[0]);
-  const proximos=ranked.filter(t=>t.id!==top1.id).slice(0,3);
+  const [areaSel,setAreaSel]=useState(null); // area escolhida
+  const [aberto,setAberto]=useState(null);   // assunto em estudo
   const yc=y=>y>=3?"var(--gold)":y===2?"var(--acc2)":"var(--muted)";
   const yl=y=>y>=3?"ALTO RENDIMENTO":y===2?"IMPORTANTE":"COMPLEMENTAR";
-  const abrir=t=>{ if(!liberado(t)){onAssinar();return;} setAberto(aberto===t.id?null:t.id); };
-  const Cartao=t=>{const d=store.dominio[t.id];const rc=recall[t.id];const open=aberto===t.id;const lock=!liberado(t);
-    return <div className="topico" key={t.id} style={lock?{opacity:.75}:null}>
-      <div className="head" onClick={()=>abrir(t)}>
-        <div className="row" style={{gap:9}}><span className="yield" style={{color:yc(t.yield),border:"1px solid "+yc(t.yield)}}>{yl(t.yield)}</span><b style={{fontSize:14.5}}>{t.nome}</b></div>
-        <div className="row" style={{gap:10}}>
-          {lock?<span className="pill" style={{color:"var(--gold)",borderColor:"var(--gold)"}}>PRO</span>
-               :<span className="muted" style={{fontSize:12}}>{d?("dominio "+d.nivel+"/5"):"nao estudado"}</span>}
-          <span className="muted">{lock?"🔒":(open?"–":"+")}</span>
+  const liberado=t=>isPro||t.id===freeTopico;
+  const concluido=t=>!!store.dominio[t.id];
+  // assuntos de uma area, em ordem de rendimento (o caminho)
+  const caminho=k=>CURRICULO.filter(t=>t.area===k).sort((a,b)=>b.yield-a.yield);
+  const abrir=t=>{ if(!liberado(t)){onAssinar();return;} setAberto(t.id); window.scrollTo(0,0); };
+
+  /* ---------- ESTADO 3: estudando um assunto (tela cheia) ---------- */
+  if(aberto){
+    const t=CURRICULO.find(x=>x.id===aberto);
+    if(t) return <div>
+      <button className="btn ghost sm" onClick={()=>{setAberto(null);window.scrollTo(0,0);}}>← Voltar ao caminho</button>
+      <div style={{marginTop:14}}>
+        <div className="row" style={{gap:9,marginBottom:4}}>
+          <span className="yield" style={{color:yc(t.yield),border:"1px solid "+yc(t.yield)}}>{yl(t.yield)}</span>
+          <span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(t.area)}</span>
         </div>
+        <h2 style={{fontSize:22,margin:"6px 0 16px"}}>{t.nome}</h2>
+        <EstudarAssunto t={t} store={store} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={irTreinar} isPro={isPro} onAssinar={onAssinar}
+          onFim={()=>{ // ao concluir, emenda no proximo pendente da area
+            const lista=caminho(t.area);
+            const idx=lista.findIndex(x=>x.id===t.id);
+            const prox=lista.slice(idx+1).find(x=>!concluido(x));
+            if(prox && liberado(prox)){ setAberto(prox.id); } else { setAberto(null); }
+            window.scrollTo(0,0);
+          }}/>
       </div>
-      {open && !lock && <div className="body">
-        <EstudarAssunto t={t} store={store} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={irTreinar} isPro={isPro} onAssinar={onAssinar}/>
+    </div>;
+  }
+
+  /* ---------- ESTADO 2: caminho de uma area ---------- */
+  if(areaSel){
+    const lista=caminho(areaSel);
+    const feitos=lista.filter(concluido).length;
+    const proximo=lista.find(t=>!concluido(t) && liberado(t)) || lista.find(t=>!concluido(t));
+    return <div>
+      <button className="btn ghost sm" onClick={()=>setAreaSel(null)}>← Todas as áreas</button>
+      <div style={{marginTop:14,marginBottom:16}}>
+        <h2 style={{fontSize:22}}>{areaNome(areaSel)}</h2>
+        <div className="muted" style={{fontSize:13,marginTop:4}}>{feitos} de {lista.length} assuntos concluídos</div>
+        <div className="bar" style={{marginTop:8}}><i style={{width:(feitos/lista.length*100)+"%",background:"var(--acc)"}}/></div>
+      </div>
+
+      {proximo && <div className="hero" style={{marginBottom:18}}>
+        <div className="tag" style={{color:"var(--acc)"}}>Continue de onde parou</div>
+        <h3 style={{fontSize:19,margin:"8px 0 4px"}}>{proximo.nome}</h3>
+        <div className="muted" style={{fontSize:13,marginBottom:10}}>{concluido(proximo)?"Revisão":"Próximo assunto do caminho"}</div>
+        <button className="btn" onClick={()=>abrir(proximo)}>{liberado(proximo)?"Continuar ›":"🔒 Assinar para continuar"}</button>
       </div>}
-    </div>;};
+
+      {/* o caminho vertical */}
+      <div style={{position:"relative"}}>
+        {lista.map((t,i)=>{
+          const done=concluido(t);const lock=!liberado(t);const isProx=proximo&&t.id===proximo.id;
+          return <div key={t.id} className="row" style={{alignItems:"stretch",gap:12,marginBottom:2}}>
+            {/* coluna do trilho */}
+            <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:30}}>
+              <div style={{width:28,height:28,borderRadius:99,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:13,
+                background:done?"var(--acc)":(isProx?"var(--panel2)":"transparent"),
+                border:"2px solid "+(done?"var(--acc)":(isProx?"var(--acc)":"var(--line)")),
+                color:done?"var(--bg)":"var(--ink)"}}>{done?"✓":(lock?"🔒":i+1)}</div>
+              {i<lista.length-1 && <div style={{flex:1,width:2,background:done?"var(--acc)":"var(--line)",minHeight:14}}/>}
+            </div>
+            {/* card do assunto */}
+            <div onClick={()=>abrir(t)} style={{flex:1,cursor:"pointer",marginBottom:12,padding:"12px 14px",borderRadius:12,
+              border:"1px solid "+(isProx?"var(--acc)":"var(--line)"),background:isProx?"var(--panel2)":"var(--panel)",opacity:lock?.7:1}}>
+              <div className="row" style={{justifyContent:"space-between"}}>
+                <b style={{fontSize:14.5}}>{t.nome}</b>
+                <span className="yield" style={{color:yc(t.yield),border:"1px solid "+yc(t.yield)}}>{yl(t.yield)}</span>
+              </div>
+              <div className="muted" style={{fontSize:12,marginTop:3}}>
+                {done?("concluído · domínio "+store.dominio[t.id].nivel+"/5"):(lock?"disponível no PRO":(isProx?"você está aqui":"a seguir"))}
+              </div>
+            </div>
+          </div>;
+        })}
+      </div>
+    </div>;
+  }
+
+  /* ---------- ESTADO 1: escolher a area ---------- */
+  const revisar=CURRICULO.map(t=>{
+    const d=store.dominio[t.id]; if(!d) return null;
+    const diasDesde=dias(d.last);const intervalo=[0,1,2,4,7,14][d.nivel]||1;
+    return diasDesde>=intervalo ? {...t,diasDesde} : null;
+  }).filter(Boolean).sort((a,b)=>b.diasDesde-a.diasDesde).slice(0,4);
+
   return <div>
-    <div className="hero">
-      <div className="tag" style={{color:"var(--acc)"}}>Estude agora — próxima melhor ação</div>
-      <h2 style={{fontSize:22,margin:"8px 0 4px"}}>{top1.nome}</h2>
-      <div className="row" style={{gap:8,marginBottom:8}}><span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(top1.area)}</span><span className="pill" style={{color:"var(--gold)"}}>{yl(top1.yield)}</span></div>
-      <div style={{fontSize:14,lineHeight:1.5}}><b>Por quê:</b> {top1.motivos.length?top1.motivos.join(" · "):"tema central do blueprint"}.</div>
-      <div className="row" style={{marginTop:14}}><button className="btn" onClick={()=>abrir(top1)}>Abrir e estudar</button></div>
+    <h2 style={{fontSize:22,marginBottom:4}}>Escolha por onde começar</h2>
+    <div className="muted" style={{fontSize:14,marginBottom:18}}>Cada área é um caminho. Siga do primeiro ao último no seu ritmo.</div>
+
+    {revisar.length>0 && <div className="card" style={{marginBottom:18,borderColor:"var(--acc2)"}}>
+      <div className="row" style={{justifyContent:"space-between",marginBottom:8}}>
+        <b style={{fontSize:15}}>🔁 Revisar hoje</b><span className="muted" style={{fontSize:12}}>pra não esquecer</span>
+      </div>
+      {revisar.map(t=><div key={t.id} className="row" style={{justifyContent:"space-between",padding:"8px 2px",borderBottom:"1px solid var(--line)"}}>
+        <span style={{fontSize:14}}>{t.nome} <span className="muted">· há {t.diasDesde}d · {store.dominio[t.id].nivel}/5</span></span>
+        <button className="btn ghost sm" onClick={()=>abrir(t)}>Revisar</button>
+      </div>)}
+    </div>}
+
+    <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:14}}>
+      {AREAS.map(a=>{
+        const lista=caminho(a.k);const feitos=lista.filter(concluido).length;const pct=Math.round(feitos/lista.length*100);
+        return <div key={a.k} className="card" onClick={()=>{setAreaSel(a.k);window.scrollTo(0,0);}} style={{cursor:"pointer"}}>
+          <div className="row" style={{justifyContent:"space-between",marginBottom:8}}>
+            <span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{a.k}</span>
+            <span className="muted" style={{fontSize:12}}>{feitos}/{lista.length}</span>
+          </div>
+          <b style={{fontSize:16}}>{a.nome}</b>
+          <div className="bar" style={{marginTop:10}}><i style={{width:pct+"%",background:"var(--acc)"}}/></div>
+          <div style={{marginTop:12}}><span className="btn sm" style={{display:"inline-block"}}>{feitos>0?"Continuar ›":"Começar ›"}</span></div>
+        </div>;
+      })}
     </div>
 
-    {/* REVISAR HOJE — curva do esquecimento */}
-    {(()=>{
-      const revisar=CURRICULO.map(t=>{
-        const d=store.dominio[t.id]; if(!d) return null;
-        const diasDesde=dias(d.last);
-        const intervalo=[0,1,2,4,7,14][d.nivel]||1; // dominio baixo revisa antes
-        return diasDesde>=intervalo ? {...t,diasDesde} : null;
-      }).filter(Boolean).sort((a,b)=>b.diasDesde-a.diasDesde).slice(0,4);
-      if(revisar.length===0) return null;
-      return <div className="card" style={{marginTop:16,borderColor:"var(--acc2)"}}>
-        <div className="row" style={{justifyContent:"space-between",marginBottom:8}}>
-          <b style={{fontSize:15}}>🔁 Revisar hoje</b>
-          <span className="muted" style={{fontSize:12}}>pra não esquecer</span>
-        </div>
-        {revisar.map(t=><div key={t.id} className="row" style={{justifyContent:"space-between",padding:"8px 2px",borderBottom:"1px solid var(--line)"}}>
-          <span style={{fontSize:14}}>{t.nome} <span className="muted">· visto há {t.diasDesde}d · domínio {store.dominio[t.id].nivel}/5</span></span>
-          <button className="btn ghost sm" onClick={()=>abrir(t)}>Revisar</button>
-        </div>)}
-      </div>;
-    })()}
-    {!isPro && <div className="lock" style={{marginTop:16,textAlign:"left"}}>
+    {!isPro && <div className="lock" style={{marginTop:18,textAlign:"left"}}>
       <b>Demonstração: 1 assunto liberado.</b>
-      <div className="muted" style={{fontSize:13,marginTop:6}}>Abaixo você vê o mapa completo com os {CURRICULO.length} assuntos. Os cadeados abrem no Combo até o ENAMED.</div>
-      <div style={{marginTop:12}}><button className="btn" onClick={onAssinar}>Liberar toda a Trilha</button></div>
+      <div className="muted" style={{fontSize:13,marginTop:6}}>O Combo até o ENAMED abre todos os caminhos, com aula, prática e revisão.</div>
+      <div style={{marginTop:12}}><button className="btn" onClick={onAssinar}>Liberar tudo</button></div>
     </div>}
-    <div style={{marginTop:20}}><h3 style={{fontSize:15,marginBottom:6}}>Depois deste, priorize</h3>
-      {proximos.map(t=><div key={t.id} className="row" style={{justifyContent:"space-between",padding:"9px 2px",borderBottom:"1px solid var(--line)"}}>
-        <span style={{fontSize:14}}>{t.nome} <span className="muted">· {areaNome(t.area)}</span></span>
-        <button className="btn ghost sm" onClick={()=>abrir(t)}>{liberado(t)?"Abrir":"🔒 PRO"}</button></div>)}</div>
-    <div style={{marginTop:24}}><h3 style={{fontSize:15,marginBottom:2}}>Mapa completo por área</h3>
-      <div className="muted" style={{fontSize:13,marginBottom:6}}>{isPro?"O domínio que você marca reordena a trilha.":"Demonstração do método. Assine para abrir todos."}</div>
-      {AREAS.map(a=><div key={a.k} style={{marginTop:16}}><div className="tag muted" style={{marginBottom:2}}>{a.nome}</div>
-        {ranked.filter(t=>t.area===a.k).sort((x,y)=>y.yield-x.yield).map(Cartao)}</div>)}</div>
   </div>;
 }
 
@@ -666,7 +725,7 @@ function Banco({questoes,uid,onAdd}){
 }
 
 /* =================== ESTUDAR ASSUNTO (fluxo de etapas) =================== */
-function EstudarAssunto({t,store,avaliarDominio,registrar,irTreinar,isPro,onAssinar}){
+function EstudarAssunto({t,store,avaliarDominio,registrar,irTreinar,isPro,onAssinar,onFim}){
   // etapas: 0 aula · 1 como pensar · 2 pratique · 3 fixe
   const [etapa,setEtapa]=useState(0);
   const d=store.dominio[t.id];
@@ -732,7 +791,7 @@ function EstudarAssunto({t,store,avaliarDominio,registrar,irTreinar,isPro,onAssi
       <button className="btn ghost sm" disabled={etapa===0} onClick={()=>irPara(etapa-1)}>← Voltar</button>
       {etapa<etapas.length-1
         ? <button className="btn sm" onClick={()=>irPara(etapa+1)}>{["Entendi, como penso?","Agora pratico","Fixar e avaliar"][etapa]} →</button>
-        : <button className="btn sm" onClick={irTreinar}>Praticar mais questões →</button>}
+        : <button className="btn sm" onClick={()=>{ if(onFim)onFim(); else irTreinar(); }}>✓ Concluir assunto</button>}
     </div>
   </div>;
 }
