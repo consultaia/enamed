@@ -72,14 +72,14 @@
   td,th{text-align:left;padding:9px 6px;border-bottom:1px solid var(--line)}
   th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
   .sem{width:11px;height:11px;border-radius:99px;display:inline-block}
-  .comment{background:#0f2620;border-left:3px solid var(--acc);padding:12px 14px;border-radius:0 8px 8px 0;margin-top:14px;font-size:14px;line-height:1.55}
+  .comment{background:color-mix(in srgb, var(--acc) 12%, var(--panel));border-left:3px solid var(--acc);color:var(--ink);padding:12px 14px;border-radius:0 8px 8px 0;margin-top:14px;font-size:14px;line-height:1.55}
   .block{border-radius:10px;padding:12px 14px;margin-top:10px;font-size:14px;line-height:1.55}
-  .b-nucleo{background:#0f2620;border-left:3px solid var(--acc)}
-  .b-pega{background:#2b1c12;border-left:3px solid var(--warn)}
-  .b-mne{background:#132433;border-left:3px solid var(--acc2)}
-  .b-sus{background:#241a2b;border-left:3px solid #b98cff}
-  .b-metodo{background:#0a1512;border:1px dashed var(--line)}
-  .hero{background:linear-gradient(135deg,#123528,#12211f);border:1px solid var(--acc);border-radius:16px;padding:20px}
+  .b-nucleo{background:color-mix(in srgb, var(--acc) 12%, var(--panel));border-left:3px solid var(--acc);color:var(--ink)}
+  .b-pega{background:color-mix(in srgb, var(--warn) 14%, var(--panel));border-left:3px solid var(--warn);color:var(--ink)}
+  .b-mne{background:color-mix(in srgb, var(--acc2) 12%, var(--panel));border-left:3px solid var(--acc2);color:var(--ink)}
+  .b-sus{background:color-mix(in srgb, #b98cff 14%, var(--panel));border-left:3px solid #b98cff;color:var(--ink)}
+  .b-metodo{background:var(--panel2);border:1px dashed var(--line);color:var(--ink)}
+  .hero{background:linear-gradient(135deg,color-mix(in srgb,var(--acc) 18%,var(--panel)),var(--panel));border:1px solid var(--acc);color:var(--ink);border-radius:16px;padding:20px}
   .rate{display:flex;gap:6px;margin-top:8px}
   .rate button{width:38px;height:38px;border-radius:9px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);font-weight:700}
   .rate button.on{background:var(--acc);color:#04120c;border-color:var(--acc)}
@@ -87,7 +87,7 @@
   .topico>.head{display:flex;justify-content:space-between;align-items:center;padding:13px 15px;cursor:pointer;background:var(--panel2)}
   .topico>.body{padding:0 15px 15px}
   .yield{font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px}
-  .lock{background:#241a2b;border:1px solid #4a3560;border-radius:12px;padding:16px;text-align:center}
+  .lock{background:color-mix(in srgb,#b98cff 12%,var(--panel));border:1px solid color-mix(in srgb,#b98cff 40%,var(--line));color:var(--ink);border-radius:12px;padding:16px;text-align:center}
   .center{min-height:80vh;display:flex;align-items:center;justify-content:center}
   .auth{max-width:380px;width:100%}
   .link{color:var(--acc);cursor:pointer;font-weight:600}
@@ -444,12 +444,12 @@ function Trilha({store,acertoArea,avaliarDominio,irTreinar,isPro,freeTopico,onAs
         {t.aula && <AulaAdaptativa tema={t.nome} aula={t.aula}/>}
 
         {/* 2) COMO PENSAR — passo a passo de raciocinio */}
-        {t.raciocinio && <div className="b-nucleo block">
+        {t.raciocinio && <div className="b-nucleo block" style={{color:"var(--ink)"}}>
           <b>Como pensar (passo a passo)</b>
           <div style={{marginTop:8}}>{t.raciocinio.map((r,i)=>
             <div key={i} className="row" style={{alignItems:"flex-start",gap:10,marginBottom:8}}>
-              <span style={{minWidth:24,height:24,borderRadius:99,background:"var(--acc)",color:"#04120c",fontWeight:800,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>{i+1}</span>
-              <span style={{fontSize:14,lineHeight:1.5}}>{r.replace(/^\d+\.\s*/,"")}</span>
+              <span style={{minWidth:24,height:24,borderRadius:99,background:"var(--acc)",color:"var(--bg)",fontWeight:800,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span>
+              <span style={{fontSize:14,lineHeight:1.5,color:"var(--ink)"}}>{r.replace(/^\d+\.\s*/,"")}</span>
             </div>)}</div>
         </div>}
 
