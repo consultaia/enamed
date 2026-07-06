@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>ENAMED Engine</title>
+<meta name="theme-color" content="#0d1618" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="ENAMED" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="manifest" href="manifest.webmanifest" />
+<script>
+  // Registro do service worker (torna o app instalavel e abre offline a casca)
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function(){});
+    });
+  }
+</script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#0d1618; --panel:#12211f; --panel2:#16302b; --line:#1f3d37;
+    --ink:#e8f2ee; --muted:#7fa49a; --acc:#3ddc97; --acc2:#5ec8ff;
+    --warn:#f2c94c; --bad:#ff6b6b; --gold:#e6b450; --radius:14px;
+    --mono:'SFMono-Regular',ui-monospace,Menlo,Consolas,monospace;
+    --sans:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#12332c 0%,var(--bg) 55%);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+  #root{max-width:1080px;margin:0 auto;padding:22px 18px 90px}
+  h1,h2,h3{margin:0;font-weight:700;letter-spacing:-.02em}
+  button{font-family:inherit;cursor:pointer;border:none}
+  .tag{font-family:var(--mono);font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px}
+  .btn{background:var(--acc);color:#04120c;font-weight:700;padding:11px 16px;border-radius:10px;font-size:14px}
+  .btn:hover{filter:brightness(1.08)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn.ghost:hover{border-color:var(--acc)}
+  .btn.sm{padding:7px 12px;font-size:13px}
+  .nav{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0 24px}
+  .nav button{background:transparent;color:var(--muted);padding:9px 14px;border-radius:9px;font-size:14px;font-weight:600;border:1px solid transparent}
+  .nav button.on{background:var(--panel2);color:var(--ink);border-color:var(--line)}
+  .grid{display:grid;gap:14px}
+  .muted{color:var(--muted)}
+  .bar{height:8px;background:#0a1512;border-radius:99px;overflow:hidden}
+  .bar>i{display:block;height:100%;border-radius:99px}
+  .alt{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:13px 15px;border-radius:10px;margin-top:9px;font-size:15px;transition:.12s}
+  .alt:hover{border-color:var(--acc)}
+  .alt.correct{border-color:var(--acc);background:#123528}
+  .alt.wrong{border-color:var(--bad);background:#331819}
+  .alt.dim{opacity:.55}
+  .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700;border:1px solid var(--line);color:var(--muted)}
+  input,textarea,select{width:100%;background:#0a1512;border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:10px 12px;font-family:inherit;font-size:14px}
+  textarea{min-height:70px;resize:vertical}
+  label{font-size:12px;color:var(--muted);display:block;margin:12px 0 5px;font-weight:600}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .kpi{font-size:34px;font-weight:800;letter-spacing:-.03em}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  td,th{text-align:left;padding:9px 6px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+  .sem{width:11px;height:11px;border-radius:99px;display:inline-block}
+  .comment{background:#0f2620;border-left:3px solid var(--acc);padding:12px 14px;border-radius:0 8px 8px 0;margin-top:14px;font-size:14px;line-height:1.55}
+  .block{border-radius:10px;padding:12px 14px;margin-top:10px;font-size:14px;line-height:1.55}
+  .b-nucleo{background:#0f2620;border-left:3px solid var(--acc)}
+  .b-pega{background:#2b1c12;border-left:3px solid var(--warn)}
+  .b-mne{background:#132433;border-left:3px solid var(--acc2)}
+  .b-sus{background:#241a2b;border-left:3px solid #b98cff}
+  .b-metodo{background:#0a1512;border:1px dashed var(--line)}
+  .hero{background:linear-gradient(135deg,#123528,#12211f);border:1px solid var(--acc);border-radius:16px;padding:20px}
+  .rate{display:flex;gap:6px;margin-top:8px}
+  .rate button{width:38px;height:38px;border-radius:9px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);font-weight:700}
+  .rate button.on{background:var(--acc);color:#04120c;border-color:var(--acc)}
+  .topico{border:1px solid var(--line);border-radius:12px;margin-top:10px;overflow:hidden}
+  .topico>.head{display:flex;justify-content:space-between;align-items:center;padding:13px 15px;cursor:pointer;background:var(--panel2)}
+  .topico>.body{padding:0 15px 15px}
+  .yield{font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px}
+  .lock{background:#241a2b;border:1px solid #4a3560;border-radius:12px;padding:16px;text-align:center}
+  .center{min-height:80vh;display:flex;align-items:center;justify-content:center}
+  .auth{max-width:380px;width:100%}
+  .link{color:var(--acc);cursor:pointer;font-weight:600}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useMemo} = React;
+
+/* ================================================================
+   CONFIG — cole aqui os dados do seu projeto Supabase
+   (Project Settings -> API -> Project URL e anon public key)
+   ================================================================ */
+const SUPABASE_URL = "https://jtkkqmqlydqenxwnttyi.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_KhmIwvVbXtecadyEPrBonQ_ZUTQVLRP";
+// URL do seu Cloudflare Worker (ex.: https://enamed-worker.SEU-SUBDOMINIO.workers.dev)
+const WORKER_URL = "COLE_A_URL_DO_SEU_WORKER_AQUI";
+const CONFIGURADO = !SUPABASE_URL.startsWith("COLE_");
+const sb = CONFIGURADO ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+const AREAS = [
+  {k:"CM",nome:"Clínica Médica",meta:20},
+  {k:"CIR",nome:"Cirurgia",meta:20},
+  {k:"GO",nome:"Gineco/Obstetrícia",meta:20},
+  {k:"PED",nome:"Pediatria",meta:20},
+  {k:"MFC",nome:"Med. Família e Comunidade",meta:20},
+];
+const areaNome=k=>(AREAS.find(a=>a.k===k)||{}).nome||k;
+
+/* ---- CURRÍCULO (conteúdo da Trilha; vive no código) ---- */
+const CURRICULO = [
+  {id:"cm-acidobase",area:"CM",nome:"Distúrbios ácido-base",yield:3,
+   nucleo:["Sequência fixa: 1) pH 2) HCO3 e pCO2 (distúrbio primário) 3) ânion gap 4) compensação esperada.","Acidose metabólica: ânion gap ALTO vs NORMAL/hiperclorêmica.","Compensação: fórmula de Winter (pCO2 = 1,5 x HCO3 + 8 +/- 2)."],
+   pega:"Sempre cheque se há distúrbio MISTO. Gaso foi a questão 2 do ENAMED 2025 (anulada).",mne:"Ânion gap alto = MUDPILES.",sus:"Interpretação de gaso cai contextualizada em caso clínico."},
+  {id:"cm-has",area:"CM",nome:"Hipertensão — manejo e metas",yield:3,
+   nucleo:["Diagnóstico: >=140/90 confirmado, ou MAPA/MRPA.","1ª linha: tiazídico OU IECA/BRA OU BCC.","Emergência (lesão aguda de órgão-alvo) x urgência."],
+   pega:"Betabloqueador NÃO é 1ª linha sem indicação específica.",mne:"Primeiras linhas = 'TIB'.",sus:"HiperDia / linha de cuidado na APS."},
+  {id:"cm-dm2",area:"CM",nome:"Diabetes tipo 2",yield:3,
+   nucleo:["Diagnóstico: jejum >=126, HbA1c >=6,5%, TOTG 2h >=200.","Metformina = 1ª linha.","Metas individualizadas; rastrear complicações."],
+   pega:"Não insulinizar todo mundo de cara; ver TFG para metformina.",mne:"Metformina primeiro.",sus:"Linha de cuidado do DM na APS."},
+  {id:"cm-sepse",area:"CM",nome:"Sepse e choque",yield:2,
+   nucleo:["Disfunção orgânica + infecção (qSOFA/SOFA).","Pacote 1h: lactato, hemocultura antes do ATB, ATB precoce, cristaloide.","Reavaliar perfusão."],
+   pega:"Nunca atrasar o antibiótico esperando exame.",mne:"1ª hora = 'LHAC'.",sus:"Acolhimento e classificação de risco na porta."},
+  {id:"cir-abdome",area:"CIR",nome:"Abdome agudo",yield:3,
+   nucleo:["4 padrões: inflamatório, obstrutivo, perfurativo, vascular.","Apendicite: dor migra para FID + peritonismo + leucocitose.","Irritação peritoneal = abordagem cirúrgica."],
+   pega:"Atípico em criança, idoso e gestante.",mne:"Migração + Blumberg = apendicite.",sus:"Referência oportuna da urgência pela APS."},
+  {id:"cir-trauma",area:"CIR",nome:"Trauma — ABCDE (ATLS)",yield:3,
+   nucleo:["Ordem A->B->C->D->E.","A = via aérea + coluna cervical; C = hemorragia.","Choque hemorrágico por classe."],
+   pega:"Hipotensão no trauma é hemorragia até prova em contrário.",mne:"ABCDE, sempre.",sus:"SAMU e regulação na rede de urgência."},
+  {id:"cir-posop",area:"CIR",nome:"Pré-op e complicações",yield:2,
+   nucleo:["Risco cirúrgico e profilaxia de TVP.","Febre pós-op pela cronologia.","Deiscência e infecção de sítio."],
+   pega:"Febre 24-48h costuma ser pulmonar; tardia sugere infecção.",mne:"Febre pós-op = '5 Ws'.",sus:"Segurança do paciente e checklist cirúrgico."},
+  {id:"cir-hernia",area:"CIR",nome:"Hérnias de parede",yield:1,
+   nucleo:["Tipos: inguinal, femoral, umbilical, incisional.","Encarceramento x estrangulamento (isquemia)."],
+   pega:"Femoral estrangula mais; irredutível + sinais sistêmicos = emergência.",mne:"Estrangulou = operou.",sus:"Fila cirúrgica eletiva no SUS."},
+  {id:"go-prenatal",area:"GO",nome:"Pré-natal e rastreios",yield:3,
+   nucleo:["Consultas e exames por trimestre; suplementação.","DMG: jejum 1º tri; se normal, TOTG 75g 24-28 sem.","Imunizações (dTpa, influenza, hepB)."],
+   pega:"Jejum >=126 já fecha diabetes gestacional.",mne:"DMG: TOTG no 24-28.",sus:"Pré-natal de baixo risco na APS."},
+  {id:"go-hemorragias",area:"GO",nome:"Hemorragias da gestação",yield:3,
+   nucleo:["1ª metade: abortamento, ectópica, mola.","2ª metade: DPP x placenta prévia.","DPP: dor + hipertonia + sangue escuro. PP: sangue vivo, indolor."],
+   pega:"Não fazer toque na suspeita de PP antes do US.",mne:"PP = sangue vivo sem dor.",sus:"Referência rápida ao alto risco."},
+  {id:"go-hpp",area:"GO",nome:"Hemorragia pós-parto",yield:3,
+   nucleo:["Causas = 4 T: Tônus, Trauma, Tecido, Trombina.","Atonia é 1ª causa: massagem + ocitocina.","Escalonar até cirurgia."],
+   pega:"Comece sempre por atonia (útero amolecido).",mne:"HPP = os 4 Ts.",sus:"Protocolo de HPP nas maternidades SUS."},
+  {id:"go-rastreio",area:"GO",nome:"Rastreio CA colo e mama",yield:2,
+   nucleo:["Colo: citológico 25-64 anos, a cada 3 anos após 2 normais.","Mama: mamografia bienal 50-69 anos."],
+   pega:"Não iniciar citológico antes dos 25.",mne:"Colo 25-64/3a; mama 50-69/2a.",sus:"Rastreamento organizado (INCA)."},
+  {id:"ped-desidratacao",area:"PED",nome:"Diarreia e desidratação (TRO)",yield:3,
+   nucleo:["Avaliar grau por sinais.","Plano A domiciliar; B TRO supervisionada; C venoso.","Manter alimentação; zinco."],
+   pega:"Choque = Plano C direto. ATB não é rotina.",mne:"A casa, B unidade, C veia.",sus:"TRO reduziu mortalidade infantil."},
+  {id:"ped-respiratorio",area:"PED",nome:"IVAS, bronquiolite e pneumonia",yield:3,
+   nucleo:["Bronquiolite (VSR): suporte.","Pneumonia comunitária: amoxicilina.","Gravidade OMS: tiragem, taquipneia por faixa."],
+   pega:"Bronquiolite não responde a broncodilatador/corticoide de rotina.",mne:"Bronquiolite = suporte.",sus:"AIDPI na APS."},
+  {id:"ped-vacinas",area:"PED",nome:"Calendário vacinal",yield:3,
+   nucleo:["Vacinas por idade (BCG e hepB ao nascer).","Contraindicações verdadeiras x falsas.","Atraso e resgate."],
+   pega:"Resfriado/febre baixa NÃO contraindicam.",mne:"Ao nascer = BCG + Hep B.",sus:"PNI, viés de saúde pública."},
+  {id:"ped-desenvolvimento",area:"PED",nome:"Crescimento e aleitamento",yield:2,
+   nucleo:["Marcos por faixa etária.","AME até 6 meses; complementar até 2 anos.","Curvas de crescimento."],
+   pega:"Sinais de alerta exigem investigação.",mne:"AME até 6 meses.",sus:"Puericultura e caderneta."},
+  {id:"mfc-atributos",area:"MFC",nome:"Atributos da APS (Starfield)",yield:3,
+   nucleo:["Essenciais: 1º contato, Longitudinalidade, Integralidade, Coordenação.","Derivados: familiar, comunitária, cultural."],
+   pega:"Longitudinalidade != integralidade.",mne:"Essenciais = 'LICo'.",sus:"Base da ESF e das DCN."},
+  {id:"mfc-rastreio",area:"MFC",nome:"Rastreamentos no SUS",yield:3,
+   nucleo:["O que rastrear e quando.","Prevenção quaternária: evitar sobrediagnóstico.","Níveis de prevenção."],
+   pega:"Rastreio de próstata em massa NÃO é recomendado.",mne:"Rastreio = evidência + faixa certa.",sus:"Prevenção quaternária, querida da MFC."},
+  {id:"mfc-vigilancia",area:"MFC",nome:"Vigilância e notificação",yield:3,
+   nucleo:["Notificação compulsória no SINAN.","Imediata (24h) x semanal.","Investigação de surtos."],
+   pega:"Saber quais são de notificação IMEDIATA.",mne:"Confirmou = notifica no SINAN.",sus:"Eixo de Saúde Coletiva."},
+  {id:"mfc-mccp",area:"MFC",nome:"Método centrado na pessoa",yield:2,
+   nucleo:["MCCP: pessoa, doença e experiência.","Genograma, ecomapa, visita domiciliar.","Território e determinantes sociais."],
+   pega:"Centrado na pessoa != na doença.",mne:"MCCP = pessoa antes da doença.",sus:"Trabalho da ESF no território."},
+  {id:"tv-saudemental",area:"CM",nome:"Saúde Mental na APS (transversal)",yield:3,
+   nucleo:["Depressão/ansiedade: ISRS 1ª linha.","Álcool/drogas: rastreio e RAPS.","Risco de suicídio: avaliar e encaminhar."],
+   pega:"Benzodiazepínico NÃO é 1ª linha.",mne:"Humor deprimido persistente = ISRS.",sus:"RAPS e matriciamento."},
+  {id:"tv-sus",area:"MFC",nome:"Princípios do SUS (transversal)",yield:3,
+   nucleo:["Princípios: universalidade, integralidade, equidade.","Diretrizes: descentralização, regionalização, participação.","Redes e controle social."],
+   pega:"Princípio != diretriz. Equidade != igualdade.",mne:"Princípios = 'UIE'.",sus:"ENAMED é ancorado no SUS."},
+];
+
+/* ---- fallback local (só usado se a tabela questoes estiver vazia) ---- */
+const SEED = [
+  {id:"cm1",area:"CM",tema:"Endocrinologia — DM2",transv:[],dif:1,premium:false,enun:"Homem de 52 anos, IMC 31, HbA1c 7,4% confirmada, sem comorbidade. Conduta inicial?",alts:["Insulina NPH","Metformina","Glibenclamida","Só mudança de estilo de vida por 12 meses"],correta:1,coment:"Metformina é 1ª linha no DM2 sem contraindicação."},
+  {id:"mfc1",area:"MFC",tema:"APS — Atributos",transv:[],dif:1,premium:false,enun:"Paciente sempre atendido pela mesma equipe da ESF, que acompanha sua história ao longo dos anos. Atributo?",alts:["Integralidade","Longitudinalidade","Competência cultural","Focalização"],correta:1,coment:"Acompanhamento contínuo no tempo = longitudinalidade."},
+];
+
+function schedule(prev,ok){
+  let {ef=2.5,intervalo=0,reps=0}=prev||{};
+  if(ok){reps+=1;intervalo=reps===1?1:reps===2?3:Math.round(intervalo*ef);ef=Math.max(1.3,ef+0.1);}
+  else{reps=0;intervalo=1;ef=Math.max(1.3,ef-0.2);}
+  return {ef,intervalo,reps,due:new Date(Date.now()+intervalo*86400000).toISOString()};
+}
+function Bar({pct,color}){return <div className="bar"><i style={{width:Math.max(2,pct)+"%",background:color||"var(--acc)"}}/></div>}
+const sem=p=>p>=70?"var(--acc)":p>=50?"var(--warn)":"var(--bad)";
+const dias=iso=>Math.floor((Date.now()-new Date(iso).getTime())/86400000);
+
+/* =================== ROOT =================== */
+function App(){
+  const [session,setSession]=useState(null);
+  const [booting,setBooting]=useState(true);
+  useEffect(()=>{
+    if(!CONFIGURADO){setBooting(false);return;}
+    sb.auth.getSession().then(({data})=>{setSession(data.session);setBooting(false);});
+    const {data:sub}=sb.auth.onAuthStateChange((_e,s)=>setSession(s));
+    return ()=>sub.subscription.unsubscribe();
+  },[]);
+  if(!CONFIGURADO) return <SetupAviso/>;
+  if(booting) return <div className="center"><div className="muted">Carregando...</div></div>;
+  if(!session) return <Auth/>;
+  return <Shell session={session}/>;
+}
+
+function SetupAviso(){
+  return <div className="center"><div className="card auth">
+    <h2 style={{fontSize:20,marginBottom:8}}>Falta configurar o Supabase</h2>
+    <div className="muted" style={{fontSize:14,lineHeight:1.6}}>
+      Abra o arquivo e cole sua <b>Project URL</b> e sua <b>anon key</b> nas constantes
+      SUPABASE_URL e SUPABASE_ANON_KEY (topo do script). Você acha as duas em
+      Project Settings → API no painel do Supabase. Depois rode o schema SQL que geramos.
+    </div>
+  </div></div>;
+}
+
+/* =================== AUTH =================== */
+function Auth(){
+  const [modo,setModo]=useState("entrar");
+  const [nome,setNome]=useState(""),[email,setEmail]=useState(""),[senha,setSenha]=useState("");
+  const [msg,setMsg]=useState(""),[busy,setBusy]=useState(false);
+  const submit=async()=>{
+    setBusy(true);setMsg("");
+    try{
+      if(modo==="criar"){
+        const {error}=await sb.auth.signUp({email,password:senha,options:{data:{nome}}});
+        if(error)throw error;
+        setMsg("Conta criada. Se a confirmação por e-mail estiver ativa, confirme no seu e-mail e depois entre.");
+        setModo("entrar");
+      }else{
+        const {error}=await sb.auth.signInWithPassword({email,password:senha});
+        if(error)throw error;
+      }
+    }catch(e){setMsg(e.message||"Erro.");}
+    setBusy(false);
+  };
+  return <div className="center"><div className="auth">
+    <div className="tag" style={{color:"var(--acc)"}}>ENAMED Engine</div>
+    <h1 style={{fontSize:26,margin:"6px 0 4px"}}>{modo==="criar"?"Criar conta":"Entrar"}</h1>
+    <div className="muted" style={{fontSize:13,marginBottom:16}}>Seu progresso fica salvo e sincroniza entre aparelhos.</div>
+    <div className="card">
+      {modo==="criar" && <><label>Nome</label><input value={nome} onChange={e=>setNome(e.target.value)}/></>}
+      <label>E-mail</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)}/>
+      <label>Senha</label><input type="password" value={senha} onChange={e=>setSenha(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()}/>
+      {msg && <div className="muted" style={{fontSize:13,marginTop:12,color:"var(--acc2)"}}>{msg}</div>}
+      <div style={{marginTop:16}}><button className="btn" style={{width:"100%"}} disabled={busy} onClick={submit}>{busy?"...":(modo==="criar"?"Criar conta":"Entrar")}</button></div>
+    </div>
+    <div style={{marginTop:14,fontSize:14}} className="muted">
+      {modo==="criar"?"Já tem conta? ":"Ainda não tem conta? "}
+      <span className="link" onClick={()=>{setModo(modo==="criar"?"entrar":"criar");setMsg("");}}>{modo==="criar"?"Entrar":"Criar agora"}</span>
+    </div>
+  </div></div>;
+}
+
+/* =================== SHELL (app autenticado) =================== */
+function Shell({session}){
+  const uid=session.user.id;
+  const [tab,setTab]=useState("trilha");
+  const [loading,setLoading]=useState(true);
+  const [questoes,setQuestoes]=useState([]);
+  const [log,setLog]=useState([]);
+  const [srs,setSrs]=useState({});
+  const [dominio,setDominio]=useState({});
+  const [assinatura,setAssinatura]=useState(null);
+  const [showAssinar,setShowAssinar]=useState(false);
+
+  const recarregarAssinatura=async()=>{
+    const {data}=await sb.from("assinaturas").select("*").eq("user_id",uid).order("criado_em",{ascending:false}).limit(1);
+    const a=(data&&data[0])||{plano:"free",status:"ativa"};
+    setAssinatura(a);
+    return a.status==="ativa"&&a.plano!=="free";
+  };
+
+  useEffect(()=>{(async()=>{
+    setLoading(true);
+    const [q,r,d,s,a]=await Promise.all([
+      sb.from("questoes").select("*"),
+      sb.from("respostas").select("*").eq("user_id",uid),
+      sb.from("dominio").select("*").eq("user_id",uid),
+      sb.from("srs").select("*").eq("user_id",uid),
+      sb.from("assinaturas").select("*").eq("user_id",uid).order("criado_em",{ascending:false}).limit(1),
+    ]);
+    let qs=(q.data||[]).map(x=>({id:x.id,area:x.area,tema:x.tema,transv:x.transv||[],dif:x.dificuldade,enun:x.enunciado,alts:x.alternativas,correta:x.correta,coment:x.comentario,premium:x.premium}));
+    if(qs.length===0) qs=SEED; // fallback se o banco ainda nao foi populado
+    setQuestoes(qs);
+    setLog((r.data||[]).map(x=>({id:x.questao_id,area:x.area,tema:x.tema,ok:x.acertou})));
+    const dm={};(d.data||[]).forEach(x=>dm[x.topico_id]={nivel:x.nivel,last:x.atualizado_em});setDominio(dm);
+    const sr={};(s.data||[]).forEach(x=>sr[x.questao_id]={ef:x.ef,intervalo:x.intervalo,reps:x.reps,due:x.due});setSrs(sr);
+    setAssinatura((a.data&&a.data[0])||{plano:"free",status:"ativa"});
+    setLoading(false);
+  })()},[uid]);
+
+  const isPro = assinatura && assinatura.status==="ativa" && assinatura.plano!=="free";
+
+  const registrar=async(q,ok)=>{
+    setLog(l=>[...l,{id:q.id,area:q.area,tema:q.tema,ok}]);
+    const nova=schedule(srs[q.id],ok);
+    setSrs(s=>({...s,[q.id]:nova}));
+    await sb.from("respostas").insert({user_id:uid,questao_id:q.id,area:q.area,tema:q.tema,acertou:ok});
+    await sb.from("srs").upsert({user_id:uid,questao_id:q.id,ef:nova.ef,intervalo:nova.intervalo,reps:nova.reps,due:nova.due});
+  };
+  const avaliarDominio=async(topId,nivel)=>{
+    setDominio(d=>({...d,[topId]:{nivel,last:new Date().toISOString()}}));
+    await sb.from("dominio").upsert({user_id:uid,topico_id:topId,nivel,atualizado_em:new Date().toISOString()});
+  };
+
+  const acertoArea=useMemo(()=>{
+    const m={};AREAS.forEach(a=>m[a.k]={t:0,ok:0});
+    log.forEach(l=>{if(m[l.area]){m[l.area].t++;if(l.ok)m[l.area].ok++;}});
+    const o={};AREAS.forEach(a=>o[a.k]=m[a.k].t?m[a.k].ok/m[a.k].t:null);return o;
+  },[log]);
+
+  const store={questoes,log,srs,dominio};
+
+  // ---- Limites do plano FREE (amostra grátis enxuta) ----
+  const FREE_TOPICO = "cm-has";   // único assunto liberado na Trilha (alto rendimento)
+  const FREE_QUESTOES = 2;        // só 2 questões no Treinar
+  // pool grátis: apenas 2 questões (as marcadas como não-premium), limitado a FREE_QUESTOES
+  const poolFree = questoes.filter(q=>!q.premium).slice(0, FREE_QUESTOES);
+  const poolVisivel = isPro ? questoes : poolFree;
+  const bloqueadasFree = questoes.length - poolFree.length;
+
+  if(loading) return <div className="center"><div className="muted">Sincronizando seu progresso...</div></div>;
+
+  return <div>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"flex-start"}}>
+      <div>
+        <div className="tag" style={{color:"var(--acc)"}}>ENAMED Engine</div>
+        <h1 style={{fontSize:28,marginTop:6}}>Olá{session.user.user_metadata&&session.user.user_metadata.nome?", "+session.user.user_metadata.nome:""}</h1>
+      </div>
+      <div style={{textAlign:"right"}}>
+        <span className="pill" style={{color:isPro?"var(--gold)":"var(--muted)",borderColor:isPro?"var(--gold)":"var(--line)"}}>{isPro?"PRO":"Demonstração"}</span>
+        <div style={{marginTop:8}}><span className="link" style={{fontSize:13}} onClick={()=>sb.auth.signOut()}>Sair</span></div>
+      </div>
+    </div>
+
+    {!isPro && <div className="lock" style={{marginTop:16,textAlign:"left"}}>
+      <b>Você está na versão de demonstração.</b> Ela mostra 1 assunto da Trilha e 2 questões — uma amostra do método.
+      <div className="muted" style={{fontSize:13,marginTop:6}}>O Combo até o ENAMED libera: os {CURRICULO.length} assuntos da Trilha, {questoes.length}+ questões, simulados no formato oficial, dashboard de padrões completo e resolver questão por foto.</div>
+      <div style={{marginTop:12}}><button className="btn" onClick={()=>setShowAssinar(true)}>Assinar Combo até o ENAMED</button></div>
+    </div>}
+    {showAssinar && <Assinar uid={uid} email={session.user.email} onClose={()=>setShowAssinar(false)} onVerificar={recarregarAssinatura}/>}
+
+    <div className="nav">
+      {[["trilha","Trilha"],["dash","Padrões"],["treinar","Treinar"],["simulado","Simulado"],["resolver","Resolver questão"],["banco","Banco"]].map(([k,l])=>
+        <button key={k} className={tab===k?"on":""} onClick={()=>setTab(k)}>{l}</button>)}
+    </div>
+
+    {tab==="trilha" && <Trilha store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} irTreinar={()=>setTab("treinar")} isPro={isPro} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)}/>}
+    {tab==="dash" && (isPro ? <Dash store={store}/> : <TravaFree titulo="Dashboard de padrões é PRO" texto="Veja seu acerto por área, os temas onde mais erra e a cobertura do blueprint — tudo no Combo." onAssinar={()=>setShowAssinar(true)}/>)}
+    {tab==="treinar" && <Treinar pool={poolVisivel} store={store} registrar={registrar} bloqueadas={isPro?0:bloqueadasFree} isPro={isPro} onAssinar={()=>setShowAssinar(true)}/>}
+    {tab==="simulado" && (isPro ? <Simulado pool={poolVisivel} registrar={registrar} isPro={isPro}/> : <TravaFree titulo="Simulado é PRO" texto="Monte provas no formato oficial (20 por área) e receba nota e correção comentada." onAssinar={()=>setShowAssinar(true)}/>)}
+    {tab==="resolver" && <Resolver isPro={isPro} onAssinar={()=>setShowAssinar(true)}/>}
+    {tab==="banco" && <Banco questoes={questoes} uid={uid} onAdd={q=>setQuestoes(v=>[...v,q])}/>}
+  </div>;
+}
+
+/* =================== TRILHA =================== */
+function prioridade(top,store,acertoArea){
+  const d=store.dominio[top.id];const nivel=d?d.nivel:null;
+  const need=nivel===null?1:(5-nivel)/4;
+  const rec=d?Math.min(1,dias(d.last)/14):1;
+  const aa=acertoArea[top.area];const fraq=aa===null?0.5:(1-aa);
+  const score=top.yield*(0.55*need+0.25*rec+0.20*fraq);
+  const motivos=[];
+  if(top.yield>=3)motivos.push("alto rendimento na prova");
+  if(nivel===null)motivos.push("voce ainda nao estudou este tema");
+  else if(nivel<=2)motivos.push("seu dominio esta baixo ("+nivel+"/5)");
+  if(d&&dias(d.last)>=7)motivos.push("faz "+dias(d.last)+" dias que revisou");
+  if(aa!==null&&aa<0.6)motivos.push("acerta so "+Math.round(aa*100)+"% em "+areaNome(top.area));
+  return {score,nivel,motivos};
+}
+function Trilha({store,acertoArea,avaliarDominio,irTreinar,isPro,freeTopico,onAssinar}){
+  const [aberto,setAberto]=useState(null);const [recall,setRecall]=useState({});
+  const ranked=useMemo(()=>CURRICULO.map(t=>({...t,...prioridade(t,store,acertoArea)})).sort((a,b)=>b.score-a.score),[store,acertoArea]);
+  const liberado=t=>isPro||t.id===freeTopico;
+  // no free o "estude agora" aponta para o unico topico liberado
+  const top1=isPro?ranked[0]:(ranked.find(t=>t.id===freeTopico)||ranked[0]);
+  const proximos=ranked.filter(t=>t.id!==top1.id).slice(0,3);
+  const yc=y=>y>=3?"var(--gold)":y===2?"var(--acc2)":"var(--muted)";
+  const yl=y=>y>=3?"ALTO RENDIMENTO":y===2?"IMPORTANTE":"COMPLEMENTAR";
+  const abrir=t=>{ if(!liberado(t)){onAssinar();return;} setAberto(aberto===t.id?null:t.id); };
+  const Cartao=t=>{const d=store.dominio[t.id];const rc=recall[t.id];const open=aberto===t.id;const lock=!liberado(t);
+    return <div className="topico" key={t.id} style={lock?{opacity:.75}:null}>
+      <div className="head" onClick={()=>abrir(t)}>
+        <div className="row" style={{gap:9}}><span className="yield" style={{color:yc(t.yield),border:"1px solid "+yc(t.yield)}}>{yl(t.yield)}</span><b style={{fontSize:14.5}}>{t.nome}</b></div>
+        <div className="row" style={{gap:10}}>
+          {lock?<span className="pill" style={{color:"var(--gold)",borderColor:"var(--gold)"}}>PRO</span>
+               :<span className="muted" style={{fontSize:12}}>{d?("dominio "+d.nivel+"/5"):"nao estudado"}</span>}
+          <span className="muted">{lock?"🔒":(open?"–":"+")}</span>
+        </div>
+      </div>
+      {open && !lock && <div className="body">
+        <div className="b-metodo block"><b>Método:</b> 1) leia o núcleo · 2) toque <b>Recall</b> e lembre de cabeça · 3) treine questões · 4) explique em voz alta (Feynman) e autoavalie.</div>
+        <div className="row" style={{marginTop:10}}>
+          <button className="btn ghost sm" onClick={()=>setRecall(r=>({...r,[t.id]:!r[t.id]}))}>{rc?"Mostrar núcleo":"Recall (esconder)"}</button>
+          <button className="btn ghost sm" onClick={irTreinar}>Treinar questões</button>
+        </div>
+        {!rc?<div className="b-nucleo block"><b>Núcleo</b><ul style={{margin:"6px 0 0 18px",padding:0}}>{t.nucleo.map((n,i)=><li key={i} style={{marginBottom:4}}>{n}</li>)}</ul></div>
+          :<div className="b-metodo block" style={{textAlign:"center",color:"var(--muted)"}}>Núcleo escondido — recupere de memória.</div>}
+        <div className="b-pega block"><b>Pegadinha:</b> {t.pega}</div>
+        <div className="b-mne block"><b>Gancho:</b> {t.mne}</div>
+        <div className="b-sus block"><b>Âncora SUS/DCN:</b> {t.sus}</div>
+        <div style={{marginTop:14}}><b style={{fontSize:13}}>Seu domínio agora?</b>
+          <div className="rate">{[1,2,3,4,5].map(n=><button key={n} className={d&&d.nivel===n?"on":""} onClick={()=>avaliarDominio(t.id,n)}>{n}</button>)}</div>
+          <div className="muted" style={{fontSize:11,marginTop:5}}>1 = não sei explicar · 5 = ensinaria um interno.</div>
+        </div>
+      </div>}
+    </div>;};
+  return <div>
+    <div className="hero">
+      <div className="tag" style={{color:"var(--acc)"}}>Estude agora — próxima melhor ação</div>
+      <h2 style={{fontSize:22,margin:"8px 0 4px"}}>{top1.nome}</h2>
+      <div className="row" style={{gap:8,marginBottom:8}}><span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(top1.area)}</span><span className="pill" style={{color:"var(--gold)"}}>{yl(top1.yield)}</span></div>
+      <div style={{fontSize:14,lineHeight:1.5}}><b>Por quê:</b> {top1.motivos.length?top1.motivos.join(" · "):"tema central do blueprint"}.</div>
+      <div className="row" style={{marginTop:14}}><button className="btn" onClick={()=>abrir(top1)}>Abrir e estudar</button></div>
+    </div>
+    {!isPro && <div className="lock" style={{marginTop:16,textAlign:"left"}}>
+      <b>Demonstração: 1 assunto liberado.</b>
+      <div className="muted" style={{fontSize:13,marginTop:6}}>Abaixo você vê o mapa completo com os {CURRICULO.length} assuntos. Os cadeados abrem no Combo até o ENAMED.</div>
+      <div style={{marginTop:12}}><button className="btn" onClick={onAssinar}>Liberar toda a Trilha</button></div>
+    </div>}
+    <div style={{marginTop:20}}><h3 style={{fontSize:15,marginBottom:6}}>Depois deste, priorize</h3>
+      {proximos.map(t=><div key={t.id} className="row" style={{justifyContent:"space-between",padding:"9px 2px",borderBottom:"1px solid var(--line)"}}>
+        <span style={{fontSize:14}}>{t.nome} <span className="muted">· {areaNome(t.area)}</span></span>
+        <button className="btn ghost sm" onClick={()=>abrir(t)}>{liberado(t)?"Abrir":"🔒 PRO"}</button></div>)}</div>
+    <div style={{marginTop:24}}><h3 style={{fontSize:15,marginBottom:2}}>Mapa completo por área</h3>
+      <div className="muted" style={{fontSize:13,marginBottom:6}}>{isPro?"O domínio que você marca reordena a trilha.":"Demonstração do método. Assine para abrir todos."}</div>
+      {AREAS.map(a=><div key={a.k} style={{marginTop:16}}><div className="tag muted" style={{marginBottom:2}}>{a.nome}</div>
+        {ranked.filter(t=>t.area===a.k).sort((x,y)=>y.yield-x.yield).map(Cartao)}</div>)}</div>
+  </div>;
+}
+
+/* =================== DASH =================== */
+function Dash({store}){
+  const s=useMemo(()=>{
+    const byArea={};AREAS.forEach(a=>byArea[a.k]={t:0,ok:0,q:0});
+    store.questoes.forEach(q=>{if(byArea[q.area])byArea[q.area].q++;});
+    store.log.forEach(l=>{const b=byArea[l.area];if(b){b.t++;if(l.ok)b.ok++;}});
+    const byTema={};store.log.forEach(l=>{(byTema[l.tema]=byTema[l.tema]||{t:0,ok:0,area:l.area});byTema[l.tema].t++;if(l.ok)byTema[l.tema].ok++;});
+    return {byArea,byTema,tot:store.log.length,ok:store.log.filter(l=>l.ok).length};},[store]);
+  const geral=s.tot?Math.round(s.ok/s.tot*100):0;
+  const fracos=Object.entries(s.byTema).map(([tema,v])=>({tema,area:v.area,pct:Math.round(v.ok/v.t*100)})).sort((a,b)=>a.pct-b.pct).slice(0,6);
+  return <div className="grid" style={{gridTemplateColumns:"1fr 1fr"}}>
+    <div className="card" style={{gridColumn:"1 / -1"}}><div className="row" style={{gap:34}}>
+      <div><div className="tag muted">Acerto geral</div><div className="kpi" style={{color:sem(geral)}}>{geral}%</div></div>
+      <div><div className="tag muted">Respondidas</div><div className="kpi">{s.tot}</div></div>
+      <div><div className="tag muted">No banco</div><div className="kpi">{store.questoes.length}</div></div>
+      <div><div className="tag muted">Temas estudados</div><div className="kpi">{Object.keys(store.dominio).length}</div></div>
+    </div></div>
+    <div className="card" style={{gridColumn:"1 / -1"}}><h3 style={{fontSize:16,marginBottom:12}}>Desempenho por área</h3>
+      {AREAS.map(a=>{const b=s.byArea[a.k];const p=b.t?Math.round(b.ok/b.t*100):0;
+        return <div key={a.k} style={{marginBottom:14}}>
+          <div className="row" style={{justifyContent:"space-between"}}><div className="row" style={{gap:8}}><span className="sem" style={{background:b.t?sem(p):"#2a4a43"}}/><b style={{fontSize:14}}>{a.nome}</b><span className="muted" style={{fontSize:12}}>· {b.q} no banco</span></div><span className="muted" style={{fontSize:13}}>{b.t?p+"% ("+b.ok+"/"+b.t+")":"sem dados"}</span></div>
+          <div style={{marginTop:6}}><Bar pct={p} color={b.t?sem(p):"#2a4a43"}/></div></div>;})}</div>
+    <div className="card"><h3 style={{fontSize:16,marginBottom:10}}>Onde você mais erra</h3>
+      {fracos.length===0&&<div className="muted" style={{fontSize:14}}>Responda questões para o mapa aparecer.</div>}
+      {fracos.map(f=><div key={f.tema} style={{marginBottom:11}}><div className="row" style={{justifyContent:"space-between"}}><span style={{fontSize:13}}>{f.tema} <span className="muted">· {areaNome(f.area)}</span></span><span style={{fontSize:13,color:sem(f.pct)}}>{f.pct}%</span></div><Bar pct={f.pct} color={sem(f.pct)}/></div>)}</div>
+    <div className="card"><h3 style={{fontSize:16,marginBottom:10}}>Cobertura do blueprint</h3>
+      {AREAS.map(a=>{const q=s.byArea[a.k].q;const p=Math.min(100,Math.round(q/a.meta*100));
+        return <div key={a.k} style={{marginBottom:10}}><div className="row" style={{justifyContent:"space-between"}}><span style={{fontSize:13}}>{a.nome}</span><span className="muted" style={{fontSize:12}}>{q}/{a.meta}</span></div><Bar pct={p} color="var(--acc2)"/></div>;})}</div>
+  </div>;
+}
+
+/* =================== TREINAR =================== */
+function QuestionCard({q,onResp,indice,total}){
+  const [sel,setSel]=useState(null);useEffect(()=>setSel(null),[q.id]);const L=["A","B","C","D"];
+  return <div className="card">
+    <div className="row" style={{justifyContent:"space-between",marginBottom:10}}>
+      <div className="row" style={{gap:8}}><span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(q.area)}</span><span className="pill">{q.tema}</span>{(q.transv||[]).map(t=><span key={t} className="pill" style={{color:"var(--acc2)"}}>{t}</span>)}</div>
+      {total>1&&<span className="muted" style={{fontSize:13}}>{indice+1}/{total}</span>}</div>
+    <div style={{fontSize:15.5,lineHeight:1.6,marginBottom:6}}>{q.enun}</div>
+    {q.alts.map((a,i)=>{let c="alt";if(sel!==null){if(i===q.correta)c+=" correct";else if(i===sel)c+=" wrong";else c+=" dim";}
+      return <button key={i} className={c} disabled={sel!==null} onClick={()=>{setSel(i);onResp(q,i===q.correta);}}><b style={{color:"var(--muted)",marginRight:8}}>{L[i]}</b>{a}</button>;})}
+    {sel!==null&&<div className="comment"><b style={{color:sel===q.correta?"var(--acc)":"var(--bad)"}}>{sel===q.correta?"Correto. ":"Incorreto. "}</b>{q.coment}</div>}
+  </div>;
+}
+function Treinar({pool,store,registrar,bloqueadas,isPro,onAssinar}){
+  const fila=useMemo(()=>{const now=Date.now();const due=pool.filter(q=>!store.srs[q.id]||new Date(store.srs[q.id].due).getTime()<=now);
+    return (due.length?due:pool).slice().sort(()=>Math.random()-0.5);},[pool]);
+  const [i,setI]=useState(0);const [feito,setFeito]=useState(false);const q=fila[i];
+  if(!q)return <div className="card">Nenhuma questão disponível.</div>;
+  const ultimaFree = !isPro && i>=fila.length-1;
+  return <div>
+    <div className="muted" style={{fontSize:13,marginBottom:12}}>
+      {isPro ? ("Repetição espaçada. Fila de hoje: "+fila.length+".")
+             : ("Demonstração: "+fila.length+" questões."+(bloqueadas>0?" +"+bloqueadas+" liberadas no PRO.":""))}
+    </div>
+    <QuestionCard q={q} indice={i} total={fila.length} onResp={(qq,ok)=>{registrar(qq,ok);setFeito(true);}}/>
+    <div className="row" style={{marginTop:14}}>
+      {ultimaFree && feito
+        ? <button className="btn" onClick={onAssinar}>Liberar todas as questões (PRO)</button>
+        : <button className="btn" disabled={!feito} onClick={()=>{setFeito(false);setI(x=>(x+1)%fila.length);}}>Próxima</button>}
+    </div>
+    {!isPro && feito && ultimaFree && <div className="lock" style={{marginTop:14,textAlign:"left"}}>
+      <b>Você terminou a demonstração.</b>
+      <div className="muted" style={{fontSize:13,marginTop:6}}>Assine o Combo até o ENAMED para treinar centenas de questões com repetição espaçada e correção comentada.</div>
+    </div>}
+  </div>;
+}
+
+/* =================== SIMULADO =================== */
+function Simulado({pool,registrar,isPro}){
+  const [run,setRun]=useState(false);const [prova,setProva]=useState([]);const [resp,setResp]=useState({});const [fim,setFim]=useState(false);
+  const alvo=isPro?4:2; // por área; PRO monta simulado maior
+  const montar=()=>{let sel=[];AREAS.forEach(a=>{const p=pool.filter(q=>q.area===a.k).sort(()=>Math.random()-0.5);sel=sel.concat(p.slice(0,alvo));});setProva(sel.sort(()=>Math.random()-0.5));setResp({});setFim(false);setRun(true);};
+  const finalizar=()=>{prova.forEach(q=>{if(resp[q.id]!==undefined)registrar(q,resp[q.id]===q.correta);});setFim(true);};
+  if(!run)return <div className="card"><h3 style={{fontSize:17,marginBottom:8}}>Simulado no formato oficial</h3>
+    <div className="muted" style={{fontSize:14,marginBottom:14,lineHeight:1.6}}>Respeita a proporção de 20/área (escalada ao banco). {isPro?"":"No plano free o simulado é reduzido — o completo é PRO."}</div>
+    <button className="btn" onClick={montar}>Gerar simulado</button></div>;
+  const L=["A","B","C","D"];const ac=prova.filter(q=>resp[q.id]===q.correta).length;
+  return <div>{!fim&&<div className="muted" style={{fontSize:13,marginBottom:12}}>{prova.length} questões · responda e finalize.</div>}
+    {prova.map((q,idx)=><div key={q.id} className="card" style={{marginBottom:14}}>
+      <div className="row" style={{gap:8,marginBottom:8}}><span className="muted" style={{fontSize:13}}>{idx+1}.</span><span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(q.area)}</span></div>
+      <div style={{fontSize:15,lineHeight:1.55,marginBottom:4}}>{q.enun}</div>
+      {q.alts.map((a,i)=>{let c="alt";if(fim){if(i===q.correta)c+=" correct";else if(resp[q.id]===i)c+=" wrong";else c+=" dim";}else if(resp[q.id]===i)c+=" correct";
+        return <button key={i} className={c} disabled={fim} onClick={()=>setResp(r=>({...r,[q.id]:i}))}><b style={{color:"var(--muted)",marginRight:8}}>{L[i]}</b>{a}</button>;})}
+      {fim&&<div className="comment">{q.coment}</div>}</div>)}
+    {!fim?<button className="btn" onClick={finalizar}>Finalizar e corrigir</button>
+      :<div className="card"><div className="row" style={{gap:30}}>
+        <div><div className="tag muted">Nota</div><div className="kpi" style={{color:sem(Math.round(ac/prova.length*100))}}>{ac}/{prova.length}</div></div>
+        <div><div className="tag muted">Percentual</div><div className="kpi">{Math.round(ac/prova.length*100)}%</div></div>
+        <button className="btn ghost" onClick={()=>setRun(false)}>Novo</button></div></div>}
+  </div>;
+}
+
+/* =================== BANCO =================== */
+function Banco({questoes,uid,onAdd}){
+  const [f,setF]=useState({area:"CM",tema:"",enun:"",a0:"",a1:"",a2:"",a3:"",correta:0,coment:"",transv:"",premium:true});
+  const [msg,setMsg]=useState("");
+  const add=async()=>{
+    if(!f.enun||!f.a0||!f.a1){setMsg("Preencha ao menos enunciado e 2 alternativas.");return;}
+    const id="u"+Date.now();
+    const row={id,area:f.area,tema:f.tema||"Sem tema",transv:f.transv?f.transv.split(",").map(s=>s.trim()).filter(Boolean):[],dificuldade:2,enunciado:f.enun,alternativas:[f.a0,f.a1,f.a2,f.a3].filter(x=>x!==""),correta:Number(f.correta),comentario:f.coment||"Sem comentário.",premium:f.premium};
+    const {error}=await sb.from("questoes").insert(row);
+    if(error){setMsg("Erro ao salvar (precisa de perfil admin/policy de insert): "+error.message);return;}
+    onAdd({id,area:row.area,tema:row.tema,transv:row.transv,dif:2,enun:row.enunciado,alts:row.alternativas,correta:row.correta,coment:row.comentario,premium:row.premium});
+    setMsg("Questão adicionada ao banco.");setF({...f,tema:"",enun:"",a0:"",a1:"",a2:"",a3:"",coment:"",transv:""});
+  };
+  return <div className="grid" style={{gridTemplateColumns:"1fr 1fr",gap:16}}>
+    <div className="card"><h3 style={{fontSize:16,marginBottom:6}}>Adicionar questão</h3>
+      <div className="muted" style={{fontSize:12,marginBottom:8}}>Cole questões extraídas dos cadernos (reescritas) ou crie novas. Requer perfil admin.</div>
+      <label>Área</label><select value={f.area} onChange={e=>setF({...f,area:e.target.value})}>{AREAS.map(a=><option key={a.k} value={a.k}>{a.nome}</option>)}</select>
+      <label>Tema</label><input value={f.tema} onChange={e=>setF({...f,tema:e.target.value})}/>
+      <label>Transversais (vírgula)</label><input value={f.transv} onChange={e=>setF({...f,transv:e.target.value})}/>
+      <label>Enunciado</label><textarea value={f.enun} onChange={e=>setF({...f,enun:e.target.value})}/>
+      {[0,1,2,3].map(i=><div key={i}><label>Alt {["A","B","C","D"][i]}</label><input value={f["a"+i]} onChange={e=>setF({...f,["a"+i]:e.target.value})}/></div>)}
+      <label>Correta</label><select value={f.correta} onChange={e=>setF({...f,correta:e.target.value})}>{[0,1,2,3].map(i=><option key={i} value={i}>{["A","B","C","D"][i]}</option>)}</select>
+      <label>Comentário</label><textarea value={f.coment} onChange={e=>setF({...f,coment:e.target.value})}/>
+      <label className="row" style={{marginTop:12,gap:8}}><input type="checkbox" style={{width:"auto"}} checked={f.premium} onChange={e=>setF({...f,premium:e.target.checked})}/> <span style={{margin:0}}>Premium (só PRO)</span></label>
+      {msg&&<div className="muted" style={{fontSize:12,marginTop:10,color:"var(--acc2)"}}>{msg}</div>}
+      <div className="row" style={{marginTop:14}}><button className="btn" onClick={add}>Adicionar</button></div>
+    </div>
+    <div className="card"><h3 style={{fontSize:16,marginBottom:10}}>No banco ({questoes.length})</h3>
+      <table><thead><tr><th>Área</th><th>Tema</th><th>Plano</th></tr></thead><tbody>
+        {questoes.map(q=><tr key={q.id}><td><span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{q.area}</span></td><td style={{fontSize:13}}>{q.tema}</td><td style={{fontSize:12}} className="muted">{q.premium?"PRO":"free"}</td></tr>)}
+      </tbody></table></div>
+  </div>;
+}
+
+/* =================== TRAVA FREE (cadeado reutilizavel) =================== */
+function TravaFree({titulo,texto,onAssinar}){
+  return <div className="lock" style={{textAlign:"left"}}>
+    <b>{titulo}</b>
+    <div className="muted" style={{fontSize:13,margin:"8px 0 12px"}}>{texto}</div>
+    <button className="btn" onClick={onAssinar}>Assinar para liberar</button>
+  </div>;
+}
+
+/* =================== RESOLVER QUESTAO (IA / visao) =================== */
+function Resolver({isPro,onAssinar}){
+  const [imgs,setImgs]=useState([]); // dataURLs
+  const [busy,setBusy]=useState(false);
+  const [res,setRes]=useState(null);
+  const [msg,setMsg]=useState("");
+  const workerOk=!WORKER_URL.startsWith("COLE_");
+
+  const addFiles=async(fileList)=>{
+    setMsg("");
+    const files=Array.from(fileList).slice(0,2-imgs.length);
+    if(files.length===0){setMsg("Maximo de 2 imagens por vez.");return;}
+    for(const f of files){
+      if(!/^image\//.test(f.type)){setMsg("Envie apenas imagens (foto ou print).");continue;}
+      const dataUrl=await new Promise((ok,err)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=err;r.readAsDataURL(f);});
+      setImgs(prev=>prev.length<2?[...prev,dataUrl]:prev);
+    }
+  };
+  const remover=i=>setImgs(prev=>prev.filter((_,idx)=>idx!==i));
+
+  const resolver=async()=>{
+    if(!workerOk){setMsg("Falta configurar a WORKER_URL no topo do arquivo.");return;}
+    if(imgs.length===0){setMsg("Adicione ao menos 1 imagem.");return;}
+    setBusy(true);setRes(null);setMsg("");
+    try{
+      const r=await fetch(WORKER_URL+"/resolver-questao",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({imagens:imgs})});
+      const d=await r.json();
+      if(!r.ok||d.error) throw new Error(typeof d.error==="string"?d.error:"Falha ao resolver.");
+      setRes(d);
+    }catch(e){setMsg(e.message);}
+    setBusy(false);
+  };
+
+  if(!isPro) return <div className="lock" style={{textAlign:"left"}}>
+    <b>Resolver questão por foto é um recurso PRO.</b>
+    <div className="muted" style={{fontSize:13,margin:"8px 0 12px"}}>Fotografe ou printe qualquer questão (até 2 imagens) e receba a alternativa correta com comentário no estilo da banca.</div>
+    <button className="btn" onClick={onAssinar}>Assinar para liberar</button>
+  </div>;
+
+  return <div>
+    <div className="card">
+      <h3 style={{fontSize:17,marginBottom:6}}>Resolver questão por imagem</h3>
+      <div className="muted" style={{fontSize:13,marginBottom:12,lineHeight:1.5}}>
+        Envie até <b>2 imagens</b> (foto ou print) de UMA questão. A IA devolve a alternativa correta, o comentário e a pegadinha. Ferramenta de estudo pessoal.
+      </div>
+
+      <div className="row" style={{gap:10}}>
+        <label className="btn ghost" style={{margin:0}}>Adicionar imagem
+          <input type="file" accept="image/*" multiple onChange={e=>addFiles(e.target.files)} style={{display:"none"}}/></label>
+        <span className="muted" style={{fontSize:12}}>{imgs.length}/2</span>
+      </div>
+
+      {imgs.length>0 && <div className="row" style={{marginTop:12,gap:10}}>
+        {imgs.map((src,i)=><div key={i} style={{position:"relative"}}>
+          <img src={src} alt={"img"+i} style={{width:130,height:130,objectFit:"cover",borderRadius:10,border:"1px solid var(--line)"}}/>
+          <button onClick={()=>remover(i)} style={{position:"absolute",top:4,right:4,background:"rgba(0,0,0,.6)",color:"#fff",border:"none",borderRadius:99,width:24,height:24,cursor:"pointer"}}>x</button>
+        </div>)}
+      </div>}
+
+      {msg && <div className="muted" style={{fontSize:13,marginTop:10,color:"var(--warn)"}}>{msg}</div>}
+
+      <div className="row" style={{marginTop:14}}>
+        <button className="btn" disabled={busy||imgs.length===0} onClick={resolver}>{busy?"Analisando...":"Resolver"}</button>
+        {imgs.length>0 && <button className="btn ghost sm" onClick={()=>{setImgs([]);setRes(null);}}>Limpar</button>}
+      </div>
+    </div>
+
+    {res && <div className="card" style={{marginTop:16}}>
+      <div className="row" style={{gap:10,marginBottom:6}}>
+        <span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)",fontSize:16,padding:"6px 14px"}}>Resposta: {res.alternativa||"?"}</span>
+        {res.tema && <span className="pill">{res.tema}</span>}
+      </div>
+      {res.explicacao && <div className="comment" style={{marginTop:10}}><b>Por quê:</b> {res.explicacao}</div>}
+      {res.pegadinha && <div className="block b-pega"><b>Pegadinha:</b> {res.pegadinha}</div>}
+      {Array.isArray(res.erros) && res.erros.length>0 && <div className="block b-metodo">
+        <b>Por que as outras estão erradas:</b>
+        <ul style={{margin:"6px 0 0 18px",padding:0}}>{res.erros.map((e,i)=><li key={i} style={{marginBottom:4}}><b>{e.letra}:</b> {e.motivo}</li>)}</ul>
+      </div>}
+      <div className="muted" style={{fontSize:11,marginTop:12}}>Resposta gerada por IA para seu estudo. Confira sempre com a fonte oficial.</div>
+    </div>}
+  </div>;
+}
+
+/* =================== ASSINAR (checkout Pix) =================== */
+function Assinar({uid,email,onClose,onVerificar}){
+  const [etapa,setEtapa]=useState("plano"); // plano | carregando | pix | sucesso | erro
+  const [pix,setPix]=useState(null);
+  const [msg,setMsg]=useState("");
+  const [copiado,setCopiado]=useState(false);
+  const pollRef=React.useRef(null);
+  useEffect(()=>()=>{if(pollRef.current)clearInterval(pollRef.current);},[]);
+
+  const workerOk = !WORKER_URL.startsWith("COLE_");
+
+  const criar=async(plano)=>{
+    if(!workerOk){setMsg("Falta configurar a WORKER_URL no topo do arquivo.");setEtapa("erro");return;}
+    setEtapa("carregando");
+    try{
+      const r=await fetch(WORKER_URL+"/criar-pix",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:uid,email,plano})});
+      const d=await r.json();
+      if(!r.ok||d.error) throw new Error(typeof d.error==="string"?d.error:"Falha ao gerar o Pix. Confira o Worker.");
+      setPix(d);setEtapa("pix");
+      pollRef.current=setInterval(async()=>{const ok=await onVerificar();if(ok){clearInterval(pollRef.current);setEtapa("sucesso");}},5000);
+    }catch(e){setMsg(e.message);setEtapa("erro");}
+  };
+  const copiar=()=>{if(pix&&pix.qr_code){navigator.clipboard.writeText(pix.qr_code);setCopiado(true);setTimeout(()=>setCopiado(false),1500);}};
+  const verificarAgora=async()=>{const ok=await onVerificar();if(ok){if(pollRef.current)clearInterval(pollRef.current);setEtapa("sucesso");}};
+
+  const overlay={position:"fixed",inset:0,background:"rgba(0,0,0,.6)",display:"flex",alignItems:"center",justifyContent:"center",padding:18,zIndex:50};
+  return <div style={overlay} onClick={onClose}>
+    <div className="card" style={{maxWidth:420,width:"100%"}} onClick={e=>e.stopPropagation()}>
+      <div className="row" style={{justifyContent:"space-between",marginBottom:6}}>
+        <h3 style={{fontSize:18}}>Assinar</h3><span className="link" onClick={onClose}>fechar</span>
+      </div>
+
+      {etapa==="plano" && <div>
+        <div className="muted" style={{fontSize:14,marginBottom:14}}>Pagamento por Pix. Acesso liberado na hora após a confirmação.</div>
+
+        <div className="card" style={{background:"linear-gradient(135deg,#123528,#16302b)",border:"1px solid var(--gold)",marginBottom:12,position:"relative"}}>
+          <span className="pill" style={{position:"absolute",top:-10,right:14,color:"#04120c",background:"var(--gold)",borderColor:"var(--gold)"}}>MAIS ESCOLHIDO</span>
+          <b style={{fontSize:16}}>Combo até o ENAMED</b>
+          <div style={{fontSize:26,fontWeight:800,letterSpacing:"-.02em",margin:"4px 0 0"}}>R$ 39<span style={{fontSize:13,fontWeight:600,color:"var(--muted)"}}> pagamento único</span></div>
+          <div className="muted" style={{fontSize:13,margin:"2px 0 4px"}}>Acesso a tudo até a prova (13/09/2026). Sem mensalidade.</div>
+          <div style={{fontSize:12,color:"var(--acc)",marginBottom:10}}>Menos que um lanche para organizar sua reta final.</div>
+          <button className="btn" style={{width:"100%"}} onClick={()=>criar("combo_enamed")}>Assinar o Combo (Pix)</button>
+        </div>
+
+        <div style={{textAlign:"center",fontSize:12}} className="muted">ou, se preferir testar mês a mês</div>
+        <div className="card" style={{background:"var(--panel2)",marginTop:10}}>
+          <div className="row" style={{justifyContent:"space-between"}}>
+            <div><b style={{fontSize:14}}>Mensal — R$ 19</b><div className="muted" style={{fontSize:12,marginTop:2}}>Acesso completo por 30 dias.</div></div>
+            <button className="btn ghost sm" onClick={()=>criar("pro_mensal")}>Pix mensal</button>
+          </div>
+        </div>
+      </div>}
+
+      {etapa==="carregando" && <div className="muted" style={{padding:"20px 0",textAlign:"center"}}>Gerando cobrança Pix...</div>}
+
+      {etapa==="pix" && pix && <div style={{textAlign:"center"}}>
+        <div className="muted" style={{fontSize:13,marginBottom:10}}>Escaneie o QR ou use o copia-e-cola. A liberação é automática.</div>
+        {pix.qr_code_base64 && <img alt="QR Pix" src={"data:image/png;base64,"+pix.qr_code_base64} style={{width:200,height:200,borderRadius:10,background:"#fff",padding:6}}/>}
+        <div style={{marginTop:12}}><button className="btn ghost sm" onClick={copiar}>{copiado?"Copiado!":"Copiar código Pix"}</button></div>
+        <div className="muted" style={{fontSize:12,marginTop:14}}>Aguardando pagamento...</div>
+        <div style={{marginTop:8}}><button className="btn sm" onClick={verificarAgora}>Já paguei — verificar</button></div>
+      </div>}
+
+      {etapa==="sucesso" && <div style={{textAlign:"center",padding:"10px 0"}}>
+        <div className="kpi" style={{color:"var(--acc)"}}>PRO ativo!</div>
+        <div className="muted" style={{fontSize:14,margin:"8px 0 16px"}}>Tudo liberado. Bons estudos.</div>
+        <button className="btn" onClick={onClose}>Começar</button>
+      </div>}
+
+      {etapa==="erro" && <div style={{textAlign:"center",padding:"10px 0"}}>
+        <div style={{color:"var(--bad)",fontSize:14,marginBottom:14}}>{msg}</div>
+        <button className="btn ghost" onClick={()=>setEtapa("plano")}>Tentar de novo</button>
+      </div>}
+    </div>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
