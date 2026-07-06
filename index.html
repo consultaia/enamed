@@ -27,11 +27,18 @@
     --bg:#0d1618; --panel:#12211f; --panel2:#16302b; --line:#1f3d37;
     --ink:#e8f2ee; --muted:#7fa49a; --acc:#3ddc97; --acc2:#5ec8ff;
     --warn:#f2c94c; --bad:#ff6b6b; --gold:#e6b450; --radius:14px;
+    --glow:#12332c; --inputbg:#0a1512; --bar:#0a1512;
     --mono:'SFMono-Regular',ui-monospace,Menlo,Consolas,monospace;
     --sans:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   }
+  html[data-tema="claro"]{
+    --bg:#f4f7f6; --panel:#ffffff; --panel2:#eef4f2; --line:#d5e2dd;
+    --ink:#12211f; --muted:#5c7a72; --acc:#0f9d6b; --acc2:#1f7fbf;
+    --warn:#b7860b; --bad:#c0392b; --gold:#a97b18;
+    --glow:#dcece6; --inputbg:#ffffff; --bar:#e3ece9;
+  }
   *{box-sizing:border-box}
-  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#12332c 0%,var(--bg) 55%);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,var(--glow) 0%,var(--bg) 55%);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
   #root{max-width:1080px;margin:0 auto;padding:22px 18px 90px}
   h1,h2,h3{margin:0;font-weight:700;letter-spacing:-.02em}
   button{font-family:inherit;cursor:pointer;border:none}
@@ -48,7 +55,7 @@
   .nav button.on{background:var(--panel2);color:var(--ink);border-color:var(--line)}
   .grid{display:grid;gap:14px}
   .muted{color:var(--muted)}
-  .bar{height:8px;background:#0a1512;border-radius:99px;overflow:hidden}
+  .bar{height:8px;background:var(--bar);border-radius:99px;overflow:hidden}
   .bar>i{display:block;height:100%;border-radius:99px}
   .alt{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--line);color:var(--ink);padding:13px 15px;border-radius:10px;margin-top:9px;font-size:15px;transition:.12s}
   .alt:hover{border-color:var(--acc)}
@@ -56,7 +63,7 @@
   .alt.wrong{border-color:var(--bad);background:#331819}
   .alt.dim{opacity:.55}
   .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:700;border:1px solid var(--line);color:var(--muted)}
-  input,textarea,select{width:100%;background:#0a1512;border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:10px 12px;font-family:inherit;font-size:14px}
+  input,textarea,select{width:100%;background:var(--inputbg);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:10px 12px;font-family:inherit;font-size:14px}
   textarea{min-height:70px;resize:vertical}
   label{font-size:12px;color:var(--muted);display:block;margin:12px 0 5px;font-weight:600}
   .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -114,12 +121,38 @@ const areaNome=k=>(AREAS.find(a=>a.k===k)||{}).nome||k;
 /* ---- CURRÍCULO (conteúdo da Trilha; vive no código) ---- */
 const CURRICULO = [
   {id:"cm-acidobase",area:"CM",nome:"Distúrbios ácido-base",yield:3,
+   aula:["O sangue tem que ficar num pH bem estreito, entre 7,35 e 7,45. É pouca margem porque as enzimas do corpo só funcionam bem nessa faixa. Quando o pH cai abaixo de 7,35, o sangue está mais ácido — isso é acidose. Quando sobe acima de 7,45, está mais básico — alcalose. Todo o resto do assunto é descobrir POR QUE o pH saiu do lugar e o que o corpo está fazendo pra tentar consertar.",
+     "Duas coisas controlam o pH: o gás carbônico (CO2), que é regulado pelos PULMÕES, e o bicarbonato (HCO3), regulado pelos RINS. Pense assim: o CO2 é um ácido (quanto mais CO2, mais ácido o sangue); o HCO3 é uma base (quanto mais bicarbonato, mais básico). Se o problema começa no pulmão (CO2), chamamos de distúrbio RESPIRATÓRIO. Se começa no metabolismo/rim (HCO3), é METABÓLICO.",
+     "O corpo não fica parado quando o pH desregula: ele COMPENSA. Se você tem uma acidose metabólica (bicarbonato baixo), o pulmão acelera a respiração pra jogar CO2 fora e tentar subir o pH — por isso o paciente em cetoacidose respira rápido e fundo. A compensação pulmonar é rápida (minutos); a renal é lenta (dias). Entender isso é o que te faz LER uma gasometria em vez de decorar.",
+     "Na acidose metabólica ainda dividimos em dois tipos, e isso muda o diagnóstico: quando há acúmulo de um ácido novo no sangue (como na cetoacidose ou no acúmulo de lactato), o ânion gap fica ALTO. Quando o problema é perda de bicarbonato (como numa diarreia), o ânion gap fica NORMAL. O ânion gap é só uma conta que estima se tem 'ácido escondido' sobrando."],
+   raciocinio:["1. Olhe o pH: está abaixo de 7,35 (acidose) ou acima de 7,45 (alcalose)?",
+     "2. Olhe HCO3 e pCO2: qual dos dois explica o pH? Esse é o distúrbio PRIMÁRIO (metabólico se for o HCO3, respiratório se for o pCO2).",
+     "3. Se for acidose metabólica, calcule o ânion gap: alto (ácido acumulando) ou normal (perda de bicarbonato)?",
+     "4. Cheque a compensação esperada. Se ela não bate, há um segundo distúrbio junto (distúrbio MISTO)."],
    nucleo:["Sequência fixa: 1) pH 2) HCO3 e pCO2 (distúrbio primário) 3) ânion gap 4) compensação esperada.","Acidose metabólica: ânion gap ALTO vs NORMAL/hiperclorêmica.","Compensação: fórmula de Winter (pCO2 = 1,5 x HCO3 + 8 +/- 2)."],
    pega:"Sempre cheque se há distúrbio MISTO. Gaso foi a questão 2 do ENAMED 2025 (anulada).",mne:"Ânion gap alto = MUDPILES.",sus:"Interpretação de gaso cai contextualizada em caso clínico."},
   {id:"cm-has",area:"CM",nome:"Hipertensão — manejo e metas",yield:3,
+   aula:["Pressão alta é quando a força do sangue contra a parede das artérias fica cronicamente elevada. O problema é que ela quase nunca dá sintoma — a pessoa se sente bem enquanto as artérias, o coração, os rins e os olhos vão sendo lesados aos poucos. Por isso a HAS é chamada de 'assassina silenciosa', e por isso o rastreamento (medir a pressão) importa tanto na atenção primária.",
+     "Pra dizer que alguém tem hipertensão você não usa uma medida só: precisa confirmar (>=140/90 em consultório em dias diferentes, ou por MAPA/MRPA, que medem fora do consultório e evitam o 'nervosismo do jaleco branco'). Diagnóstico apressado com uma única medida alta é erro clássico.",
+     "O tratamento tem dois pilares. Primeiro, SEMPRE, mudança de estilo de vida: menos sal, perda de peso, atividade física, menos álcool — isso vale pra todo hipertenso. Segundo, o remédio, escolhido pelo estágio e pelo risco. As primeiras linhas são três classes: diurético tiazídico, IECA/BRA (que agem no sistema renina-angiotensina) e bloqueador de canal de cálcio. Todas baratas e disponíveis no SUS.",
+     "Um detalhe que a banca adora: betabloqueador NÃO é primeira linha na hipertensão sem uma indicação específica (como doença coronariana ou insuficiência cardíaca). E é preciso separar urgência (pressão muito alta SEM lesão aguda de órgão) de emergência (COM lesão aguda — AVC, edema pulmonar) — porque a conduta e a velocidade de baixar a pressão são completamente diferentes."],
+   raciocinio:["1. Confirme o diagnóstico: mais de uma medida, ou MAPA/MRPA. Não feche com uma aferição só.",
+     "2. Classifique o estágio e avalie risco cardiovascular e lesão de órgão-alvo.",
+     "3. Sempre prescreva mudança de estilo de vida + o anti-hipertensivo adequado ao estágio.",
+     "4. Escolha 1ª linha (tiazídico, IECA/BRA ou BCC). Betabloqueador só com indicação específica.",
+     "5. Diante de pressão muito alta, pergunte: há lesão AGUDA de órgão? Sim = emergência; não = urgência."],
    nucleo:["Diagnóstico: >=140/90 confirmado, ou MAPA/MRPA.","1ª linha: tiazídico OU IECA/BRA OU BCC.","Emergência (lesão aguda de órgão-alvo) x urgência."],
    pega:"Betabloqueador NÃO é 1ª linha sem indicação específica.",mne:"Primeiras linhas = 'TIB'.",sus:"HiperDia / linha de cuidado na APS."},
   {id:"cm-dm2",area:"CM",nome:"Diabetes tipo 2",yield:3,
+   aula:["Diabetes tipo 2 é uma doença em que o corpo não consegue mais controlar bem o açúcar no sangue. Diferente do tipo 1 (que é falta de insulina), no tipo 2 o corpo até produz insulina, mas as células ficam 'surdas' a ela — é a resistência à insulina. Com o tempo o pâncreas cansa e a glicose sobe. O excesso de açúcar circulando vai lesando vasos pequenos e grandes: olhos, rins, nervos e coração.",
+     "O diagnóstico se faz por qualquer um destes: glicemia de jejum >=126, HbA1c >=6,5%, glicemia 2h após o TOTG >=200, ou glicemia casual >=200 com sintomas. A HbA1c é útil porque mostra a média do açúcar dos últimos 2-3 meses — não depende de o paciente estar em jejum naquele dia.",
+     "O primeiro remédio é quase sempre a metformina. Ela reduz a produção de glicose pelo fígado e melhora a resposta à insulina, é barata, segura e disponível no SUS — por isso é a 1ª linha. Só é preciso cuidado quando a função renal está muito ruim (TFG baixa), aí ela pode ser contraindicada.",
+     "Tratar diabetes não é só baixar o número da glicose: é definir uma META individualizada de HbA1c (em geral abaixo de 7%, mas mais frouxa em idosos frágeis) e rastrear as complicações periodicamente — fundo de olho, função renal, exame dos pés. Um erro comum é já querer insulinizar todo mundo de cara; a insulina entra quando os orais não dão conta."],
+   raciocinio:["1. Confirme o diagnóstico (jejum, HbA1c, TOTG ou casual com sintomas).",
+     "2. Cheque a função renal — ela decide se a metformina pode ser usada.",
+     "3. Comece metformina (1ª linha) + mudança de estilo de vida.",
+     "4. Defina a meta de HbA1c conforme o perfil do paciente (mais rígida no jovem, mais frouxa no idoso frágil).",
+     "5. Programe o rastreio de complicações (retina, rim, neuropatia, pés)."],
    nucleo:["Diagnóstico: jejum >=126, HbA1c >=6,5%, TOTG 2h >=200.","Metformina = 1ª linha.","Metas individualizadas; rastrear complicações."],
    pega:"Não insulinizar todo mundo de cara; ver TFG para metformina.",mne:"Metformina primeiro.",sus:"Linha de cuidado do DM na APS."},
   {id:"cm-sepse",area:"CM",nome:"Sepse e choque",yield:2,
@@ -266,6 +299,8 @@ function Auth(){
 function Shell({session}){
   const uid=session.user.id;
   const [tab,setTab]=useState("trilha");
+  const [tema,setTema]=useState(()=>{try{return localStorage.getItem("enamed_tema")||"escuro"}catch(e){return "escuro"}});
+  useEffect(()=>{document.documentElement.setAttribute("data-tema",tema);try{localStorage.setItem("enamed_tema",tema)}catch(e){}},[tema]);
   const [loading,setLoading]=useState(true);
   const [questoes,setQuestoes]=useState([]);
   const [log,setLog]=useState([]);
@@ -340,7 +375,10 @@ function Shell({session}){
       </div>
       <div style={{textAlign:"right"}}>
         <span className="pill" style={{color:isPro?"var(--gold)":"var(--muted)",borderColor:isPro?"var(--gold)":"var(--line)"}}>{isPro?"PRO":"Demonstração"}</span>
-        <div style={{marginTop:8}}><span className="link" style={{fontSize:13}} onClick={()=>sb.auth.signOut()}>Sair</span></div>
+        <div className="row" style={{marginTop:8,justifyContent:"flex-end",gap:12}}>
+          <span className="link" style={{fontSize:13}} onClick={()=>setTema(tema==="escuro"?"claro":"escuro")}>{tema==="escuro"?"☀ Claro":"🌙 Escuro"}</span>
+          <span className="link" style={{fontSize:13}} onClick={()=>sb.auth.signOut()}>Sair</span>
+        </div>
       </div>
     </div>
 
@@ -352,7 +390,7 @@ function Shell({session}){
     {showAssinar && <Assinar uid={uid} email={session.user.email} onClose={()=>setShowAssinar(false)} onVerificar={recarregarAssinatura}/>}
 
     <div className="nav">
-      {[["trilha","Trilha"],["dash","Padrões"],["treinar","Treinar"],["simulado","Simulado"],["resolver","Resolver questão"],["banco","Banco"]].map(([k,l])=>
+      {[["trilha","Trilha"],["dash","Padrões"],["treinar","Treinar"],["simulado","Simulado"],["resolver","Resolver questão"],["gerar","Gerar questão"],["banco","Banco"]].map(([k,l])=>
         <button key={k} className={tab===k?"on":""} onClick={()=>setTab(k)}>{l}</button>)}
     </div>
 
@@ -361,6 +399,7 @@ function Shell({session}){
     {tab==="treinar" && <Treinar pool={poolVisivel} store={store} registrar={registrar} bloqueadas={isPro?0:bloqueadasFree} isPro={isPro} onAssinar={()=>setShowAssinar(true)}/>}
     {tab==="simulado" && (isPro ? <Simulado pool={poolVisivel} registrar={registrar} isPro={isPro}/> : <TravaFree titulo="Simulado é PRO" texto="Monte provas no formato oficial (20 por área) e receba nota e correção comentada." onAssinar={()=>setShowAssinar(true)}/>)}
     {tab==="resolver" && <Resolver isPro={isPro} onAssinar={()=>setShowAssinar(true)}/>}
+    {tab==="gerar" && (isPro ? <GerarQuestao uid={uid} admin={assinatura&&false} onSalvar={q=>setQuestoes(v=>[...v,q])}/> : <TravaFree titulo="Gerador de questões é PRO" texto="Gere questões inéditas no estilo INEP (ENAMED, Revalida, ENARE), quantas quiser, por área e tema." onAssinar={()=>setShowAssinar(true)}/>)}
     {tab==="banco" && <Banco questoes={questoes} uid={uid} onAdd={q=>setQuestoes(v=>[...v,q])}/>}
   </div>;
 }
@@ -401,19 +440,36 @@ function Trilha({store,acertoArea,avaliarDominio,irTreinar,isPro,freeTopico,onAs
         </div>
       </div>
       {open && !lock && <div className="body">
-        <div className="b-metodo block"><b>Método:</b> 1) leia o núcleo · 2) toque <b>Recall</b> e lembre de cabeça · 3) treine questões · 4) explique em voz alta (Feynman) e autoavalie.</div>
-        <div className="row" style={{marginTop:10}}>
-          <button className="btn ghost sm" onClick={()=>setRecall(r=>({...r,[t.id]:!r[t.id]}))}>{rc?"Mostrar núcleo":"Recall (esconder)"}</button>
+        {/* 1) AULA — ensina do zero, com botoes que adaptam a didatica */}
+        {t.aula && <AulaAdaptativa tema={t.nome} aula={t.aula}/>}
+
+        {/* 2) COMO PENSAR — passo a passo de raciocinio */}
+        {t.raciocinio && <div className="b-nucleo block">
+          <b>Como pensar (passo a passo)</b>
+          <div style={{marginTop:8}}>{t.raciocinio.map((r,i)=>
+            <div key={i} className="row" style={{alignItems:"flex-start",gap:10,marginBottom:8}}>
+              <span style={{minWidth:24,height:24,borderRadius:99,background:"var(--acc)",color:"#04120c",fontWeight:800,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center"}}>{i+1}</span>
+              <span style={{fontSize:14,lineHeight:1.5}}>{r.replace(/^\d+\.\s*/,"")}</span>
+            </div>)}</div>
+        </div>}
+
+        {/* 3) TIRA-DUVIDA com IA */}
+        <TiraDuvida tema={t.nome} contexto={(t.aula||[]).join(" ")}/>
+
+        {/* 4) FIXACAO — so depois de aprender */}
+        <div className="tag muted" style={{margin:"18px 0 6px"}}>Fixar o que você aprendeu</div>
+        <div className="row" style={{marginBottom:4}}>
+          <button className="btn ghost sm" onClick={()=>setRecall(r=>({...r,[t.id]:!r[t.id]}))}>{rc?"Mostrar resumo":"Recall (testar de memória)"}</button>
           <button className="btn ghost sm" onClick={irTreinar}>Treinar questões</button>
         </div>
-        {!rc?<div className="b-nucleo block"><b>Núcleo</b><ul style={{margin:"6px 0 0 18px",padding:0}}>{t.nucleo.map((n,i)=><li key={i} style={{marginBottom:4}}>{n}</li>)}</ul></div>
-          :<div className="b-metodo block" style={{textAlign:"center",color:"var(--muted)"}}>Núcleo escondido — recupere de memória.</div>}
-        <div className="b-pega block"><b>Pegadinha:</b> {t.pega}</div>
-        <div className="b-mne block"><b>Gancho:</b> {t.mne}</div>
+        {!rc?<div className="b-metodo block"><b>Resumo:</b> <ul style={{margin:"6px 0 0 18px",padding:0}}>{t.nucleo.map((n,i)=><li key={i} style={{marginBottom:4}}>{n}</li>)}</ul></div>
+          :<div className="b-metodo block" style={{textAlign:"center",color:"var(--muted)"}}>Resumo escondido — tente recuperar de memória.</div>}
+        <div className="b-pega block"><b>Pegadinha da banca:</b> {t.pega}</div>
+        <div className="b-mne block"><b>Gancho pra memorizar:</b> {t.mne}</div>
         <div className="b-sus block"><b>Âncora SUS/DCN:</b> {t.sus}</div>
-        <div style={{marginTop:14}}><b style={{fontSize:13}}>Seu domínio agora?</b>
+        <div style={{marginTop:14}}><b style={{fontSize:13}}>Consegue explicar o tema agora?</b>
           <div className="rate">{[1,2,3,4,5].map(n=><button key={n} className={d&&d.nivel===n?"on":""} onClick={()=>avaliarDominio(t.id,n)}>{n}</button>)}</div>
-          <div className="muted" style={{fontSize:11,marginTop:5}}>1 = não sei explicar · 5 = ensinaria um interno.</div>
+          <div className="muted" style={{fontSize:11,marginTop:5}}>1 = ainda não entendi · 5 = ensinaria um colega. Isto reordena sua trilha.</div>
         </div>
       </div>}
     </div>;};
@@ -568,12 +624,147 @@ function Banco({questoes,uid,onAdd}){
   </div>;
 }
 
+/* =================== AULA ADAPTATIVA =================== */
+function AulaAdaptativa({tema,aula}){
+  const [extra,setExtra]=useState(null); // texto reescrito pela IA
+  const [busy,setBusy]=useState("");
+  const workerOk=!WORKER_URL.startsWith("COLE_");
+  const pedir=async(modo,rotulo)=>{
+    if(!workerOk){setExtra("Este recurso fica ativo quando o app estiver publicado com o Worker.");return;}
+    setBusy(rotulo);setExtra(null);
+    try{
+      const r=await fetch(WORKER_URL+"/reexplicar",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({tema,aula:aula.join(" "),modo})});
+      const d=await r.json();
+      if(!r.ok||d.error) throw new Error(typeof d.error==="string"?d.error:"Falha.");
+      setExtra(d.texto||"");
+    }catch(e){setExtra(e.message);}
+    setBusy("");
+  };
+  const botoes=[
+    ["outro","🔄 Explica de outro jeito"],
+    ["basico","🐢 Mais básico / devagar"],
+    ["exemplo","🩺 Me dá um exemplo clínico"],
+    ["fundo","🔬 Vai mais fundo"],
+  ];
+  return <div style={{marginTop:6}}>
+    <div className="tag" style={{color:"var(--acc)",marginBottom:6}}>A aula</div>
+    {aula.map((p,i)=><p key={i} style={{fontSize:14.5,lineHeight:1.65,margin:"0 0 12px"}}>{p}</p>)}
+    <div className="muted" style={{fontSize:12,marginBottom:6}}>Não ficou claro? Peça de outro jeito:</div>
+    <div className="row" style={{gap:8}}>
+      {botoes.map(([m,l])=><button key={m} className="btn ghost sm" disabled={!!busy} onClick={()=>pedir(m,l)}>{busy===l?"...":l}</button>)}
+    </div>
+    {extra && <div className="block b-nucleo" style={{marginTop:10}}>{extra.split("\n").filter(Boolean).map((p,i)=><p key={i} style={{fontSize:14,lineHeight:1.6,margin:"0 0 8px"}}>{p}</p>)}</div>}
+  </div>;
+}
+
+/* =================== TIRA-DUVIDA (IA por assunto) =================== */
+function TiraDuvida({tema,contexto}){
+  const [q,setQ]=useState("");
+  const [msgs,setMsgs]=useState([]); // {quem:'voce'|'ia', txt}
+  const [busy,setBusy]=useState(false);
+  const workerOk=!WORKER_URL.startsWith("COLE_");
+  const perguntar=async()=>{
+    const pergunta=q.trim();
+    if(!pergunta)return;
+    setMsgs(m=>[...m,{quem:"voce",txt:pergunta}]);
+    setQ("");setBusy(true);
+    try{
+      if(!workerOk) throw new Error("O tira-dúvida por IA fica disponível quando o app estiver publicado com o Worker.");
+      const r=await fetch(WORKER_URL+"/tirar-duvida",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({tema,contexto,pergunta})});
+      const d=await r.json();
+      if(!r.ok||d.error) throw new Error(typeof d.error==="string"?d.error:"Falha ao responder.");
+      setMsgs(m=>[...m,{quem:"ia",txt:d.resposta||"Sem resposta."}]);
+    }catch(e){ setMsgs(m=>[...m,{quem:"ia",txt:e.message}]); }
+    setBusy(false);
+  };
+  return <div className="block b-mne" style={{marginTop:10}}>
+    <b>Não entendeu algo? Pergunte</b>
+    <div className="muted" style={{fontSize:12,margin:"4px 0 10px"}}>A IA explica no seu nível, sobre {tema.toLowerCase()}.</div>
+    {msgs.map((m,i)=><div key={i} style={{marginBottom:8}}>
+      <div className="muted" style={{fontSize:11}}>{m.quem==="voce"?"Você":"Explicação"}</div>
+      <div style={{fontSize:14,lineHeight:1.55}}>{m.txt}</div>
+    </div>)}
+    <div className="row" style={{marginTop:6}}>
+      <input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&perguntar()} placeholder="Ex.: por que o pulmão compensa mais rápido que o rim?" style={{flex:1}}/>
+      <button className="btn sm" disabled={busy||!q.trim()} onClick={perguntar}>{busy?"...":"Perguntar"}</button>
+    </div>
+  </div>;
+}
+
 /* =================== TRAVA FREE (cadeado reutilizavel) =================== */
 function TravaFree({titulo,texto,onAssinar}){
   return <div className="lock" style={{textAlign:"left"}}>
     <b>{titulo}</b>
     <div className="muted" style={{fontSize:13,margin:"8px 0 12px"}}>{texto}</div>
     <button className="btn" onClick={onAssinar}>Assinar para liberar</button>
+  </div>;
+}
+
+/* =================== GERAR QUESTAO (IA, estilo INEP) =================== */
+function GerarQuestao({uid,onSalvar}){
+  const [area,setArea]=useState("CM");
+  const [tema,setTema]=useState("");
+  const [q,setQ]=useState(null);
+  const [sel,setSel]=useState(null);
+  const [busy,setBusy]=useState(false);
+  const [msg,setMsg]=useState("");
+  const [salvou,setSalvou]=useState(false);
+  const workerOk=!WORKER_URL.startsWith("COLE_");
+  const L=["A","B","C","D","E"];
+  const gerar=async()=>{
+    if(!workerOk){setMsg("Disponível quando o app estiver publicado com o Worker.");return;}
+    setBusy(true);setMsg("");setQ(null);setSel(null);setSalvou(false);
+    try{
+      const r=await fetch(WORKER_URL+"/gerar-questao",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({area,tema})});
+      const d=await r.json();
+      if(!r.ok||d.error||!d.questao) throw new Error(typeof d.error==="string"?d.error:"Falha ao gerar.");
+      setQ(d.questao);
+    }catch(e){setMsg(e.message);}
+    setBusy(false);
+  };
+  const salvar=async()=>{
+    if(!q)return;
+    const id="ai"+Date.now();
+    const row={id,area:q.area||area,tema:q.tema||tema||"Gerada por IA",transv:q.transv||[],dificuldade:2,
+      enunciado:q.enunciado,alternativas:q.alternativas,correta:q.correta,comentario:q.comentario||"",premium:true};
+    const {error}=await sb.from("questoes").insert(row);
+    if(error){setMsg("Para salvar no banco, seu perfil precisa ser admin. Erro: "+error.message);return;}
+    onSalvar({id,area:row.area,tema:row.tema,transv:row.transv,dif:2,enun:row.enunciado,alts:row.alternativas,correta:row.correta,coment:row.comentario,premium:true});
+    setSalvou(true);
+  };
+  return <div>
+    <div className="card">
+      <h3 style={{fontSize:17,marginBottom:6}}>Gerar questão no estilo INEP</h3>
+      <div className="muted" style={{fontSize:13,marginBottom:12,lineHeight:1.5}}>
+        Questões inéditas no padrão <b>ENAMED / Revalida / ENARE</b>: caso clínico no SUS, conduta por protocolo, com a pegadinha típica da banca.
+      </div>
+      <div className="row" style={{gap:10}}>
+        <select value={area} onChange={e=>setArea(e.target.value)} style={{maxWidth:220}}>
+          {AREAS.map(a=><option key={a.k} value={a.k}>{a.nome}</option>)}
+        </select>
+        <input value={tema} onChange={e=>setTema(e.target.value)} placeholder="Tema (opcional): ex. dengue, HPP, sepse" style={{flex:1}}/>
+      </div>
+      {msg && <div className="muted" style={{fontSize:13,marginTop:10,color:"var(--warn)"}}>{msg}</div>}
+      <div className="row" style={{marginTop:14}}><button className="btn" disabled={busy} onClick={gerar}>{busy?"Gerando...":"Gerar questão"}</button></div>
+    </div>
+
+    {q && <div className="card" style={{marginTop:16}}>
+      <div className="row" style={{gap:8,marginBottom:8}}>
+        <span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(q.area||area)}</span>
+        {q.tema && <span className="pill">{q.tema}</span>}
+        {(q.transv||[]).map(t=><span key={t} className="pill" style={{color:"var(--acc2)"}}>{t}</span>)}
+      </div>
+      <div style={{fontSize:15.5,lineHeight:1.6,marginBottom:6}}>{q.enunciado}</div>
+      {q.alternativas.map((a,i)=>{let c="alt";if(sel!==null){if(i===q.correta)c+=" correct";else if(i===sel)c+=" wrong";else c+=" dim";}
+        return <button key={i} className={c} disabled={sel!==null} onClick={()=>setSel(i)}><b style={{color:"var(--muted)",marginRight:8}}>{L[i]}</b>{a}</button>;})}
+      {sel!==null && <div className="comment"><b style={{color:sel===q.correta?"var(--acc)":"var(--bad)"}}>{sel===q.correta?"Correto. ":"Incorreto. "}</b>{q.comentario}</div>}
+      <div className="row" style={{marginTop:14}}>
+        <button className="btn ghost sm" onClick={gerar}>Gerar outra</button>
+        <button className="btn sm" disabled={salvou} onClick={salvar}>{salvou?"Salva no banco ✓":"Salvar no meu banco"}</button>
+      </div>
+      <div className="muted" style={{fontSize:11,marginTop:10}}>Questão gerada por IA. Revise antes de usar em avaliação real.</div>
+    </div>}
   </div>;
 }
 
