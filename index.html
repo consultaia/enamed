@@ -390,17 +390,13 @@ function Shell({session}){
     {showAssinar && <Assinar uid={uid} email={session.user.email} onClose={()=>setShowAssinar(false)} onVerificar={recarregarAssinatura}/>}
 
     <div className="nav">
-      {[["trilha","Trilha"],["dash","Padrões"],["treinar","Treinar"],["simulado","Simulado"],["resolver","Resolver questão"],["gerar","Gerar questão"],["banco","Banco"]].map(([k,l])=>
+      {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["dash","📈 Meu progresso"]].map(([k,l])=>
         <button key={k} className={tab===k?"on":""} onClick={()=>setTab(k)}>{l}</button>)}
     </div>
 
-    {tab==="trilha" && <Trilha store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} irTreinar={()=>setTab("treinar")} isPro={isPro} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)}/>}
-    {tab==="dash" && (isPro ? <Dash store={store}/> : <TravaFree titulo="Dashboard de padrões é PRO" texto="Veja seu acerto por área, os temas onde mais erra e a cobertura do blueprint — tudo no Combo." onAssinar={()=>setShowAssinar(true)}/>)}
-    {tab==="treinar" && <Treinar pool={poolVisivel} store={store} registrar={registrar} bloqueadas={isPro?0:bloqueadasFree} isPro={isPro} onAssinar={()=>setShowAssinar(true)}/>}
-    {tab==="simulado" && (isPro ? <Simulado pool={poolVisivel} registrar={registrar} isPro={isPro}/> : <TravaFree titulo="Simulado é PRO" texto="Monte provas no formato oficial (20 por área) e receba nota e correção comentada." onAssinar={()=>setShowAssinar(true)}/>)}
-    {tab==="resolver" && <Resolver isPro={isPro} onAssinar={()=>setShowAssinar(true)}/>}
-    {tab==="gerar" && (isPro ? <GerarQuestao uid={uid} admin={assinatura&&false} onSalvar={q=>setQuestoes(v=>[...v,q])}/> : <TravaFree titulo="Gerador de questões é PRO" texto="Gere questões inéditas no estilo INEP (ENAMED, Revalida, ENARE), quantas quiser, por área e tema." onAssinar={()=>setShowAssinar(true)}/>)}
-    {tab==="banco" && <Banco questoes={questoes} uid={uid} onAdd={q=>setQuestoes(v=>[...v,q])}/>}
+    {tab==="trilha" && <Trilha store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={isPro} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)}/>}
+    {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} bloqueadas={isPro?0:bloqueadasFree} isPro={isPro} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])}/>}
+    {tab==="dash" && (isPro ? <Dash store={store}/> : <TravaFree titulo="Meu progresso é PRO" texto="Veja seu acerto por área, os temas onde mais erra e o quanto já dominou da trilha." onAssinar={()=>setShowAssinar(true)}/>)}
   </div>;
 }
 
@@ -419,7 +415,7 @@ function prioridade(top,store,acertoArea){
   if(aa!==null&&aa<0.6)motivos.push("acerta so "+Math.round(aa*100)+"% em "+areaNome(top.area));
   return {score,nivel,motivos};
 }
-function Trilha({store,acertoArea,avaliarDominio,irTreinar,isPro,freeTopico,onAssinar}){
+function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeTopico,onAssinar}){
   const [aberto,setAberto]=useState(null);const [recall,setRecall]=useState({});
   const ranked=useMemo(()=>CURRICULO.map(t=>({...t,...prioridade(t,store,acertoArea)})).sort((a,b)=>b.score-a.score),[store,acertoArea]);
   const liberado=t=>isPro||t.id===freeTopico;
@@ -440,37 +436,7 @@ function Trilha({store,acertoArea,avaliarDominio,irTreinar,isPro,freeTopico,onAs
         </div>
       </div>
       {open && !lock && <div className="body">
-        {/* 1) AULA — ensina do zero, com botoes que adaptam a didatica */}
-        {t.aula && <AulaAdaptativa tema={t.nome} aula={t.aula}/>}
-
-        {/* 2) COMO PENSAR — passo a passo de raciocinio */}
-        {t.raciocinio && <div className="b-nucleo block" style={{color:"var(--ink)"}}>
-          <b>Como pensar (passo a passo)</b>
-          <div style={{marginTop:8}}>{t.raciocinio.map((r,i)=>
-            <div key={i} className="row" style={{alignItems:"flex-start",gap:10,marginBottom:8}}>
-              <span style={{minWidth:24,height:24,borderRadius:99,background:"var(--acc)",color:"var(--bg)",fontWeight:800,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span>
-              <span style={{fontSize:14,lineHeight:1.5,color:"var(--ink)"}}>{r.replace(/^\d+\.\s*/,"")}</span>
-            </div>)}</div>
-        </div>}
-
-        {/* 3) TIRA-DUVIDA com IA */}
-        <TiraDuvida tema={t.nome} contexto={(t.aula||[]).join(" ")}/>
-
-        {/* 4) FIXACAO — so depois de aprender */}
-        <div className="tag muted" style={{margin:"18px 0 6px"}}>Fixar o que você aprendeu</div>
-        <div className="row" style={{marginBottom:4}}>
-          <button className="btn ghost sm" onClick={()=>setRecall(r=>({...r,[t.id]:!r[t.id]}))}>{rc?"Mostrar resumo":"Recall (testar de memória)"}</button>
-          <button className="btn ghost sm" onClick={irTreinar}>Treinar questões</button>
-        </div>
-        {!rc?<div className="b-metodo block"><b>Resumo:</b> <ul style={{margin:"6px 0 0 18px",padding:0}}>{t.nucleo.map((n,i)=><li key={i} style={{marginBottom:4}}>{n}</li>)}</ul></div>
-          :<div className="b-metodo block" style={{textAlign:"center",color:"var(--muted)"}}>Resumo escondido — tente recuperar de memória.</div>}
-        <div className="b-pega block"><b>Pegadinha da banca:</b> {t.pega}</div>
-        <div className="b-mne block"><b>Gancho pra memorizar:</b> {t.mne}</div>
-        <div className="b-sus block"><b>Âncora SUS/DCN:</b> {t.sus}</div>
-        <div style={{marginTop:14}}><b style={{fontSize:13}}>Consegue explicar o tema agora?</b>
-          <div className="rate">{[1,2,3,4,5].map(n=><button key={n} className={d&&d.nivel===n?"on":""} onClick={()=>avaliarDominio(t.id,n)}>{n}</button>)}</div>
-          <div className="muted" style={{fontSize:11,marginTop:5}}>1 = ainda não entendi · 5 = ensinaria um colega. Isto reordena sua trilha.</div>
-        </div>
+        <EstudarAssunto t={t} store={store} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={irTreinar} isPro={isPro} onAssinar={onAssinar}/>
       </div>}
     </div>;};
   return <div>
@@ -481,6 +447,27 @@ function Trilha({store,acertoArea,avaliarDominio,irTreinar,isPro,freeTopico,onAs
       <div style={{fontSize:14,lineHeight:1.5}}><b>Por quê:</b> {top1.motivos.length?top1.motivos.join(" · "):"tema central do blueprint"}.</div>
       <div className="row" style={{marginTop:14}}><button className="btn" onClick={()=>abrir(top1)}>Abrir e estudar</button></div>
     </div>
+
+    {/* REVISAR HOJE — curva do esquecimento */}
+    {(()=>{
+      const revisar=CURRICULO.map(t=>{
+        const d=store.dominio[t.id]; if(!d) return null;
+        const diasDesde=dias(d.last);
+        const intervalo=[0,1,2,4,7,14][d.nivel]||1; // dominio baixo revisa antes
+        return diasDesde>=intervalo ? {...t,diasDesde} : null;
+      }).filter(Boolean).sort((a,b)=>b.diasDesde-a.diasDesde).slice(0,4);
+      if(revisar.length===0) return null;
+      return <div className="card" style={{marginTop:16,borderColor:"var(--acc2)"}}>
+        <div className="row" style={{justifyContent:"space-between",marginBottom:8}}>
+          <b style={{fontSize:15}}>🔁 Revisar hoje</b>
+          <span className="muted" style={{fontSize:12}}>pra não esquecer</span>
+        </div>
+        {revisar.map(t=><div key={t.id} className="row" style={{justifyContent:"space-between",padding:"8px 2px",borderBottom:"1px solid var(--line)"}}>
+          <span style={{fontSize:14}}>{t.nome} <span className="muted">· visto há {t.diasDesde}d · domínio {store.dominio[t.id].nivel}/5</span></span>
+          <button className="btn ghost sm" onClick={()=>abrir(t)}>Revisar</button>
+        </div>)}
+      </div>;
+    })()}
     {!isPro && <div className="lock" style={{marginTop:16,textAlign:"left"}}>
       <b>Demonstração: 1 assunto liberado.</b>
       <div className="muted" style={{fontSize:13,marginTop:6}}>Abaixo você vê o mapa completo com os {CURRICULO.length} assuntos. Os cadeados abrem no Combo até o ENAMED.</div>
@@ -541,26 +528,91 @@ function QuestionCard({q,onResp,indice,total}){
     {sel!==null&&<div className="comment"><b style={{color:sel===q.correta?"var(--acc)":"var(--bad)"}}>{sel===q.correta?"Correto. ":"Incorreto. "}</b>{q.coment}</div>}
   </div>;
 }
-function Treinar({pool,store,registrar,bloqueadas,isPro,onAssinar}){
-  const fila=useMemo(()=>{const now=Date.now();const due=pool.filter(q=>!store.srs[q.id]||new Date(store.srs[q.id].due).getTime()<=now);
-    return (due.length?due:pool).slice().sort(()=>Math.random()-0.5);},[pool]);
-  const [i,setI]=useState(0);const [feito,setFeito]=useState(false);const q=fila[i];
-  if(!q)return <div className="card">Nenhuma questão disponível.</div>;
+/* =================== PRATICAR (hub: treinar + simulado + foto) =================== */
+function Praticar(props){
+  const [modo,setModo]=useState("treinar");
+  const sub=[["treinar","Questões"],["simulado","Simulado"],["resolver","Resolver por foto"]];
+  return <div>
+    <div className="row" style={{gap:6,marginBottom:16}}>
+      {sub.map(([k,l])=><button key={k} className={"btn "+(modo===k?"":"ghost")+" sm"} onClick={()=>setModo(k)}>{l}</button>)}
+    </div>
+    {modo==="treinar" && <Treinar {...props} onNovasQuestoes={props.onNovasQuestoes}/>}
+    {modo==="simulado" && (props.isPro ? <Simulado pool={props.pool} registrar={props.registrar} isPro={props.isPro}/> : <TravaFree titulo="Simulado é PRO" texto="Monte provas no formato oficial (20 por área) com nota e correção comentada." onAssinar={props.onAssinar}/>)}
+    {modo==="resolver" && <Resolver isPro={props.isPro} onAssinar={props.onAssinar}/>}
+  </div>;
+}
+
+function Treinar({pool,store,registrar,bloqueadas,isPro,onAssinar,onNovasQuestoes}){
+  const [area,setArea]=useState("todas");
+  const [extra,setExtra]=useState([]);   // questoes geradas na sessao
+  const [gerando,setGerando]=useState(false);
+  const [msg,setMsg]=useState("");
+  const base = area==="todas"?pool:pool.filter(q=>q.area===area);
+  const fila=useMemo(()=>{
+    const todas=[...base,...extra.filter(q=>area==="todas"||q.area===area)];
+    const now=Date.now();
+    const due=todas.filter(q=>!store.srs[q.id]||new Date(store.srs[q.id].due).getTime()<=now);
+    return (due.length?due:todas).slice().sort(()=>Math.random()-0.5);
+  },[base,extra,area]);
+  const [i,setI]=useState(0);const [feito,setFeito]=useState(false);
+  useEffect(()=>{setI(0);setFeito(false);},[area]);
+  const q=fila[i];
+  const workerOk=!WORKER_URL.startsWith("COLE_");
+
+  const mais=async()=>{
+    if(!isPro){onAssinar();return;}
+    if(!workerOk){setMsg("O gerador entra no ar quando o app for publicado com o Worker.");return;}
+    setGerando(true);setMsg("");
+    const alvoArea = area==="todas"?["CM","CIR","GO","PED","MFC"][Math.floor(Math.random()*5)]:area;
+    try{
+      const novas=[];
+      for(let k=0;k<10;k++){
+        const r=await fetch(WORKER_URL+"/gerar-questao",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({area:alvoArea})});
+        const d=await r.json();
+        if(d.questao){
+          const Q=d.questao;
+          novas.push({id:"ai"+Date.now()+"_"+k,area:Q.area||alvoArea,tema:Q.tema||"Gerada por IA",transv:Q.transv||[],dif:2,enun:Q.enunciado,alts:Q.alternativas,correta:Q.correta,coment:Q.comentario||"",premium:true});
+        }
+      }
+      if(novas.length===0) throw new Error("Não consegui gerar agora. Tente de novo.");
+      setExtra(e=>[...e,...novas]);
+      if(onNovasQuestoes) onNovasQuestoes(novas); // opcional: persistir no banco
+      setMsg("+"+novas.length+" questões novas na fila!");
+    }catch(e){setMsg(e.message);}
+    setGerando(false);
+  };
+
+  if(!q)return <div className="card">
+    <div className="muted" style={{marginBottom:12}}>Nenhuma questão nesta área ainda.</div>
+    <button className="btn" disabled={gerando} onClick={mais}>{gerando?"Gerando...":"Gerar 10 questões com IA"}</button>
+    {msg&&<div className="muted" style={{fontSize:13,marginTop:10,color:"var(--acc2)"}}>{msg}</div>}
+  </div>;
+
   const ultimaFree = !isPro && i>=fila.length-1;
   return <div>
-    <div className="muted" style={{fontSize:13,marginBottom:12}}>
-      {isPro ? ("Repetição espaçada. Fila de hoje: "+fila.length+".")
-             : ("Demonstração: "+fila.length+" questões."+(bloqueadas>0?" +"+bloqueadas+" liberadas no PRO.":""))}
+    <div className="row" style={{justifyContent:"space-between",marginBottom:12}}>
+      <select value={area} onChange={e=>setArea(e.target.value)} style={{maxWidth:210}}>
+        <option value="todas">Todas as áreas</option>
+        {AREAS.map(a=><option key={a.k} value={a.k}>{a.nome}</option>)}
+      </select>
+      <span className="muted" style={{fontSize:13}}>{i+1} de {fila.length}</span>
     </div>
+    <div className="bar" style={{marginBottom:14}}><i style={{width:((i+1)/fila.length*100)+"%",background:"var(--acc)"}}/></div>
+
     <QuestionCard q={q} indice={i} total={fila.length} onResp={(qq,ok)=>{registrar(qq,ok);setFeito(true);}}/>
+
     <div className="row" style={{marginTop:14}}>
       {ultimaFree && feito
         ? <button className="btn" onClick={onAssinar}>Liberar todas as questões (PRO)</button>
-        : <button className="btn" disabled={!feito} onClick={()=>{setFeito(false);setI(x=>(x+1)%fila.length);}}>Próxima</button>}
+        : i<fila.length-1
+          ? <button className="btn" disabled={!feito} onClick={()=>{setFeito(false);setI(x=>x+1);}}>Próxima</button>
+          : <button className="btn" disabled={!feito||gerando} onClick={mais}>{gerando?"Gerando mais 10...":"✨ Mais questões deste tema"}</button>}
     </div>
+    {msg&&<div className="muted" style={{fontSize:13,marginTop:10,color:"var(--acc2)"}}>{msg}</div>}
+
     {!isPro && feito && ultimaFree && <div className="lock" style={{marginTop:14,textAlign:"left"}}>
       <b>Você terminou a demonstração.</b>
-      <div className="muted" style={{fontSize:13,marginTop:6}}>Assine o Combo até o ENAMED para treinar centenas de questões com repetição espaçada e correção comentada.</div>
+      <div className="muted" style={{fontSize:13,marginTop:6}}>Assine o Combo até o ENAMED para treinar questões ilimitadas — inclusive geradas na hora pela IA.</div>
     </div>}
   </div>;
 }
@@ -592,35 +644,115 @@ function Simulado({pool,registrar,isPro}){
 
 /* =================== BANCO =================== */
 function Banco({questoes,uid,onAdd}){
-  const [f,setF]=useState({area:"CM",tema:"",enun:"",a0:"",a1:"",a2:"",a3:"",correta:0,coment:"",transv:"",premium:true});
-  const [msg,setMsg]=useState("");
-  const add=async()=>{
-    if(!f.enun||!f.a0||!f.a1){setMsg("Preencha ao menos enunciado e 2 alternativas.");return;}
-    const id="u"+Date.now();
-    const row={id,area:f.area,tema:f.tema||"Sem tema",transv:f.transv?f.transv.split(",").map(s=>s.trim()).filter(Boolean):[],dificuldade:2,enunciado:f.enun,alternativas:[f.a0,f.a1,f.a2,f.a3].filter(x=>x!==""),correta:Number(f.correta),comentario:f.coment||"Sem comentário.",premium:f.premium};
-    const {error}=await sb.from("questoes").insert(row);
-    if(error){setMsg("Erro ao salvar (precisa de perfil admin/policy de insert): "+error.message);return;}
-    onAdd({id,area:row.area,tema:row.tema,transv:row.transv,dif:2,enun:row.enunciado,alts:row.alternativas,correta:row.correta,coment:row.comentario,premium:row.premium});
-    setMsg("Questão adicionada ao banco.");setF({...f,tema:"",enun:"",a0:"",a1:"",a2:"",a3:"",coment:"",transv:""});
-  };
-  return <div className="grid" style={{gridTemplateColumns:"1fr 1fr",gap:16}}>
-    <div className="card"><h3 style={{fontSize:16,marginBottom:6}}>Adicionar questão</h3>
-      <div className="muted" style={{fontSize:12,marginBottom:8}}>Cole questões extraídas dos cadernos (reescritas) ou crie novas. Requer perfil admin.</div>
-      <label>Área</label><select value={f.area} onChange={e=>setF({...f,area:e.target.value})}>{AREAS.map(a=><option key={a.k} value={a.k}>{a.nome}</option>)}</select>
-      <label>Tema</label><input value={f.tema} onChange={e=>setF({...f,tema:e.target.value})}/>
-      <label>Transversais (vírgula)</label><input value={f.transv} onChange={e=>setF({...f,transv:e.target.value})}/>
-      <label>Enunciado</label><textarea value={f.enun} onChange={e=>setF({...f,enun:e.target.value})}/>
-      {[0,1,2,3].map(i=><div key={i}><label>Alt {["A","B","C","D"][i]}</label><input value={f["a"+i]} onChange={e=>setF({...f,["a"+i]:e.target.value})}/></div>)}
-      <label>Correta</label><select value={f.correta} onChange={e=>setF({...f,correta:e.target.value})}>{[0,1,2,3].map(i=><option key={i} value={i}>{["A","B","C","D"][i]}</option>)}</select>
-      <label>Comentário</label><textarea value={f.coment} onChange={e=>setF({...f,coment:e.target.value})}/>
-      <label className="row" style={{marginTop:12,gap:8}}><input type="checkbox" style={{width:"auto"}} checked={f.premium} onChange={e=>setF({...f,premium:e.target.checked})}/> <span style={{margin:0}}>Premium (só PRO)</span></label>
-      {msg&&<div className="muted" style={{fontSize:12,marginTop:10,color:"var(--acc2)"}}>{msg}</div>}
-      <div className="row" style={{marginTop:14}}><button className="btn" onClick={add}>Adicionar</button></div>
+  const porArea={};
+  AREAS.forEach(a=>porArea[a.k]={tot:0,temas:new Set()});
+  questoes.forEach(q=>{ if(porArea[q.area]){porArea[q.area].tot++; porArea[q.area].temas.add(q.tema);} });
+  return <div>
+    <div className="card" style={{marginBottom:16}}>
+      <h3 style={{fontSize:17,marginBottom:4}}>Banco de questões</h3>
+      <div className="muted" style={{fontSize:13}}>Você tem <b>{questoes.length}</b> questões no acervo. Precisa de mais? Gere questões inéditas no estilo INEP na aba <b>Gerar questão</b> — elas entram aqui automaticamente.</div>
     </div>
-    <div className="card"><h3 style={{fontSize:16,marginBottom:10}}>No banco ({questoes.length})</h3>
-      <table><thead><tr><th>Área</th><th>Tema</th><th>Plano</th></tr></thead><tbody>
-        {questoes.map(q=><tr key={q.id}><td><span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{q.area}</span></td><td style={{fontSize:13}}>{q.tema}</td><td style={{fontSize:12}} className="muted">{q.premium?"PRO":"free"}</td></tr>)}
-      </tbody></table></div>
+    <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12}}>
+      {AREAS.map(a=><div key={a.k} className="card">
+        <div className="row" style={{justifyContent:"space-between"}}>
+          <span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{a.k}</span>
+          <span className="kpi" style={{fontSize:26}}>{porArea[a.k].tot}</span>
+        </div>
+        <div style={{fontSize:13,marginTop:4}}>{a.nome}</div>
+        <div className="muted" style={{fontSize:12,marginTop:2}}>{porArea[a.k].temas.size} temas</div>
+      </div>)}
+    </div>
+  </div>;
+}
+
+/* =================== ESTUDAR ASSUNTO (fluxo de etapas) =================== */
+function EstudarAssunto({t,store,avaliarDominio,registrar,irTreinar,isPro,onAssinar}){
+  // etapas: 0 aula · 1 como pensar · 2 pratique · 3 fixe
+  const [etapa,setEtapa]=useState(0);
+  const d=store.dominio[t.id];
+  const temAula=!!t.aula;
+  const etapas=[
+    temAula?"Aula":"Resumo",
+    "Como pensar",
+    "Pratique",
+    "Fixe",
+  ];
+  const irPara=n=>setEtapa(Math.max(0,Math.min(etapas.length-1,n)));
+
+  return <div>
+    {/* trilho de progresso das etapas */}
+    <div className="row" style={{gap:6,marginBottom:16,flexWrap:"wrap"}}>
+      {etapas.map((e,i)=><button key={i} onClick={()=>irPara(i)}
+        style={{flex:1,minWidth:70,padding:"7px 6px",borderRadius:8,fontSize:12,fontWeight:700,cursor:"pointer",
+          border:"1px solid "+(i===etapa?"var(--acc)":"var(--line)"),
+          background:i<etapa?"color-mix(in srgb,var(--acc) 20%,var(--panel))":(i===etapa?"var(--panel2)":"transparent"),
+          color:i<=etapa?"var(--ink)":"var(--muted)"}}>
+        {i<etapa?"✓ ":""}{e}
+      </button>)}
+    </div>
+
+    {/* ETAPA 0 — AULA */}
+    {etapa===0 && <div>
+      {temAula
+        ? <AulaAdaptativa tema={t.nome} aula={t.aula}/>
+        : <div><div className="tag" style={{color:"var(--acc)",marginBottom:6}}>Resumo</div>
+            <ul style={{margin:"0 0 0 18px",padding:0,fontSize:14.5,lineHeight:1.7}}>{t.nucleo.map((n,i)=><li key={i} style={{marginBottom:6}}>{n}</li>)}</ul>
+          </div>}
+      <TiraDuvida tema={t.nome} contexto={(t.aula||t.nucleo||[]).join(" ")}/>
+    </div>}
+
+    {/* ETAPA 1 — COMO PENSAR */}
+    {etapa===1 && <div>
+      <div className="tag" style={{color:"var(--acc)",marginBottom:8}}>Como pensar (passo a passo)</div>
+      {(t.raciocinio||t.nucleo).map((r,i)=>
+        <div key={i} className="row" style={{alignItems:"flex-start",gap:10,marginBottom:10}}>
+          <span style={{minWidth:26,height:26,borderRadius:99,background:"var(--acc)",color:"var(--bg)",fontWeight:800,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span>
+          <span style={{fontSize:14.5,lineHeight:1.55}}>{r.replace(/^\d+\.\s*/,"")}</span>
+        </div>)}
+      <div className="b-pega block" style={{marginTop:12}}><b>Pegadinha da banca:</b> {t.pega}</div>
+    </div>}
+
+    {/* ETAPA 2 — PRATIQUE (questoes do tema, grudadas na aula) */}
+    {etapa===2 && <PraticaTema t={t} store={store} registrar={registrar} isPro={isPro} onAssinar={onAssinar}/>}
+
+    {/* ETAPA 3 — FIXE */}
+    {etapa===3 && <div>
+      <div className="b-mne block"><b>Gancho pra memorizar:</b> {t.mne}</div>
+      <div className="b-sus block"><b>Âncora SUS/DCN:</b> {t.sus}</div>
+      <div className="b-metodo block" style={{marginTop:10}}><b>Em uma frase:</b> {t.nucleo[0]}</div>
+      <div style={{marginTop:16}}><b style={{fontSize:14}}>Consegue explicar esse tema agora?</b>
+        <div className="rate">{[1,2,3,4,5].map(n=><button key={n} className={d&&d.nivel===n?"on":""} onClick={()=>avaliarDominio(t.id,n)}>{n}</button>)}</div>
+        <div className="muted" style={{fontSize:11,marginTop:5}}>1 = ainda não entendi · 5 = ensinaria um colega. Isto ajusta sua trilha e a revisão.</div>
+      </div>
+      {d && <div className="block b-nucleo" style={{marginTop:12}}>Domínio salvo: {d.nivel}/5. Vou te lembrar de revisar este tema na hora certa. ✅</div>}
+    </div>}
+
+    {/* navegacao entre etapas */}
+    <div className="row" style={{justifyContent:"space-between",marginTop:20}}>
+      <button className="btn ghost sm" disabled={etapa===0} onClick={()=>irPara(etapa-1)}>← Voltar</button>
+      {etapa<etapas.length-1
+        ? <button className="btn sm" onClick={()=>irPara(etapa+1)}>{["Entendi, como penso?","Agora pratico","Fixar e avaliar"][etapa]} →</button>
+        : <button className="btn sm" onClick={irTreinar}>Praticar mais questões →</button>}
+    </div>
+  </div>;
+}
+
+/* Prática dentro do estudo: questões só do tema/área, grudadas na aula */
+function PraticaTema({t,store,registrar,isPro,onAssinar}){
+  const pool=store.questoes.filter(q=>q.area===t.area && (isPro||!q.premium));
+  const fila=useMemo(()=>pool.slice().sort(()=>Math.random()-0.5).slice(0,3),[t.id]);
+  const [i,setI]=useState(0);const [feito,setFeito]=useState(false);
+  useEffect(()=>{setI(0);setFeito(false);},[t.id]);
+  if(fila.length===0) return <div className="muted" style={{fontSize:14}}>Sem questões deste tema ainda. Use a aba Praticar para gerar com IA.</div>;
+  const q=fila[i];
+  return <div>
+    <div className="muted" style={{fontSize:13,marginBottom:10}}>Responda no calor da aula — é assim que fixa. ({i+1}/{fila.length})</div>
+    <QuestionCard q={q} indice={i} total={fila.length} onResp={(qq,ok)=>{if(registrar)registrar(qq,ok);setFeito(true);}}/>
+    <div className="row" style={{marginTop:12}}>
+      {i<fila.length-1
+        ? <button className="btn sm" disabled={!feito} onClick={()=>{setFeito(false);setI(i+1);}}>Próxima do tema</button>
+        : <span className="muted" style={{fontSize:13}}>{feito?"Boa! Avance para fixar. ✓":""}</span>}
+    </div>
   </div>;
 }
 
