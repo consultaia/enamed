@@ -132,17 +132,20 @@ const CURRICULO = [
    nucleo:["Sequência fixa: 1) pH 2) HCO3 e pCO2 (distúrbio primário) 3) ânion gap 4) compensação esperada.","Acidose metabólica: ânion gap ALTO vs NORMAL/hiperclorêmica.","Compensação: fórmula de Winter (pCO2 = 1,5 x HCO3 + 8 +/- 2)."],
    pega:"Sempre cheque se há distúrbio MISTO. Gaso foi a questão 2 do ENAMED 2025 (anulada).",mne:"Ânion gap alto = MUDPILES.",sus:"Interpretação de gaso cai contextualizada em caso clínico."},
   {id:"cm-has",area:"CM",nome:"Hipertensão — manejo e metas",yield:3,
-   aula:["Pressão alta é quando a força do sangue contra a parede das artérias fica cronicamente elevada. O problema é que ela quase nunca dá sintoma — a pessoa se sente bem enquanto as artérias, o coração, os rins e os olhos vão sendo lesados aos poucos. Por isso a HAS é chamada de 'assassina silenciosa', e por isso o rastreamento (medir a pressão) importa tanto na atenção primária.",
-     "Pra dizer que alguém tem hipertensão você não usa uma medida só: precisa confirmar (>=140/90 em consultório em dias diferentes, ou por MAPA/MRPA, que medem fora do consultório e evitam o 'nervosismo do jaleco branco'). Diagnóstico apressado com uma única medida alta é erro clássico.",
-     "O tratamento tem dois pilares. Primeiro, SEMPRE, mudança de estilo de vida: menos sal, perda de peso, atividade física, menos álcool — isso vale pra todo hipertenso. Segundo, o remédio, escolhido pelo estágio e pelo risco. As primeiras linhas são três classes: diurético tiazídico, IECA/BRA (que agem no sistema renina-angiotensina) e bloqueador de canal de cálcio. Todas baratas e disponíveis no SUS.",
-     "Um detalhe que a banca adora: betabloqueador NÃO é primeira linha na hipertensão sem uma indicação específica (como doença coronariana ou insuficiência cardíaca). E é preciso separar urgência (pressão muito alta SEM lesão aguda de órgão) de emergência (COM lesão aguda — AVC, edema pulmonar) — porque a conduta e a velocidade de baixar a pressão são completamente diferentes."],
-   raciocinio:["1. Confirme o diagnóstico: mais de uma medida, ou MAPA/MRPA. Não feche com uma aferição só.",
-     "2. Classifique o estágio e avalie risco cardiovascular e lesão de órgão-alvo.",
-     "3. Sempre prescreva mudança de estilo de vida + o anti-hipertensivo adequado ao estágio.",
-     "4. Escolha 1ª linha (tiazídico, IECA/BRA ou BCC). Betabloqueador só com indicação específica.",
-     "5. Diante de pressão muito alta, pergunte: há lesão AGUDA de órgão? Sim = emergência; não = urgência."],
-   nucleo:["Diagnóstico: >=140/90 confirmado, ou MAPA/MRPA.","1ª linha: tiazídico OU IECA/BRA OU BCC.","Emergência (lesão aguda de órgão-alvo) x urgência."],
-   pega:"Betabloqueador NÃO é 1ª linha sem indicação específica.",mne:"Primeiras linhas = 'TIB'.",sus:"HiperDia / linha de cuidado na APS."},
+   questoes:["has_q1","has_q2","has_q3","has_q4"],
+   aula:["Pressão arterial é a força que o sangue faz contra a parede das artérias. Ela sobe e desce ao longo do dia (sobe no esforço, cai no sono) — isso é normal. O problema é quando fica CRONICAMENTE alta: aí, dia após dia, essa pressão extra vai desgastando as artérias, sobrecarregando o coração (que precisa bombear contra mais resistência) e lesando órgãos que dependem de vasos finos — rim, retina, cérebro. Como isso acontece em silêncio, por anos, sem dor nem sintoma, a HAS é a 'assassina silenciosa'. É por isso que medir a pressão de rotina, mesmo em quem se sente bem, salva vidas — e é papel central da atenção primária.",
+     "Diagnóstico é o primeiro lugar onde a banca te derruba. NÃO se fecha hipertensão com uma única medida alta. O ponto de corte no consultório é 140/90 mmHg, mas precisa ser confirmado — em outra consulta, ou (melhor) por medida fora do consultório: a MAPA (aparelho que mede por 24h) ou a MRPA (o paciente mede em casa). Isso existe porque muita gente sobe a pressão só de estar no médico (o 'efeito do jaleco branco') e seria rotulada e medicada à toa. Guarde: uma aferição alta = investigar, não diagnosticar.",
+     "O tratamento tem dois pilares que andam JUNTOS. O primeiro, para TODO hipertenso, é a mudança de estilo de vida: reduzir sal (o sódio retém água e sobe a pressão), perder peso, atividade física regular, moderar álcool, parar de fumar. Sozinha, em casos leves, ela às vezes já resolve. O segundo pilar é o remédio, e as três primeiras linhas — todas baratas e no SUS — são: diurético tiazídico (tira sal e água), IECA ou BRA (relaxam o vaso agindo no sistema renina-angiotensina) e bloqueador de canal de cálcio (relaxa a musculatura do vaso). A escolha entre elas depende do perfil: por exemplo, IECA/BRA são preferidos no diabético com doença renal, porque protegem o rim.",
+     "Agora as duas pegadinhas clássicas. Primeira: o betabloqueador (propranolol, atenolol) NÃO é primeira linha na hipertensão comum. Ele só entra de largada quando há uma indicação a mais — o paciente também tem doença coronariana, insuficiência cardíaca ou certas arritmias. Marcar betabloqueador como 'tratamento inicial da HAS' é errar. Segunda: saber diferenciar URGÊNCIA de EMERGÊNCIA hipertensiva. Pressão muito alta (ex.: 200/120) SEM lesão aguda de órgão é urgência — baixa-se devagar, com medicação oral, em horas. Pressão alta COM lesão aguda acontecendo agora (AVC, edema agudo de pulmão, dor torácica de infarto, eclâmpsia) é emergência — precisa de medicação venosa e redução controlada, em ambiente monitorado. Baixar a pressão rápido demais numa urgência (que não precisava) pode causar isquemia. A conduta muda tudo conforme esse par.",
+     "Por fim, a meta e o acompanhamento. A meta geral é abaixo de 140/90, mas é individualizada: mais rígida (130/80) em diabéticos ou alto risco cardiovascular; mais frouxa em idosos muito frágeis, onde baixar demais causa queda e tontura. Na prática do SUS, o hipertensão entra na linha de cuidado (o antigo HiperDia), com consultas regulares, aferição, e busca ativa de quem abandona — porque adesão é o maior desafio: como não dói, o paciente para o remédio. O médico de família acompanha isso ao longo do tempo."],
+   raciocinio:["Confirme antes de rotular: uma medida alta não fecha diagnóstico. Peça nova aferição ou MAPA/MRPA.",
+     "Avalie o risco: tem lesão de órgão-alvo? Diabetes? Doença renal? Isso define a meta e a droga preferida.",
+     "Prescreva SEMPRE mudança de estilo de vida — em todos, do leve ao grave.",
+     "Escolha a 1ª linha certa: tiazídico, IECA/BRA ou BCC. Betabloqueador só se houver indicação extra (coronariopatia, IC).",
+     "Diante de pressão muito alta: procure lesão AGUDA de órgão. Achou (AVC, EAP, IAM)? Emergência (venoso). Não achou? Urgência (oral, devagar)."],
+   nucleo:["Diagnóstico: ≥140/90 CONFIRMADO (nova medida ou MAPA/MRPA) — nunca com uma só aferição.","1ª linha: tiazídico OU IECA/BRA OU BCC. Betabloqueador não é 1ª linha sem indicação específica.","Emergência (lesão aguda de órgão → venoso) x urgência (sem lesão → oral, devagar).","Meta ~140/90, mais rígida no diabético/alto risco."],
+   pega:"Betabloqueador NÃO é 1ª linha sem indicação (coronariopatia/IC). E não confunda urgência (oral) com emergência (venoso, há lesão aguda de órgão).",
+   mne:"1ª linha = 'TIB': Tiazídico, IECA/BRA, BCC.",sus:"Linha de cuidado da HAS na APS (HiperDia): rastreio, adesão e busca ativa."},
   {id:"cm-dm2",area:"CM",nome:"Diabetes tipo 2",yield:3,
    aula:["Diabetes tipo 2 é uma doença em que o corpo não consegue mais controlar bem o açúcar no sangue. Diferente do tipo 1 (que é falta de insulina), no tipo 2 o corpo até produz insulina, mas as células ficam 'surdas' a ela — é a resistência à insulina. Com o tempo o pâncreas cansa e a glicose sobe. O excesso de açúcar circulando vai lesando vasos pequenos e grandes: olhos, rins, nervos e coração.",
      "O diagnóstico se faz por qualquer um destes: glicemia de jejum >=126, HbA1c >=6,5%, glicemia 2h após o TOTG >=200, ou glicemia casual >=200 com sintomas. A HbA1c é útil porque mostra a média do açúcar dos últimos 2-3 meses — não depende de o paciente estar em jejum naquele dia.",
@@ -218,6 +221,10 @@ const CURRICULO = [
 const SEED = [
   {id:"cm1",area:"CM",tema:"Endocrinologia — DM2",transv:[],dif:1,premium:false,enun:"Homem de 52 anos, IMC 31, HbA1c 7,4% confirmada, sem comorbidade. Conduta inicial?",alts:["Insulina NPH","Metformina","Glibenclamida","Só mudança de estilo de vida por 12 meses"],correta:1,coment:"Metformina é 1ª linha no DM2 sem contraindicação."},
   {id:"mfc1",area:"MFC",tema:"APS — Atributos",transv:[],dif:1,premium:false,enun:"Paciente sempre atendido pela mesma equipe da ESF, que acompanha sua história ao longo dos anos. Atributo?",alts:["Integralidade","Longitudinalidade","Competência cultural","Focalização"],correta:1,coment:"Acompanhamento contínuo no tempo = longitudinalidade."},
+  {id:"has_q1",area:"CM",tema:"Cardiologia — HAS",transv:[],dif:2,premium:false,enun:"Homem de 55 anos, assintomático, comparece à UBS com PA de 152/96 mmHg aferida hoje. Nega comorbidades. Qual a conduta MAIS adequada neste momento?",alts:["Iniciar dois anti-hipertensivos imediatamente","Confirmar o diagnóstico com nova medida ou MAPA/MRPA antes de rotular como hipertenso","Prescrever betabloqueador e reavaliar em 30 dias","Solicitar internação para controle pressórico"],correta:1,coment:"Uma única aferição não fecha HAS. Confirma-se com nova medida em outra consulta ou, idealmente, MAPA/MRPA (afasta efeito do jaleco branco). Rotular e medicar com uma medida só é erro clássico."},
+  {id:"has_q2",area:"CM",tema:"Cardiologia — HAS",transv:[],dif:2,premium:false,enun:"Mulher de 60 anos, HAS estágio 1 confirmada, sem outras comorbidades, risco cardiovascular baixo. Já orientada quanto a estilo de vida. Qual a monoterapia inicial mais apropriada e custo-efetiva no SUS?",alts:["Betabloqueador (atenolol)","Diurético tiazídico, IECA/BRA ou bloqueador de canal de cálcio","Alfabloqueador","Espironolactona"],correta:1,coment:"As três primeiras linhas são tiazídico, IECA/BRA e BCC. Betabloqueador NÃO é 1ª linha sem indicação específica (coronariopatia, IC)."},
+  {id:"has_q3",area:"CM",tema:"Cardiologia — HAS",transv:[],dif:2,premium:false,enun:"Paciente chega ao PS com PA 210/125 mmHg, com quadro de déficit neurológico focal agudo (suspeita de AVC). Como classificar e conduzir?",alts:["Urgência hipertensiva; baixar com anti-hipertensivo oral em casa","Emergência hipertensiva; manejo com medicação venosa e redução controlada em ambiente monitorado","Pseudocrise; apenas repouso","Urgência; reduzir a PA o mais rápido possível"],correta:1,coment:"Há lesão AGUDA de órgão-alvo (cérebro) = emergência hipertensiva: medicação venosa, redução controlada e monitorada. Baixar rápido demais pode piorar a isquemia cerebral."},
+  {id:"has_q4",area:"CM",tema:"Cardiologia — HAS",transv:[],dif:2,premium:false,enun:"Homem de 58 anos com HAS e doença renal crônica diabética. Qual classe de anti-hipertensivo é preferencial por oferecer proteção renal adicional?",alts:["Diurético tiazídico","IECA ou BRA","Bloqueador de canal de cálcio","Betabloqueador"],correta:1,coment:"No diabético com doença renal, IECA/BRA são preferidos por reduzir a proteinúria e proteger o rim, além do efeito anti-hipertensivo."},
 ];
 
 function schedule(prev,ok){
@@ -326,7 +333,11 @@ function Shell({session}){
       sb.from("assinaturas").select("*").eq("user_id",uid).order("criado_em",{ascending:false}).limit(1),
     ]);
     let qs=(q.data||[]).map(x=>({id:x.id,area:x.area,tema:x.tema,transv:x.transv||[],dif:x.dificuldade,enun:x.enunciado,alts:x.alternativas,correta:x.correta,coment:x.comentario,premium:x.premium}));
-    if(qs.length===0) qs=SEED; // fallback se o banco ainda nao foi populado
+    if(qs.length===0){ qs=SEED; }
+    else { // garante que as questoes-de-assunto do SEED existam (mescla sem duplicar)
+      const ids=new Set(qs.map(x=>x.id));
+      SEED.forEach(sq=>{ if(!ids.has(sq.id)) qs.push(sq); });
+    }
     setQuestoes(qs);
     setLog((r.data||[]).map(x=>({id:x.questao_id,area:x.area,tema:x.tema,ok:x.acertou})));
     const dm={};(d.data||[]).forEach(x=>dm[x.topico_id]={nivel:x.nivel,last:x.atualizado_em});setDominio(dm);
@@ -798,18 +809,22 @@ function EstudarAssunto({t,store,avaliarDominio,registrar,irTreinar,isPro,onAssi
 
 /* Prática dentro do estudo: questões só do tema/área, grudadas na aula */
 function PraticaTema({t,store,registrar,isPro,onAssinar}){
-  const pool=store.questoes.filter(q=>q.area===t.area && (isPro||!q.premium));
-  const fila=useMemo(()=>pool.slice().sort(()=>Math.random()-0.5).slice(0,3),[t.id]);
+  // questoes DO ASSUNTO (ids listados no curriculo); fallback: por tema textual
+  const idsDoTema=t.questoes||[];
+  const pool=store.questoes.filter(q=>
+    (idsDoTema.length ? idsDoTema.includes(q.id) : (q.tema&&t.nome&&q.tema.toLowerCase().includes(t.nome.split("—")[0].trim().toLowerCase())))
+    && (isPro||!q.premium));
+  const fila=useMemo(()=>pool.slice().sort(()=>Math.random()-0.5).slice(0,5),[t.id]);
   const [i,setI]=useState(0);const [feito,setFeito]=useState(false);
   useEffect(()=>{setI(0);setFeito(false);},[t.id]);
-  if(fila.length===0) return <div className="muted" style={{fontSize:14}}>Sem questões deste tema ainda. Use a aba Praticar para gerar com IA.</div>;
+  if(fila.length===0) return <div className="b-metodo block" style={{fontSize:14}}>As questões específicas deste assunto entram aqui. Enquanto isso, use a aba <b>Praticar</b> para treinar questões de {areaNome(t.area)}.</div>;
   const q=fila[i];
   return <div>
-    <div className="muted" style={{fontSize:13,marginBottom:10}}>Responda no calor da aula — é assim que fixa. ({i+1}/{fila.length})</div>
+    <div className="muted" style={{fontSize:13,marginBottom:10}}>Questões de <b>{t.nome}</b> — responda no calor da aula. ({i+1}/{fila.length})</div>
     <QuestionCard q={q} indice={i} total={fila.length} onResp={(qq,ok)=>{if(registrar)registrar(qq,ok);setFeito(true);}}/>
     <div className="row" style={{marginTop:12}}>
       {i<fila.length-1
-        ? <button className="btn sm" disabled={!feito} onClick={()=>{setFeito(false);setI(i+1);}}>Próxima do tema</button>
+        ? <button className="btn sm" disabled={!feito} onClick={()=>{setFeito(false);setI(i+1);}}>Próxima questão</button>
         : <span className="muted" style={{fontSize:13}}>{feito?"Boa! Avance para fixar. ✓":""}</span>}
     </div>
   </div>;
