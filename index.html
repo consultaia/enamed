@@ -1746,7 +1746,7 @@ function Shell({session}){
     const {data}=await sb.from("assinaturas").select("*").eq("user_id",uid).order("criado_em",{ascending:false}).limit(1);
     const a=(data&&data[0])||{plano:"free",status:"ativa"};
     setAssinatura(a);
-    return a.status==="ativa"&&a.plano!=="free";
+    return a.status==="ativa"&&a.plano!=="free"&&(!a.expira_em||new Date(a.expira_em)>new Date());
   };
 
   useEffect(()=>{(async()=>{
@@ -1772,7 +1772,7 @@ function Shell({session}){
     setLoading(false);
   })()},[uid]);
 
-  const isPro = assinatura && assinatura.status==="ativa" && assinatura.plano!=="free";
+  const isPro = assinatura && assinatura.status==="ativa" && assinatura.plano!=="free" && (!assinatura.expira_em || new Date(assinatura.expira_em)>new Date());
 
   const registrar=async(q,ok)=>{
     setLog(l=>[...l,{id:q.id,area:q.area,tema:q.tema,ok}]);
@@ -1822,7 +1822,7 @@ function Shell({session}){
     {!isPro && <div className="lock" style={{marginTop:16,textAlign:"left"}}>
       <b>Você está na versão de demonstração.</b> Ela mostra 1 assunto da Trilha e 2 questões — uma amostra do método.
       <div className="muted" style={{fontSize:13,marginTop:6}}>O Combo até o ENAMED libera: os {CURRICULO.length} assuntos da Trilha, {questoes.length}+ questões, simulados no formato oficial, dashboard de padrões completo e resolver questão por foto.</div>
-      <div style={{marginTop:12}}><button className="btn" onClick={()=>setShowAssinar(true)}>Assinar Combo até o ENAMED</button></div>
+      <div style={{marginTop:12}}><button className="btn" onClick={()=>setShowAssinar(true)}>Liberar acesso — R$ 49,90 (6 meses)</button></div>
     </div>}
     {showAssinar && <Assinar uid={uid} email={session.user.email} onClose={()=>setShowAssinar(false)} onVerificar={recarregarAssinatura}/>}
 
@@ -2643,23 +2643,14 @@ function Assinar({uid,email,onClose,onVerificar}){
       </div>
 
       {etapa==="plano" && <div>
-        <div className="muted" style={{fontSize:14,marginBottom:14}}>Pagamento por Pix. Acesso liberado na hora após a confirmação.</div>
+        <div className="muted" style={{fontSize:14,marginBottom:14}}>Pagamento único por Pix. Acesso liberado na hora após a confirmação.</div>
 
         <div className="card" style={{background:"linear-gradient(135deg,#123528,#16302b)",border:"1px solid var(--gold)",marginBottom:12,position:"relative"}}>
-          <span className="pill" style={{position:"absolute",top:-10,right:14,color:"#04120c",background:"var(--gold)",borderColor:"var(--gold)"}}>MAIS ESCOLHIDO</span>
-          <b style={{fontSize:16}}>Combo até o ENAMED</b>
-          <div style={{fontSize:26,fontWeight:800,letterSpacing:"-.02em",margin:"4px 0 0"}}>R$ 39<span style={{fontSize:13,fontWeight:600,color:"var(--muted)"}}> pagamento único</span></div>
-          <div className="muted" style={{fontSize:13,margin:"2px 0 4px"}}>Acesso a tudo até a prova (13/09/2026). Sem mensalidade.</div>
-          <div style={{fontSize:12,color:"var(--acc)",marginBottom:10}}>Menos que um lanche para organizar sua reta final.</div>
-          <button className="btn" style={{width:"100%"}} onClick={()=>criar("combo_enamed")}>Assinar o Combo (Pix)</button>
-        </div>
-
-        <div style={{textAlign:"center",fontSize:12}} className="muted">ou, se preferir testar mês a mês</div>
-        <div className="card" style={{background:"var(--panel2)",marginTop:10}}>
-          <div className="row" style={{justifyContent:"space-between"}}>
-            <div><b style={{fontSize:14}}>Mensal — R$ 19</b><div className="muted" style={{fontSize:12,marginTop:2}}>Acesso completo por 30 dias.</div></div>
-            <button className="btn ghost sm" onClick={()=>criar("pro_mensal")}>Pix mensal</button>
-          </div>
+          <b style={{fontSize:16}}>Acesso completo — 6 meses</b>
+          <div style={{fontSize:28,fontWeight:800,letterSpacing:"-.02em",margin:"4px 0 0"}}>R$ 49,90<span style={{fontSize:13,fontWeight:600,color:"var(--muted)"}}> pagamento único</span></div>
+          <div className="muted" style={{fontSize:13,margin:"2px 0 6px"}}>Tudo liberado por 6 meses: 64 assuntos, 258 questões, simulados, aula adaptativa e correção por IA. Sem mensalidade, sem renovação automática.</div>
+          <div style={{fontSize:12,color:"var(--acc)",marginBottom:12}}>Menos de R$ 9 por mês para organizar sua reta final.</div>
+          <button className="btn" style={{width:"100%"}} onClick={()=>criar("semestral")}>Pagar R$ 49,90 no Pix</button>
         </div>
       </div>}
 
