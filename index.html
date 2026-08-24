@@ -125,6 +125,19 @@ const AREAS = [
 const areaNome=k=>(AREAS.find(a=>a.k===k)||{}).nome||k;
 
 /* ---- CURRÍCULO (conteúdo da Trilha; vive no código) ---- */
+const FLASHCARDS = [
+  { id:"cm-acidobase-1", assunto:"cm-acidobase", frente:"Qual a faixa normal do pH sanguíneo e por que é tão estreita?", verso:"7,35 a 7,45. As enzimas vitais só trabalham bem nessa faixa; fora dela, reações essenciais falham." },
+  { id:"cm-acidobase-2", assunto:"cm-acidobase", frente:"Quem regula o CO2 e o HCO3 — e qual é ácido, qual é base?", verso:"CO2 = pulmão = ácido. HCO3 = rim = base. Distúrbio no CO2 é respiratório; no HCO3, metabólico." },
+  { id:"cm-acidobase-3", assunto:"cm-acidobase", frente:"pH < 7,35 e pH > 7,45: como se chamam?", verso:"Abaixo de 7,35 = acidose. Acima de 7,45 = alcalose." },
+  { id:"cm-acidobase-4", assunto:"cm-acidobase", frente:"O que é 'compensação' num distúrbio ácido-base?", verso:"O corpo puxando o pH de volta ao normal. Ex.: na acidose metabólica, o pulmão acelera para eliminar CO2." },
+  { id:"cm-acidobase-5", assunto:"cm-acidobase", frente:"Compensação pulmonar x renal: qual é rápida, qual é lenta?", verso:"Pulmonar: rápida (minutos a horas). Renal: lenta (horas a dias)." },
+  { id:"cm-acidobase-6", assunto:"cm-acidobase", frente:"Que respiração é clássica da cetoacidose diabética?", verso:"Kussmaul (rápida e profunda): o pulmão elimina CO2 para compensar a acidose metabólica." },
+  { id:"cm-acidobase-7", assunto:"cm-acidobase", frente:"Acidose metabólica com ânion gap ALTO: o que houve?", verso:"Acúmulo de ácido novo: cetoácidos (cetoacidose), lactato (choque) ou toxinas." },
+  { id:"cm-acidobase-8", assunto:"cm-acidobase", frente:"Acidose metabólica com ânion gap NORMAL: mecanismo?", verso:"Perda de bicarbonato (diarreia intensa, alguns problemas renais). Também chamada hiperclorêmica." },
+  { id:"cm-acidobase-9", assunto:"cm-acidobase", frente:"Para que serve o ânion gap, em uma frase?", verso:"Estima se há ácido escondido sobrando no sangue — aponta se entrou um ácido novo na jogada." },
+  { id:"cm-acidobase-10", assunto:"cm-acidobase", frente:"Fórmula de Winter: para que serve?", verso:"pCO2 esperada = 1,5 × HCO3 + 8 (±2). Se a real bate, distúrbio único bem compensado; se não, há distúrbio misto." },
+];
+
 const CURRICULO = [
   {id:"cm-acidobase",area:"CM",nome:"Distúrbios ácido-base",yield:3,
    questoes:["cm_acidobase_q1","cm_acidobase_q2","cm_acidobase_q3","cm_acidobase_q4"],
@@ -1846,12 +1859,13 @@ function Shell({session}){
       </div>}
 
       <div className="nav">
-        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["dash","📈 Meu progresso"]].map(([k,l])=>
+        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["flash","🃏 Flashcards"],["dash","📈 Meu progresso"]].map(([k,l])=>
           <button key={k} className={tab===k?"on":""} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
 
       {tab==="trilha" && <Trilha store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={isPro} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
       {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} bloqueadas={isPro?0:bloqueadasFree} isPro={isPro} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
+      {tab==="flash" && (isPro ? <Flashcards cards={FLASHCARDS} curriculo={CURRICULO} sb={sb} uid={uid}/> : <TravaFree titulo="Flashcards é PRO" texto="Revise todos os assuntos em cartões rápidos, com baralho diário e sequência de dias estudados." onAssinar={()=>setShowAssinar(true)}/>)}
       {tab==="dash" && (isPro ? <Dash store={store} temasFracos={temasFracos} onRefazer={()=>setDiag("rapido")}/> : <TravaFree titulo="Meu progresso é PRO" texto="Veja seu acerto por área, os temas onde mais erra e o quanto já dominou da trilha." onAssinar={()=>setShowAssinar(true)}/>)}
     </div>}
   </div>;
@@ -2452,6 +2466,109 @@ function TiraDuvida({tema,contexto}){
 }
 
 /* =================== TRAVA FREE (cadeado reutilizavel) =================== */
+function Flashcards({cards, curriculo, sb, uid}){
+  const nomeAssunto = (a)=>{ const t=(curriculo||[]).find(x=>x.id===a); return t?t.nome:a; };
+  const hoje = new Date().toISOString().slice(0,10);
+
+  // baralho do dia: sorteio estável por data (mesmo baralho o dia todo)
+  const baralhoDia = React.useMemo(()=>{
+    const seed = hoje.split("-").join("");
+    let s = parseInt(seed,10)||1;
+    const rnd = ()=>{ s=(s*9301+49297)%233280; return s/233280; };
+    const arr=[...cards];
+    for(let i=arr.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+    return arr.slice(0, Math.min(20, arr.length));
+  },[cards, hoje]);
+
+  const [modo,setModo]=useState("dia");        // "dia" ou "tudo"
+  const [i,setI]=useState(0);
+  const [virado,setVirado]=useState(false);
+  const [feitos,setFeitos]=useState({sabia:0,revisar:0});
+  const [streak,setStreak]=useState(null);
+  const [fim,setFim]=useState(false);
+
+  const fila = modo==="dia" ? baralhoDia : cards;
+  const card = fila[i];
+
+  React.useEffect(()=>{
+    if(!sb||!uid) return;
+    sb.from("flashcard_streak").select("dias_seguidos,ultimo_dia").eq("user_id",uid).maybeSingle()
+      .then(({data})=>{ if(data) setStreak(data); });
+  },[sb,uid]);
+
+  const marcar=async(sabia)=>{
+    setFeitos(f=>({...f, sabia:f.sabia+(sabia?1:0), revisar:f.revisar+(sabia?0:1)}));
+    if(sb&&uid&&card){
+      try{ await sb.from("flashcard_progresso").upsert({user_id:uid, card_id:card.id, sabia, visto_em:new Date().toISOString()},{onConflict:"user_id,card_id"}); }catch(e){}
+    }
+    if(i+1>=fila.length){ await fecharDia(); setFim(true); }
+    else { setI(i+1); setVirado(false); }
+  };
+
+  const fecharDia=async()=>{
+    if(!sb||!uid) return;
+    try{
+      const prev = streak;
+      let dias=1;
+      if(prev&&prev.ultimo_dia){
+        const ontem=new Date(Date.now()-86400000).toISOString().slice(0,10);
+        if(prev.ultimo_dia===hoje){ dias=prev.dias_seguidos; }       // já contou hoje
+        else if(prev.ultimo_dia===ontem){ dias=(prev.dias_seguidos||0)+1; } // sequência
+        else { dias=1; }                                             // quebrou
+      }
+      await sb.from("flashcard_streak").upsert({user_id:uid, dias_seguidos:dias, ultimo_dia:hoje, atualizado_em:new Date().toISOString()},{onConflict:"user_id"});
+      setStreak({dias_seguidos:dias, ultimo_dia:hoje});
+    }catch(e){}
+  };
+
+  const recomecar=(m)=>{ setModo(m); setI(0); setVirado(false); setFeitos({sabia:0,revisar:0}); setFim(false); };
+
+  if(fim){
+    return <div className="card" style={{textAlign:"center",padding:"32px 22px"}}>
+      <div style={{fontSize:34,marginBottom:6}}>🎉</div>
+      <h3 style={{margin:"0 0 6px"}}>Baralho concluído!</h3>
+      <p className="muted" style={{margin:"0 0 4px"}}>Você sabia <b style={{color:"var(--acc)"}}>{feitos.sabia}</b> e marcou <b>{feitos.revisar}</b> para revisar.</p>
+      {streak && <p style={{margin:"8px 0 18px",fontFamily:"var(--mono)",color:"var(--gold,#e6b450)"}}>🔥 {streak.dias_seguidos} {streak.dias_seguidos===1?"dia":"dias"} seguidos</p>}
+      <div className="row" style={{gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+        <button className="btn" onClick={()=>recomecar("dia")}>Refazer o baralho do dia</button>
+        <button className="btn ghost" onClick={()=>recomecar("tudo")}>Revisar todos os cartões</button>
+      </div>
+    </div>;
+  }
+
+  if(!card) return <div className="card">Nenhum flashcard disponível ainda.</div>;
+
+  return <div>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
+      <div className="row" style={{gap:8}}>
+        <button className={"btn sm"+(modo==="dia"?"":" ghost")} onClick={()=>recomecar("dia")}>🗓️ Baralho do dia</button>
+        <button className={"btn sm"+(modo==="tudo"?"":" ghost")} onClick={()=>recomecar("tudo")}>📚 Todos</button>
+      </div>
+      {streak && <span style={{fontFamily:"var(--mono)",fontSize:13,color:"var(--gold,#e6b450)"}}>🔥 {streak.dias_seguidos} {streak.dias_seguidos===1?"dia":"dias"}</span>}
+    </div>
+
+    <div className="muted" style={{fontSize:12.5,marginBottom:10}}>Cartão {i+1} de {fila.length} · {nomeAssunto(card.assunto)}</div>
+
+    <div onClick={()=>setVirado(v=>!v)} style={{cursor:"pointer",minHeight:190,border:"1px solid var(--line)",borderRadius:16,
+      padding:"30px 26px",display:"flex",flexDirection:"column",justifyContent:"center",alignItems:"center",textAlign:"center",
+      background: virado?"linear-gradient(160deg,#123528,#16302b)":"var(--panel,#12211f)", transition:"background .2s"}}>
+      <div style={{fontFamily:"var(--mono)",fontSize:11,letterSpacing:".08em",textTransform:"uppercase",color: virado?"var(--acc)":"var(--muted)",marginBottom:12}}>
+        {virado?"Resposta":"Pergunta · toque para virar"}
+      </div>
+      <div style={{fontSize:17,lineHeight:1.5, color:"var(--ink)"}}>{virado?card.verso:card.frente}</div>
+    </div>
+
+    {!virado &&
+      <button className="btn" style={{width:"100%",marginTop:14}} onClick={()=>setVirado(true)}>Virar cartão</button>}
+
+    {virado &&
+      <div className="row" style={{gap:10,marginTop:14}}>
+        <button className="btn ghost" style={{flex:1}} onClick={()=>marcar(false)}>↻ Revisar depois</button>
+        <button className="btn" style={{flex:1}} onClick={()=>marcar(true)}>✓ Sabia</button>
+      </div>}
+  </div>;
+}
+
 function TravaFree({titulo,texto,onAssinar}){
   return <div className="lock" style={{textAlign:"left"}}>
     <b>{titulo}</b>
@@ -2614,6 +2731,7 @@ function Resolver({isPro,onAssinar}){
 function Assinar({uid,email,onClose,onVerificar}){
   const [etapa,setEtapa]=useState("plano"); // plano | carregando | pix | sucesso | erro
   const [pix,setPix]=useState(null);
+  const [cpf,setCpf]=useState("");
   const [msg,setMsg]=useState("");
   const [copiado,setCopiado]=useState(false);
   const pollRef=React.useRef(null);
@@ -2621,11 +2739,13 @@ function Assinar({uid,email,onClose,onVerificar}){
 
   const workerOk = !WORKER_URL.startsWith("COLE_");
 
+  const cpfLimpo=(cpf||"").replace(/\D/g,"");
   const criar=async(plano)=>{
     if(!workerOk){setMsg("Falta configurar a WORKER_URL no topo do arquivo.");setEtapa("erro");return;}
+    if(cpfLimpo.length!==11){setMsg("Digite um CPF válido (11 dígitos) para gerar o Pix.");return;}
     setEtapa("carregando");
     try{
-      const r=await wfetch("/criar-pix",{user_id:uid,email,plano});
+      const r=await wfetch("/criar-pix",{user_id:uid,email,plano,cpf:cpfLimpo});
       const d=await r.json();
       if(!r.ok||d.error) throw new Error(typeof d.error==="string"?d.error:"Falha ao gerar o Pix. Confira o Worker.");
       setPix(d);setEtapa("pix");
@@ -2650,7 +2770,14 @@ function Assinar({uid,email,onClose,onVerificar}){
           <div style={{fontSize:28,fontWeight:800,letterSpacing:"-.02em",margin:"4px 0 0"}}>R$ 49,90<span style={{fontSize:13,fontWeight:600,color:"var(--muted)"}}> pagamento único</span></div>
           <div className="muted" style={{fontSize:13,margin:"2px 0 6px"}}>Tudo liberado por 6 meses: 64 assuntos, 258 questões, simulados, aula adaptativa e correção por IA. Sem mensalidade, sem renovação automática.</div>
           <div style={{fontSize:12,color:"var(--acc)",marginBottom:12}}>Menos de R$ 9 por mês para organizar sua reta final.</div>
-          <button className="btn" style={{width:"100%"}} onClick={()=>criar("semestral")}>Pagar R$ 49,90 no Pix</button>
+          <div style={{marginBottom:10}}>
+            <label style={{fontSize:12,color:"var(--muted)",display:"block",marginBottom:4}}>CPF (obrigatório para o Pix)</label>
+            <input value={cpf} onChange={e=>setCpf(e.target.value)} inputMode="numeric" placeholder="000.000.000-00" maxLength={14}
+              style={{width:"100%",padding:"11px 13px",borderRadius:9,border:"1px solid var(--line)",background:"var(--bg)",color:"var(--ink)",fontSize:15}} />
+            {cpf && cpfLimpo.length!==11 && <div style={{fontSize:11.5,color:"var(--bad,#ff6b6b)",marginTop:4}}>O CPF deve ter 11 dígitos.</div>}
+          </div>
+          {msg && etapa==="plano" && <div style={{fontSize:12.5,color:"var(--bad,#ff6b6b)",marginBottom:8}}>{msg}</div>}
+          <button className="btn" style={{width:"100%",opacity:cpfLimpo.length===11?1:.6}} onClick={()=>criar("semestral")}>Pagar R$ 49,90 no Pix</button>
         </div>
       </div>}
 
