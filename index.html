@@ -2997,25 +2997,50 @@ function Flashcards({cards, curriculo, sb, uid}){
   const nomeAssunto = (a)=>{ const t=(curriculo||[]).find(x=>x.id===a); return t?t.nome:a; };
   const hoje = new Date().toISOString().slice(0,10);
 
-  // baralho do dia: sorteio estável por data (mesmo baralho o dia todo)
-  const baralhoDia = React.useMemo(()=>{
-    const seed = hoje.split("-").join("");
-    let s = parseInt(seed,10)||1;
-    const rnd = ()=>{ s=(s*9301+49297)%233280; return s/233280; };
-    const arr=[...cards];
-    for(let i=arr.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
-    return arr.slice(0, Math.min(20, arr.length));
-  },[cards, hoje]);
+  // mapa de prefixo -> area
+  const PREFIXO_AREA = {cm:"CM", cir:"CIR", go:"GO", ped:"PED", mfc:"MFC"};
+  const areaDoCard = (c)=> PREFIXO_AREA[(c.assunto||"").split("-")[0]] || "?";
 
-  const [modo,setModo]=useState("dia");        // "dia" ou "tudo"
+  const [modo,setModo]=useState("dia");   // "dia" | "tudo" | "area"
+  const [area,setArea]=useState("todas");
+  const [assunto,setAssunto]=useState("todos");
   const [i,setI]=useState(0);
   const [virado,setVirado]=useState(false);
   const [feitos,setFeitos]=useState({sabia:0,revisar:0});
   const [streak,setStreak]=useState(null);
   const [fim,setFim]=useState(false);
 
-  const fila = modo==="dia" ? baralhoDia : cards;
+  // baralho do dia: sorteio estável por data
+  const baralhoDia = React.useMemo(()=>{
+    const seed = hoje.split("-").join("");
+    let s = parseInt(seed,10)||1;
+    const rnd = ()=>{ s=(s*9301+49297)%233280; return s/233280; };
+    const arr=[...cards];
+    for(let k=arr.length-1;k>0;k--){ const j=Math.floor(rnd()*(k+1)); [arr[k],arr[j]]=[arr[j],arr[k]]; }
+    return arr.slice(0, Math.min(20, arr.length));
+  },[cards, hoje]);
+
+  // assuntos disponíveis para a área escolhida
+  const assuntosDaArea = React.useMemo(()=>{
+    if(area==="todas") return [];
+    const ids = Array.from(new Set(cards.filter(c=>areaDoCard(c)===area).map(c=>c.assunto)));
+    return ids.map(id=>({id, nome:nomeAssunto(id)})).sort((a,b)=>a.nome.localeCompare(b.nome));
+  },[cards, area]);
+
+  // fila conforme o modo/filtro
+  const fila = React.useMemo(()=>{
+    if(modo==="dia") return baralhoDia;
+    if(modo==="tudo") return cards;
+    // modo === "area": aplica area + assunto
+    let f = area==="todas" ? cards : cards.filter(c=>areaDoCard(c)===area);
+    if(area!=="todas" && assunto!=="todos") f = f.filter(c=>c.assunto===assunto);
+    return f;
+  },[modo, area, assunto, cards, baralhoDia]);
+
   const card = fila[i];
+
+  React.useEffect(()=>{ setI(0); setVirado(false); setFeitos({sabia:0,revisar:0}); setFim(false); },[modo,area,assunto]);
+  React.useEffect(()=>{ setAssunto("todos"); },[area]);
 
   React.useEffect(()=>{
     if(!sb||!uid) return;
@@ -3039,41 +3064,63 @@ function Flashcards({cards, curriculo, sb, uid}){
       let dias=1;
       if(prev&&prev.ultimo_dia){
         const ontem=new Date(Date.now()-86400000).toISOString().slice(0,10);
-        if(prev.ultimo_dia===hoje){ dias=prev.dias_seguidos; }       // já contou hoje
-        else if(prev.ultimo_dia===ontem){ dias=(prev.dias_seguidos||0)+1; } // sequência
-        else { dias=1; }                                             // quebrou
+        if(prev.ultimo_dia===hoje){ dias=prev.dias_seguidos; }
+        else if(prev.ultimo_dia===ontem){ dias=(prev.dias_seguidos||0)+1; }
+        else { dias=1; }
       }
       await sb.from("flashcard_streak").upsert({user_id:uid, dias_seguidos:dias, ultimo_dia:hoje, atualizado_em:new Date().toISOString()},{onConflict:"user_id"});
       setStreak({dias_seguidos:dias, ultimo_dia:hoje});
     }catch(e){}
   };
 
-  const recomecar=(m)=>{ setModo(m); setI(0); setVirado(false); setFeitos({sabia:0,revisar:0}); setFim(false); };
+  const irPara=(m)=>{ setModo(m); };
+
+  // barra de modos + filtros (sempre visível no topo)
+  const controles = <div style={{marginBottom:14}}>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+      <div className="row" style={{gap:8,flexWrap:"wrap"}}>
+        <button className={"btn sm"+(modo==="dia"?"":" ghost")} onClick={()=>irPara("dia")}>🗓️ Baralho do dia</button>
+        <button className={"btn sm"+(modo==="tudo"?"":" ghost")} onClick={()=>irPara("tudo")}>📚 Todos</button>
+        <button className={"btn sm"+(modo==="area"?"":" ghost")} onClick={()=>irPara("area")}>🎯 Por área/tema</button>
+      </div>
+      {streak && <span style={{fontFamily:"var(--mono)",fontSize:13,color:"var(--gold,#e6b450)"}}>🔥 {streak.dias_seguidos} {streak.dias_seguidos===1?"dia":"dias"}</span>}
+    </div>
+    {modo==="area" && <div className="row" style={{gap:8,flexWrap:"wrap",marginTop:10}}>
+      <select value={area} onChange={e=>setArea(e.target.value)} style={{maxWidth:200}}>
+        <option value="todas">Todas as áreas</option>
+        {AREAS.map(a=><option key={a.k} value={a.k}>{a.nome}</option>)}
+      </select>
+      {area!=="todas" && assuntosDaArea.length>0 &&
+        <select value={assunto} onChange={e=>setAssunto(e.target.value)} style={{maxWidth:250}}>
+          <option value="todos">Todos os assuntos</option>
+          {assuntosDaArea.map(s=><option key={s.id} value={s.id}>{s.nome}</option>)}
+        </select>}
+    </div>}
+  </div>;
 
   if(fim){
-    return <div className="card" style={{textAlign:"center",padding:"32px 22px"}}>
-      <div style={{fontSize:34,marginBottom:6}}>🎉</div>
-      <h3 style={{margin:"0 0 6px"}}>Baralho concluído!</h3>
-      <p className="muted" style={{margin:"0 0 4px"}}>Você sabia <b style={{color:"var(--acc)"}}>{feitos.sabia}</b> e marcou <b>{feitos.revisar}</b> para revisar.</p>
-      {streak && <p style={{margin:"8px 0 18px",fontFamily:"var(--mono)",color:"var(--gold,#e6b450)"}}>🔥 {streak.dias_seguidos} {streak.dias_seguidos===1?"dia":"dias"} seguidos</p>}
-      <div className="row" style={{gap:10,justifyContent:"center",flexWrap:"wrap"}}>
-        <button className="btn" onClick={()=>recomecar("dia")}>Refazer o baralho do dia</button>
-        <button className="btn ghost" onClick={()=>recomecar("tudo")}>Revisar todos os cartões</button>
+    return <div>
+      {controles}
+      <div className="card" style={{textAlign:"center",padding:"32px 22px"}}>
+        <div style={{fontSize:34,marginBottom:6}}>🎉</div>
+        <h3 style={{margin:"0 0 6px"}}>Baralho concluído!</h3>
+        <p className="muted" style={{margin:"0 0 4px"}}>Você sabia <b style={{color:"var(--acc)"}}>{feitos.sabia}</b> e marcou <b>{feitos.revisar}</b> para revisar.</p>
+        {streak && <p style={{margin:"8px 0 18px",fontFamily:"var(--mono)",color:"var(--gold,#e6b450)"}}>🔥 {streak.dias_seguidos} {streak.dias_seguidos===1?"dia":"dias"} seguidos</p>}
+        <div className="row" style={{gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+          <button className="btn" onClick={()=>{setI(0);setVirado(false);setFeitos({sabia:0,revisar:0});setFim(false);}}>↻ Refazer estes cartões</button>
+          <button className="btn ghost" onClick={()=>irPara("dia")}>Voltar ao baralho do dia</button>
+        </div>
       </div>
     </div>;
   }
 
-  if(!card) return <div className="card">Nenhum flashcard disponível ainda.</div>;
+  if(!card) return <div>
+    {controles}
+    <div className="card"><div className="muted">Nenhum flashcard neste filtro ainda. Escolha outra área ou assunto.</div></div>
+  </div>;
 
   return <div>
-    <div className="row" style={{justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:10}}>
-      <div className="row" style={{gap:8}}>
-        <button className={"btn sm"+(modo==="dia"?"":" ghost")} onClick={()=>recomecar("dia")}>🗓️ Baralho do dia</button>
-        <button className={"btn sm"+(modo==="tudo"?"":" ghost")} onClick={()=>recomecar("tudo")}>📚 Todos</button>
-      </div>
-      {streak && <span style={{fontFamily:"var(--mono)",fontSize:13,color:"var(--gold,#e6b450)"}}>🔥 {streak.dias_seguidos} {streak.dias_seguidos===1?"dia":"dias"}</span>}
-    </div>
-
+    {controles}
     <div className="muted" style={{fontSize:12.5,marginBottom:10}}>Cartão {i+1} de {fila.length} · {nomeAssunto(card.assunto)}</div>
 
     <div onClick={()=>setVirado(v=>!v)} style={{cursor:"pointer",minHeight:190,border:"1px solid var(--line)",borderRadius:16,
