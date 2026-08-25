@@ -11,10 +11,36 @@
 <link rel="apple-touch-icon" href="icon-192.png" />
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
-  // Registro do service worker (torna o app instalavel e abre offline a casca)
+  // Registro do service worker com atualização AUTOMÁTICA.
+  // Sempre que você publicar uma versão nova, o app se atualiza sozinho
+  // para todos os usuários — sem precisar limpar cache.
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
-      navigator.serviceWorker.register("sw.js").catch(function(){});
+      navigator.serviceWorker.register("sw.js").then(function (reg) {
+        // Verifica se há versão nova periodicamente e ao focar a aba.
+        function checkUpdate(){ reg.update().catch(function(){}); }
+        setInterval(checkUpdate, 60 * 1000);            // a cada 1 min
+        window.addEventListener("focus", checkUpdate);   // ao voltar pra aba
+
+        // Quando um SW novo assume o controle, recarrega a página uma vez.
+        var recarregou = false;
+        navigator.serviceWorker.addEventListener("controllerchange", function () {
+          if (recarregou) return;
+          recarregou = true;
+          window.location.reload();
+        });
+
+        // Se um SW novo ficar "esperando", manda ele assumir imediatamente.
+        reg.addEventListener("updatefound", function () {
+          var novo = reg.installing;
+          if (!novo) return;
+          novo.addEventListener("statechange", function () {
+            if (novo.state === "installed" && navigator.serviceWorker.controller) {
+              novo.postMessage("skipWaiting");
+            }
+          });
+        });
+      }).catch(function(){});
     });
   }
 </script>
@@ -2469,30 +2495,61 @@ function Dash({store,temasFracos,onRefazer}){
     const byTema={};store.log.forEach(l=>{(byTema[l.tema]=byTema[l.tema]||{t:0,ok:0,area:l.area});byTema[l.tema].t++;if(l.ok)byTema[l.tema].ok++;});
     return {byArea,byTema,tot:store.log.length,ok:store.log.filter(l=>l.ok).length};},[store]);
   const geral=s.tot?Math.round(s.ok/s.tot*100):0;
-  const fracos=Object.entries(s.byTema).map(([tema,v])=>({tema,area:v.area,pct:Math.round(v.ok/v.t*100)})).sort((a,b)=>a.pct-b.pct).slice(0,6);
-  return <div className="grid" style={{gridTemplateColumns:"1fr 1fr"}}>
-    <div className="card" style={{gridColumn:"1 / -1"}}>
-      <div className="row" style={{justifyContent:"space-between",marginBottom:12}}>
-        <b style={{fontSize:15}}>Seu desempenho</b>
+  const fracos=Object.entries(s.byTema).map(([tema,v])=>({tema,area:v.area,pct:Math.round(v.ok/v.t*100),t:v.t})).sort((a,b)=>a.pct-b.pct).slice(0,6);
+
+  if(s.tot===0){
+    return <div className="card" style={{textAlign:"center",padding:"36px 22px"}}>
+      <div style={{fontSize:34,marginBottom:8}}>📊</div>
+      <h3 style={{margin:"0 0 6px"}}>Seu progresso aparece aqui</h3>
+      <p className="muted" style={{margin:"0 0 18px",fontSize:14}}>Responda algumas questões em <b>Praticar</b> e este painel mostra sua nota, seus pontos fracos e sua evolução por área.</p>
+      {onRefazer && <button className="btn" onClick={onRefazer}>Fazer diagnóstico rápido</button>}
+    </div>;
+  }
+
+  return <div style={{display:"grid",gap:14}}>
+    {/* BLOCO 1 — resumo simples */}
+    <div className="card">
+      <div className="row" style={{justifyContent:"space-between",marginBottom:14}}>
+        <b style={{fontSize:15}}>Como você está indo</b>
         {onRefazer && <button className="btn ghost sm" onClick={onRefazer}>Refazer diagnóstico</button>}
       </div>
-      <div className="row" style={{gap:34}}>
-      <div><div className="tag muted">Acerto geral</div><div className="kpi" style={{color:sem(geral)}}>{geral}%</div></div>
-      <div><div className="tag muted">Respondidas</div><div className="kpi">{s.tot}</div></div>
-      <div><div className="tag muted">No banco</div><div className="kpi">{store.questoes.length}</div></div>
-      <div><div className="tag muted">Temas estudados</div><div className="kpi">{Object.keys(store.dominio).length}</div></div>
-    </div></div>
-    <div className="card" style={{gridColumn:"1 / -1"}}><h3 style={{fontSize:16,marginBottom:12}}>Desempenho por área</h3>
+      <div className="row" style={{gap:40}}>
+        <div><div className="tag muted">Acerto geral</div><div className="kpi" style={{color:sem(geral)}}>{geral}%</div></div>
+        <div><div className="tag muted">Questões respondidas</div><div className="kpi">{s.tot}</div></div>
+        <div><div className="tag muted">Temas praticados</div><div className="kpi">{Object.keys(s.byTema).length}</div></div>
+      </div>
+    </div>
+
+    {/* BLOCO 2 — pontos fracos, com acao */}
+    <div className="card">
+      <h3 style={{fontSize:16,marginBottom:4}}>Onde você precisa focar</h3>
+      <p className="muted" style={{fontSize:13,marginTop:0,marginBottom:14}}>Seus temas com menor acerto — comece por eles.</p>
+      {fracos.length===0
+        ? <div className="muted" style={{fontSize:14}}>Responda mais questões para o mapa de pontos fracos aparecer.</div>
+        : fracos.map(f=><div key={f.tema} style={{marginBottom:13}}>
+            <div className="row" style={{justifyContent:"space-between",marginBottom:5}}>
+              <span style={{fontSize:14}}>{f.tema} <span className="muted" style={{fontSize:12}}>· {areaNome(f.area)}</span></span>
+              <span style={{fontSize:14,color:sem(f.pct),fontWeight:600}}>{f.pct}% de acerto</span>
+            </div>
+            <Bar pct={f.pct} color={sem(f.pct)}/>
+          </div>)}
+    </div>
+
+    {/* BLOCO 3 — desempenho por area, sem jargao */}
+    <div className="card">
+      <h3 style={{fontSize:16,marginBottom:14}}>Seu acerto por área</h3>
       {AREAS.map(a=>{const b=s.byArea[a.k];const p=b.t?Math.round(b.ok/b.t*100):0;
-        return <div key={a.k} style={{marginBottom:14}}>
-          <div className="row" style={{justifyContent:"space-between"}}><div className="row" style={{gap:8}}><span className="sem" style={{background:b.t?sem(p):"#2a4a43"}}/><b style={{fontSize:14}}>{a.nome}</b><span className="muted" style={{fontSize:12}}>· {b.q} no banco</span></div><span className="muted" style={{fontSize:13}}>{b.t?p+"% ("+b.ok+"/"+b.t+")":"sem dados"}</span></div>
-          <div style={{marginTop:6}}><Bar pct={p} color={b.t?sem(p):"#2a4a43"}/></div></div>;})}</div>
-    <div className="card"><h3 style={{fontSize:16,marginBottom:10}}>Onde você mais erra</h3>
-      {fracos.length===0&&<div className="muted" style={{fontSize:14}}>Responda questões para o mapa aparecer.</div>}
-      {fracos.map(f=><div key={f.tema} style={{marginBottom:11}}><div className="row" style={{justifyContent:"space-between"}}><span style={{fontSize:13}}>{f.tema} <span className="muted">· {areaNome(f.area)}</span></span><span style={{fontSize:13,color:sem(f.pct)}}>{f.pct}%</span></div><Bar pct={f.pct} color={sem(f.pct)}/></div>)}</div>
-    <div className="card"><h3 style={{fontSize:16,marginBottom:10}}>Cobertura do blueprint</h3>
-      {AREAS.map(a=>{const q=s.byArea[a.k].q;const p=Math.min(100,Math.round(q/a.meta*100));
-        return <div key={a.k} style={{marginBottom:10}}><div className="row" style={{justifyContent:"space-between"}}><span style={{fontSize:13}}>{a.nome}</span><span className="muted" style={{fontSize:12}}>{q}/{a.meta}</span></div><Bar pct={p} color="var(--acc2)"/></div>;})}</div>
+        return <div key={a.k} style={{marginBottom:15}}>
+          <div className="row" style={{justifyContent:"space-between",marginBottom:5}}>
+            <div className="row" style={{gap:8}}>
+              <span className="sem" style={{background:b.t?sem(p):"#2a4a43"}}/>
+              <b style={{fontSize:14}}>{a.nome}</b>
+            </div>
+            <span className="muted" style={{fontSize:13}}>{b.t?p+"% ("+b.ok+" de "+b.t+")":"ainda não praticado"}</span>
+          </div>
+          <Bar pct={p} color={b.t?sem(p):"#2a4a43"}/>
+        </div>;})}
+    </div>
   </div>;
 }
 
@@ -2534,18 +2591,40 @@ function Praticar(props){
 
 function Treinar({pool,store,registrar,bloqueadas,isPro,onAssinar,onNovasQuestoes}){
   const [area,setArea]=useState("todas");
+  const [tema,setTema]=useState("todos");
   const [extra,setExtra]=useState([]);   // questoes geradas na sessao
   const [gerando,setGerando]=useState(false);
   const [msg,setMsg]=useState("");
-  const base = area==="todas"?pool:pool.filter(q=>q.area===area);
-  const fila=useMemo(()=>{
-    const todas=[...base,...extra.filter(q=>area==="todas"||q.area===area)];
-    const now=Date.now();
-    const due=todas.filter(q=>!store.srs[q.id]||new Date(store.srs[q.id].due).getTime()<=now);
-    return (due.length?due:todas).slice().sort(()=>Math.random()-0.5);
-  },[base,extra,area]);
+  const [seed,setSeed]=useState(1);       // trava a ordem ate o usuario pedir novo baralho
+
+  // temas disponiveis para a area escolhida (do banco)
+  const temasDaArea = useMemo(()=>{
+    if(area==="todas") return [];
+    const set=new Set(pool.filter(q=>q.area===area).map(q=>q.tema).filter(Boolean));
+    return Array.from(set).sort();
+  },[pool,area]);
+
+  // base filtrada por area E tema
+  const base = useMemo(()=>{
+    let b = area==="todas" ? pool : pool.filter(q=>q.area===area);
+    if(area!=="todas" && tema!=="todos") b = b.filter(q=>q.tema===tema);
+    return b;
+  },[pool,area,tema]);
+
+  // embaralha de forma ESTAVEL (so muda quando area/tema/seed mudam, nao a cada render)
+  const fila = useMemo(()=>{
+    const todas=[...base,...extra.filter(q=>(area==="todas"||q.area===area)&&(tema==="todos"||q.tema===tema))];
+    // ordenacao estavel baseada no seed (nao usa Math.random a cada render)
+    const arr=todas.slice();
+    let s=seed*9973;
+    const rnd=()=>{ s=(s*9301+49297)%233280; return s/233280; };
+    for(let k=arr.length-1;k>0;k--){ const j=Math.floor(rnd()*(k+1)); [arr[k],arr[j]]=[arr[j],arr[k]]; }
+    return arr;
+  },[base,extra,area,tema,seed]);
+
   const [i,setI]=useState(0);const [feito,setFeito]=useState(false);
-  useEffect(()=>{setI(0);setFeito(false);},[area]);
+  useEffect(()=>{setI(0);setFeito(false);},[area,tema,seed]);
+  useEffect(()=>{setTema("todos");},[area]);  // ao trocar area, reseta tema
   const q=fila[i];
   const workerOk=!WORKER_URL.startsWith("COLE_");
 
@@ -2554,39 +2633,57 @@ function Treinar({pool,store,registrar,bloqueadas,isPro,onAssinar,onNovasQuestoe
     if(!workerOk){setMsg("O gerador entra no ar quando o app for publicado com o Worker.");return;}
     setGerando(true);setMsg("");
     const alvoArea = area==="todas"?["CM","CIR","GO","PED","MFC"][Math.floor(Math.random()*5)]:area;
+    const alvoTema = (area!=="todas"&&tema!=="todos")?tema:null;
     try{
       const novas=[];
       for(let k=0;k<10;k++){
-        const r=await wfetch("/gerar-questao",{area:alvoArea});
+        const r=await wfetch("/gerar-questao",alvoTema?{area:alvoArea,tema:alvoTema}:{area:alvoArea});
         const d=await r.json();
         if(d.questao){
           const Q=d.questao;
-          novas.push({id:"ai"+Date.now()+"_"+k,area:Q.area||alvoArea,tema:Q.tema||"Gerada por IA",transv:Q.transv||[],dif:2,enun:Q.enunciado,alts:Q.alternativas,correta:Q.correta,coment:Q.comentario||"",premium:true});
+          novas.push({id:"ai"+Date.now()+"_"+k,area:Q.area||alvoArea,tema:Q.tema||alvoTema||"Gerada por IA",transv:Q.transv||[],dif:2,enun:Q.enunciado,alts:Q.alternativas,correta:Q.correta,coment:Q.comentario||"",premium:true});
         }
       }
       if(novas.length===0) throw new Error("Não consegui gerar agora. Tente de novo.");
       setExtra(e=>[...e,...novas]);
-      if(onNovasQuestoes) onNovasQuestoes(novas); // opcional: persistir no banco
+      if(onNovasQuestoes) onNovasQuestoes(novas);
       setMsg("+"+novas.length+" questões novas na fila!");
     }catch(e){setMsg(e.message);}
     setGerando(false);
   };
 
-  if(!q)return <div className="card">
-    <div className="muted" style={{marginBottom:12}}>Nenhuma questão nesta área ainda.</div>
-    <button className="btn" disabled={gerando} onClick={mais}>{gerando?"Gerando...":"Gerar 10 questões com IA"}</button>
-    {msg&&<div className="muted" style={{fontSize:13,marginTop:10,color:"var(--acc2)"}}>{msg}</div>}
+  const filtroUI = <div style={{marginBottom:12}}>
+    <div className="row" style={{justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+      <div className="row" style={{gap:8,flexWrap:"wrap"}}>
+        <select value={area} onChange={e=>setArea(e.target.value)} style={{maxWidth:200}}>
+          <option value="todas">Todas as áreas</option>
+          {AREAS.map(a=><option key={a.k} value={a.k}>{a.nome}</option>)}
+        </select>
+        {area!=="todas" && temasDaArea.length>0 &&
+          <select value={tema} onChange={e=>setTema(e.target.value)} style={{maxWidth:240}}>
+            <option value="todos">Todos os temas</option>
+            {temasDaArea.map(t=><option key={t} value={t}>{t}</option>)}
+          </select>}
+      </div>
+      <span className="muted" style={{fontSize:13}}>{fila.length?(i+1)+" de "+fila.length:"0"}</span>
+    </div>
+  </div>;
+
+  if(!q)return <div>
+    {filtroUI}
+    <div className="card">
+      <div className="muted" style={{marginBottom:12}}>Você já respondeu todas as questões deste filtro. 🎉</div>
+      <div className="row" style={{gap:8,flexWrap:"wrap"}}>
+        <button className="btn ghost" onClick={()=>setSeed(s=>s+1)}>↻ Refazer estas questões</button>
+        <button className="btn" disabled={gerando} onClick={mais}>{gerando?"Gerando...":"✨ Gerar 10 novas com IA"}</button>
+      </div>
+      {msg&&<div className="muted" style={{fontSize:13,marginTop:10,color:"var(--acc2)"}}>{msg}</div>}
+    </div>
   </div>;
 
   const ultimaFree = !isPro && i>=fila.length-1;
   return <div>
-    <div className="row" style={{justifyContent:"space-between",marginBottom:12}}>
-      <select value={area} onChange={e=>setArea(e.target.value)} style={{maxWidth:210}}>
-        <option value="todas">Todas as áreas</option>
-        {AREAS.map(a=><option key={a.k} value={a.k}>{a.nome}</option>)}
-      </select>
-      <span className="muted" style={{fontSize:13}}>{i+1} de {fila.length}</span>
-    </div>
+    {filtroUI}
     <div className="bar" style={{marginBottom:14}}><i style={{width:((i+1)/fila.length*100)+"%",background:"var(--acc)"}}/></div>
 
     <QuestionCard q={q} indice={i} total={fila.length} onResp={(qq,ok)=>{registrar(qq,ok);setFeito(true);}}/>
