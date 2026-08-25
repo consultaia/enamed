@@ -2465,12 +2465,13 @@ function Shell({session}){
       </div>}
 
       <div className="nav">
-        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["flash","🃏 Flashcards"],["dash","📈 Meu progresso"]].map(([k,l])=>
+        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["flash","🃏 Flashcards"],["dash","📈 Meu progresso"]].map(([k,l])=>
           <button key={k} className={tab===k?"on":""} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
 
       {tab==="trilha" && <Trilha store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={isPro} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
       {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} bloqueadas={isPro?0:bloqueadasFree} isPro={isPro} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
+      {tab==="internato" && <Internato pool={questoes} registrar={registrar}/>}
       {tab==="flash" && (isPro ? <Flashcards cards={FLASHCARDS} curriculo={CURRICULO} sb={sb} uid={uid}/> : <TravaFree titulo="Flashcards é PRO" texto="Revise todos os assuntos em cartões rápidos, com baralho diário e sequência de dias estudados." onAssinar={()=>setShowAssinar(true)}/>)}
       {tab==="dash" && (isPro ? <Dash store={store} temasFracos={temasFracos} onRefazer={()=>setDiag("rapido")}/> : <TravaFree titulo="Meu progresso é PRO" texto="Veja seu acerto por área, os temas onde mais erra e o quanto já dominou da trilha." onAssinar={()=>setShowAssinar(true)}/>)}
     </div>}
@@ -2716,6 +2717,132 @@ function QuestionCard({q,onResp,indice,total}){
     {sel!==null&&<div className="comment"><b style={{color:sel===q.correta?"var(--acc)":"var(--bad)"}}>{sel===q.correta?"Correto. ":"Incorreto. "}</b>{q.coment}</div>}
   </div>;
 }
+/* =================== INTERNATO (aba com módulos) =================== */
+const MODULOS_INTERNATO = [
+  { id:"CIR", nome:"Clínica Cirúrgica", icone:"🔪",
+    desc:"Questões dos rodízios (Afya) — abdome agudo, hérnias, pâncreas, colorretal e mais." },
+  // Próximos módulos entram aqui, ex.:
+  // { id:"CM",  nome:"Clínica Médica",     icone:"🩺", desc:"..." },
+  // { id:"GO",  nome:"Gineco/Obstetrícia", icone:"🤰", desc:"..." },
+];
+
+function Internato({pool, registrar}){
+  const [modulo,setModulo]=useState(null);   // id da area do módulo aberto
+  const [bloco,setBloco]=useState(null);      // tema aberto
+
+  // só questões do internato (tema começa com "Internato — ")
+  const doInternato = useMemo(()=>
+    (pool||[]).filter(q=>typeof q.tema==="string" && q.tema.indexOf("Internato — ")===0)
+  ,[pool]);
+
+  const contaModulo = (areaId)=> doInternato.filter(q=>q.area===areaId).length;
+
+  const blocosDoModulo = (areaId)=>{
+    const m={};
+    doInternato.filter(q=>q.area===areaId).forEach(q=>{ m[q.tema]=(m[q.tema]||0)+1; });
+    return Object.keys(m).sort().map(tema=>({
+      tema, nome: tema.replace("Internato — ",""), n: m[tema]
+    }));
+  };
+
+  /* -------- TELA 3: respondendo um bloco -------- */
+  if(bloco){
+    const qs = doInternato.filter(q=>q.tema===bloco);
+    return <RunnerInternato bloco={bloco} qs={qs} registrar={registrar} onVoltar={()=>setBloco(null)}/>;
+  }
+
+  /* -------- TELA 2: blocos de um módulo -------- */
+  if(modulo){
+    const m = MODULOS_INTERNATO.find(x=>x.id===modulo)||{nome:modulo};
+    const blocos = blocosDoModulo(modulo);
+    return <div>
+      <button className="btn ghost sm" onClick={()=>setModulo(null)}>← Módulos</button>
+      <div style={{margin:"14px 0 4px"}}>
+        <div className="tag" style={{color:"var(--acc)"}}>INTERNATO</div>
+        <h2 style={{fontSize:22,marginTop:4}}>{m.icone} {m.nome}</h2>
+      </div>
+      {blocos.length===0
+        ? <div className="card muted">As questões deste módulo ainda não foram carregadas.</div>
+        : <div className="grid" style={{gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",marginTop:12}}>
+            {blocos.map(b=>
+              <div key={b.tema} className="topico" style={{cursor:"pointer"}} onClick={()=>{setBloco(b.tema);window.scrollTo(0,0);}}>
+                <div style={{fontWeight:700,fontSize:15.5,lineHeight:1.3}}>{b.nome}</div>
+                <div className="row" style={{justifyContent:"space-between",marginTop:12}}>
+                  <span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{b.n} questões</span>
+                  <span className="muted" style={{fontSize:12}}>Treinar →</span>
+                </div>
+              </div>
+            )}
+          </div>}
+    </div>;
+  }
+
+  /* -------- TELA 1: escolher módulo -------- */
+  return <div>
+    <div className="tag" style={{color:"var(--acc)"}}>INTERNATO</div>
+    <h1 style={{fontSize:28,marginTop:6,marginBottom:4}}>Internato</h1>
+    <div className="muted" style={{fontSize:14,marginBottom:16}}>
+      Questões no estilo dos rodízios do internato, com correção comentada. Novos módulos entram em breve.
+    </div>
+    <div className="grid" style={{gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))"}}>
+      {MODULOS_INTERNATO.map(m=>{
+        const n = contaModulo(m.id);
+        const pronto = n>0;
+        return <div key={m.id} className="topico" style={{cursor:pronto?"pointer":"default",opacity:pronto?1:.7}}
+          onClick={()=>{ if(pronto){setModulo(m.id);window.scrollTo(0,0);} }}>
+          <div style={{fontWeight:700,fontSize:16}}>{m.icone} {m.nome}</div>
+          <div className="muted" style={{fontSize:12.5,margin:"6px 0 12px"}}>{m.desc}</div>
+          <div className="row" style={{justifyContent:"space-between"}}>
+            <span className="pill" style={pronto?{color:"var(--acc)",borderColor:"var(--acc)"}:{}}>{pronto? n+" questões":"Em breve"}</span>
+            <span className="muted" style={{fontSize:12}}>{pronto?"Abrir →":""}</span>
+          </div>
+        </div>;
+      })}
+    </div>
+  </div>;
+}
+
+function RunnerInternato({bloco, qs, registrar, onVoltar}){
+  const nome = bloco.replace("Internato — ","");
+  const fila = useMemo(()=>qs.slice(),[bloco]);
+  const [i,setI]=useState(0);
+  const [feito,setFeito]=useState(false);
+  const [acertos,setAcertos]=useState(0);
+  useEffect(()=>{setI(0);setFeito(false);setAcertos(0);},[bloco]);
+
+  const q=fila[i];
+  const fim = i>=fila.length;
+
+  return <div>
+    <button className="btn ghost sm" onClick={onVoltar}>← Blocos</button>
+    <div style={{margin:"14px 0 4px"}}>
+      <div className="tag" style={{color:"var(--acc)"}}>CLÍNICA CIRÚRGICA</div>
+      <h2 style={{fontSize:21,marginTop:4}}>{nome}</h2>
+    </div>
+    <div className="bar" style={{margin:"14px 0"}}><i style={{width:((Math.min(i+(feito?1:0),fila.length))/fila.length*100)+"%",background:"var(--acc)"}}/></div>
+
+    {fim
+      ? <div className="card">
+          <div className="tag" style={{color:"var(--acc)"}}>BLOCO CONCLUÍDO</div>
+          <div className="kpi" style={{margin:"8px 0 2px"}}>{acertos} / {fila.length}</div>
+          <div className="muted" style={{fontSize:14,marginBottom:14}}>{Math.round(acertos/fila.length*100)}% de acerto neste bloco.</div>
+          <div className="row">
+            <button className="btn ghost" onClick={()=>{setI(0);setFeito(false);setAcertos(0);}}>↻ Refazer bloco</button>
+            <button className="btn" onClick={onVoltar}>Voltar aos blocos</button>
+          </div>
+        </div>
+      : <div>
+          <QuestionCard q={q} indice={i} total={fila.length} onResp={(qq,ok)=>{ if(registrar)registrar(qq,ok); if(ok)setAcertos(a=>a+1); setFeito(true); }}/>
+          <div className="row" style={{marginTop:14}}>
+            <button className="btn" disabled={!feito} onClick={()=>{setFeito(false);setI(x=>x+1);}}>
+              {i<fila.length-1?"Próxima":"Ver resultado"}
+            </button>
+            {!feito && <span className="muted" style={{fontSize:13}}>Escolha uma alternativa para avançar.</span>}
+          </div>
+        </div>}
+  </div>;
+}
+
 /* =================== PRATICAR (hub: treinar + simulado + foto) =================== */
 function Praticar(props){
   const [modo,setModo]=useState("treinar");
