@@ -121,6 +121,26 @@
   .center{min-height:80vh;display:flex;align-items:center;justify-content:center}
   .auth{max-width:380px;width:100%}
   .link{color:var(--acc);cursor:pointer;font-weight:600}
+
+  /* ===== Ajustes para celular ===== */
+  @media(max-width:560px){
+    #root{padding:16px 12px 84px}
+    .nav{gap:5px;margin:14px 0 18px}
+    .nav button{padding:8px 11px;font-size:13px}
+    h1{font-size:24px !important}
+    .kpi{font-size:28px}
+    .grid{grid-template-columns:1fr !important}
+    .card{padding:15px 14px}
+    .alt{font-size:14.5px;padding:12px 13px}
+    .hero{padding:16px}
+    .row{gap:8px}
+    table{font-size:13px}
+    /* iframe da Super Revisão ocupa a tela sem sobra lateral */
+    .srev-frame{height:calc(100vh - 128px) !important;min-height:460px !important}
+  }
+  @media(max-width:380px){
+    .nav button{padding:7px 9px;font-size:12px}
+  }
 </style>
 </head>
 <body>
@@ -2759,7 +2779,7 @@ function Internato({pool, registrar}){
         <div className="tag" style={{color:"var(--acc)"}}>CLÍNICA CIRÚRGICA</div>
         <h2 style={{fontSize:22,marginTop:4}}>⚡ Super Revisão</h2>
       </div>
-      <iframe title="Super Revisão — Cirurgia" srcDoc={SUPER_REVISAO_CIR}
+      <iframe title="Super Revisão — Cirurgia" srcDoc={SUPER_REVISAO_CIR} className="srev-frame"
         style={{width:"100%",height:"calc(100vh - 150px)",minHeight:600,border:"1px solid var(--line)",borderRadius:16,background:"#0d1417"}}/>
     </div>;
   }
