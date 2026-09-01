@@ -4,12 +4,13 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>ENAMED Engine — estude a prova pela lógica dela</title>
-<meta name="description" content="Plataforma de estudo para o ENAMED: 64 assuntos, 258 questões autorais no padrão INEP, com IA que reexplica, tira dúvida e resolve questão por foto. Acesso de 6 meses por R$49,90." />
+<meta name="description" content="Plataforma de estudo para o ENAMED e o internato Afya: a prova oficial ENAMED 2025.2 completa, internato dos 6 rodízios (A e B) com correção comentada, estações OSCE e uma IA que reexplica, tira dúvida e resolve questão por foto. Acesso de 6 meses por R$49,90." />
 <meta name="theme-color" content="#0d1618" />
 
 <meta property="og:title" content="ENAMED Engine — estude a prova pela lógica dela" />
-<meta property="og:description" content="64 assuntos, 258 questões autorais no padrão INEP e IA que ensina a raciocinar. Acesso 6 meses, R$49,90, pagamento único." />
+<meta property="og:description" content="A prova oficial ENAMED 2025.2, o internato dos 6 rodízios (A e B) com correção comentada, estações OSCE e IA que ensina a raciocinar. Acesso 6 meses, R$49,90, pagamento único." />
 <meta property="og:type" content="website" />
+<meta property="og:url" content="https://consultaia.github.io/enamed/" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -17,147 +18,102 @@
 
 <style>
 :root{
-  --bg:#0d1618;          /* mesmo do app */
-  --panel:#12211f;
-  --panel2:#16302b;
-  --line:#1f3d37;
-  --ink:#e8f2ee;
-  --muted:#7fa49a;
-  --acc:#3ddc97;         /* verde-menta do app */
-  --acc-deep:#0f9d6b;
-  --gold:#e6b450;        /* dourado, usado com parcimônia */
-  --bad:#ff6b6b;
+  --bg:#0d1618;--panel:#12211f;--panel2:#16302b;--line:#1f3d37;
+  --ink:#e8f2ee;--muted:#7fa49a;--acc:#3ddc97;--acc-deep:#0f9d6b;
+  --gold:#e6b450;--bad:#ff6b6b;
   --sans:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-  --display:'Fraunces',Georgia,serif;
-  --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
-  --radius:16px;
-  --maxw:1080px;
+  --display:'Fraunces',Georgia,serif;--mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+  --radius:16px;--maxw:1080px;
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{
-  margin:0;background:var(--bg);color:var(--ink);
-  font-family:var(--sans);line-height:1.6;
-  -webkit-font-smoothing:antialiased;overflow-x:hidden;
-}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 a{color:inherit}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
-
-/* ---------- atmosfera de fundo ---------- */
 .aura{position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:
-    radial-gradient(60% 50% at 78% -5%, rgba(61,220,151,.10), transparent 60%),
-    radial-gradient(45% 40% at 8% 8%, rgba(230,180,80,.06), transparent 60%);
-}
+  background:radial-gradient(60% 50% at 78% -5%, rgba(61,220,151,.10), transparent 60%),radial-gradient(45% 40% at 8% 8%, rgba(230,180,80,.06), transparent 60%)}
 main{position:relative;z-index:1}
 
-/* ---------- nav ---------- */
-nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);
-  background:rgba(13,22,24,.72);border-bottom:1px solid var(--line)}
+nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);background:rgba(13,22,24,.72);border-bottom:1px solid var(--line)}
 .nav-in{display:flex;align-items:center;justify-content:space-between;height:64px}
 .brand{display:flex;align-items:center;gap:11px;font-weight:600;letter-spacing:-.01em}
-.brand .mark{width:30px;height:30px;border-radius:9px;flex:none;
-  background:linear-gradient(150deg,var(--acc),var(--acc-deep));
-  display:grid;place-items:center;color:#04120c;font-family:var(--mono);font-weight:600;font-size:15px}
+.brand .mark{width:30px;height:30px;border-radius:9px;flex:none;background:linear-gradient(150deg,var(--acc),var(--acc-deep));display:grid;place-items:center;color:#04120c;font-family:var(--mono);font-weight:600;font-size:15px}
 .brand small{color:var(--muted);font-weight:500}
-.nav-cta{font-size:14px;font-weight:600;padding:9px 16px;border-radius:10px;
-  background:var(--acc);color:#04120c;text-decoration:none;transition:transform .15s,box-shadow .15s}
+.nav-cta{font-size:14px;font-weight:600;padding:9px 16px;border-radius:10px;background:var(--acc);color:#04120c;text-decoration:none;transition:transform .15s,box-shadow .15s}
 .nav-cta:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(61,220,151,.25)}
 
-/* ---------- hero ---------- */
 .hero{padding:72px 0 40px}
-.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);
-  font-size:12.5px;letter-spacing:.02em;color:var(--gold);
-  border:1px solid rgba(230,180,80,.3);border-radius:100px;padding:6px 14px;margin-bottom:26px}
-.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);
-  box-shadow:0 0 0 0 rgba(230,180,80,.6);animation:pulse 2.4s infinite}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px;letter-spacing:.02em;color:var(--gold);border:1px solid rgba(230,180,80,.3);border-radius:100px;padding:6px 14px;margin-bottom:26px}
+.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:pulse 2.4s infinite}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(230,180,80,.5)}70%{box-shadow:0 0 0 8px rgba(230,180,80,0)}100%{box-shadow:0 0 0 0 rgba(230,180,80,0)}}
-
-h1{font-family:var(--display);font-weight:500;letter-spacing:-.02em;
-  font-size:clamp(34px,6vw,60px);line-height:1.04;margin:0 0 20px;max-width:16ch}
+h1{font-family:var(--display);font-weight:500;letter-spacing:-.02em;font-size:clamp(34px,6vw,60px);line-height:1.04;margin:0 0 20px;max-width:16ch}
 h1 em{font-style:italic;color:var(--acc)}
-.sub{font-size:clamp(16px,2.2vw,20px);color:var(--muted);max-width:52ch;margin:0 0 32px}
+.sub{font-size:clamp(16px,2.2vw,20px);color:var(--muted);max-width:54ch;margin:0 0 32px}
 .sub b{color:var(--ink);font-weight:600}
-
 .cta-row{display:flex;flex-wrap:wrap;gap:14px;align-items:center}
-.btn{font-size:16px;font-weight:600;padding:15px 26px;border-radius:12px;
-  text-decoration:none;border:1px solid transparent;transition:transform .15s,box-shadow .15s;cursor:pointer;display:inline-flex;align-items:center;gap:10px}
+.btn{font-size:16px;font-weight:600;padding:15px 26px;border-radius:12px;text-decoration:none;border:1px solid transparent;transition:transform .15s,box-shadow .15s;cursor:pointer;display:inline-flex;align-items:center;gap:10px}
 .btn-primary{background:var(--acc);color:#04120c}
 .btn-primary:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(61,220,151,.3)}
 .btn-ghost{background:transparent;color:var(--ink);border-color:var(--line)}
 .btn-ghost:hover{border-color:var(--acc);color:var(--acc)}
-.cta-note{font-size:13.5px;color:var(--muted);margin-top:14px}
-.cta-note b{color:var(--acc)}
 
-/* ---------- questão-herói (a assinatura) ---------- */
-.demo{margin-top:56px;border:1px solid var(--line);border-radius:var(--radius);
-  background:linear-gradient(180deg,var(--panel),#0f1c1a);overflow:hidden;
-  box-shadow:0 30px 80px -30px rgba(0,0,0,.7)}
-.demo-top{display:flex;align-items:center;gap:8px;padding:13px 18px;border-bottom:1px solid var(--line);
-  font-family:var(--mono);font-size:12px;color:var(--muted)}
-.demo-top .tag{margin-left:auto;color:var(--acc);border:1px solid rgba(61,220,151,.3);
-  border-radius:100px;padding:3px 10px;font-size:11px}
+.demo{margin-top:56px;border:1px solid var(--line);border-radius:var(--radius);background:linear-gradient(180deg,var(--panel),#0f1c1a);overflow:hidden;box-shadow:0 30px 80px -30px rgba(0,0,0,.7)}
+.demo-top{display:flex;align-items:center;gap:8px;padding:13px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--muted)}
+.demo-top .tag{margin-left:auto;color:var(--acc);border:1px solid rgba(61,220,151,.3);border-radius:100px;padding:3px 10px;font-size:11px}
 .demo-body{padding:26px 26px 8px}
 .q-area{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);margin-bottom:12px}
 .q-text{font-size:16.5px;line-height:1.65;margin:0 0 22px}
 .alts{display:grid;gap:10px;margin-bottom:8px}
-.alt{display:flex;gap:13px;padding:13px 16px;border:1px solid var(--line);border-radius:11px;
-  font-size:15px;transition:border-color .2s,background .2s;cursor:default}
+.alt{display:flex;gap:13px;padding:13px 16px;border:1px solid var(--line);border-radius:11px;font-size:15px;transition:border-color .2s,background .2s;cursor:default}
 .alt .k{font-family:var(--mono);color:var(--muted);flex:none;font-weight:500}
 .alt.correct{border-color:var(--acc);background:rgba(61,220,151,.07)}
 .alt.correct .k{color:var(--acc)}
 .alt.correct::after{content:"✓";margin-left:auto;color:var(--acc);font-weight:700}
-.reveal{border-top:1px dashed var(--line);margin-top:18px;padding:20px 26px 26px;
-  background:rgba(61,220,151,.035)}
+.reveal{border-top:1px dashed var(--line);margin-top:18px;padding:20px 26px 26px;background:rgba(61,220,151,.035)}
 .reveal .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--acc);margin-bottom:8px}
 .reveal p{margin:0;font-size:14.5px;color:#cfe4dc}
 .reveal .pega{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
 .reveal .pega .lbl{color:var(--gold)}
 
-/* ---------- faixa de credenciais ---------- */
-.strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);
-  background:var(--panel);margin-top:8px}
-.strip-in{display:flex;flex-wrap:wrap;gap:14px 40px;justify-content:center;padding:26px 24px;
-  font-size:14px;color:var(--muted)}
+.strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--panel);margin-top:8px}
+.strip-in{display:flex;flex-wrap:wrap;gap:14px 40px;justify-content:center;padding:26px 24px;font-size:14px;color:var(--muted)}
 .strip-in b{color:var(--ink);font-weight:600}
 .strip-in span{display:inline-flex;align-items:center;gap:9px}
 .strip-in .n{font-family:var(--display);font-size:22px;color:var(--acc);font-weight:600}
 
-/* ---------- seções ---------- */
 section{padding:80px 0}
 .sec-head{max-width:56ch;margin-bottom:48px}
 .sec-eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--acc);margin-bottom:14px}
-.sec-head h2{font-family:var(--display);font-weight:500;letter-spacing:-.02em;
-  font-size:clamp(26px,4vw,40px);line-height:1.1;margin:0 0 14px}
+.sec-head h2{font-family:var(--display);font-weight:500;letter-spacing:-.02em;font-size:clamp(26px,4vw,40px);line-height:1.1;margin:0 0 14px}
 .sec-head p{font-size:17px;color:var(--muted);margin:0}
 
-/* método: anatomia de um assunto */
+/* módulos: o que tem dentro */
+.mods{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+.mod{border:1px solid var(--line);border-radius:14px;padding:24px;background:linear-gradient(160deg,var(--panel),#0f1c1a);transition:border-color .2s,transform .2s;position:relative}
+.mod:hover{border-color:rgba(61,220,151,.4);transform:translateY(-3px)}
+.mod .ic{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;background:var(--panel2);color:var(--acc);font-size:19px;margin-bottom:13px}
+.mod h3{font-size:18px;margin:0 0 7px;letter-spacing:-.01em}
+.mod p{margin:0;font-size:14.5px;color:var(--muted)}
+.mod .pill{display:inline-block;margin-top:12px;font-family:var(--mono);font-size:11px;color:var(--gold);border:1px solid rgba(230,180,80,.3);border-radius:100px;padding:3px 10px}
+
+/* anatomia */
 .anatomy{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.layer{border:1px solid var(--line);border-radius:13px;padding:22px;background:var(--panel);
-  transition:border-color .2s,transform .2s}
+.layer{border:1px solid var(--line);border-radius:13px;padding:22px;background:var(--panel);transition:border-color .2s,transform .2s}
 .layer:hover{border-color:rgba(61,220,151,.4);transform:translateY(-3px)}
 .layer .h{display:flex;align-items:center;gap:11px;margin-bottom:9px}
-.layer .ic{width:34px;height:34px;border-radius:9px;flex:none;display:grid;place-items:center;
-  background:var(--panel2);color:var(--acc);font-size:17px}
+.layer .ic{width:34px;height:34px;border-radius:9px;flex:none;display:grid;place-items:center;background:var(--panel2);color:var(--acc);font-size:17px}
 .layer h3{font-size:16px;margin:0;font-weight:600;letter-spacing:-.01em}
 .layer p{margin:0;font-size:14px;color:var(--muted)}
 
-/* IA */
 .ai-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
-.ai-card{border:1px solid var(--line);border-radius:13px;padding:24px;
-  background:linear-gradient(160deg,var(--panel),#0f1c1a);position:relative;overflow:hidden}
+.ai-card{border:1px solid var(--line);border-radius:13px;padding:24px;background:linear-gradient(160deg,var(--panel),#0f1c1a);position:relative;overflow:hidden}
 .ai-card .tag{font-family:var(--mono);font-size:11px;color:var(--gold);letter-spacing:.05em;margin-bottom:12px}
 .ai-card h3{font-size:18px;margin:0 0 8px;letter-spacing:-.01em}
 .ai-card p{margin:0;font-size:14.5px;color:var(--muted)}
 
-/* preço */
 .price-wrap{max-width:520px;margin:0 auto}
-.price-card{border:1px solid rgba(230,180,80,.35);border-radius:var(--radius);
-  background:linear-gradient(165deg,var(--panel2),#102520);padding:38px 34px;text-align:center;
-  box-shadow:0 30px 70px -34px rgba(0,0,0,.7);position:relative}
-.price-card .flag{position:absolute;top:-13px;left:50%;transform:translateX(-50%);
-  background:var(--gold);color:#1a1204;font-size:12px;font-weight:700;letter-spacing:.03em;
-  padding:5px 16px;border-radius:100px;font-family:var(--mono)}
+.price-card{border:1px solid rgba(230,180,80,.35);border-radius:var(--radius);background:linear-gradient(165deg,var(--panel2),#102520);padding:38px 34px;text-align:center;box-shadow:0 30px 70px -34px rgba(0,0,0,.7);position:relative}
+.price-card .flag{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--gold);color:#1a1204;font-size:12px;font-weight:700;letter-spacing:.03em;padding:5px 16px;border-radius:100px;font-family:var(--mono)}
 .price-card h3{font-family:var(--display);font-weight:500;font-size:24px;margin:6px 0 4px}
 .amount{font-family:var(--display);font-size:64px;font-weight:600;letter-spacing:-.03em;line-height:1;margin:14px 0 2px}
 .amount .cents{font-size:28px;vertical-align:super}
@@ -168,7 +124,6 @@ section{padding:80px 0}
 .price-card .btn-primary{width:100%;justify-content:center;font-size:17px}
 .micro{font-size:12.5px;color:var(--muted);margin-top:16px}
 
-/* faq */
 .faq{max-width:720px;margin:0 auto}
 details{border-bottom:1px solid var(--line);padding:20px 4px}
 summary{cursor:pointer;font-size:17px;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:16px;align-items:center;letter-spacing:-.01em}
@@ -177,23 +132,19 @@ summary::after{content:"+";color:var(--acc);font-size:22px;font-weight:400;trans
 details[open] summary::after{transform:rotate(45deg)}
 details p{margin:14px 0 0;color:var(--muted);font-size:15px}
 
-/* cta final */
 .final{text-align:center;padding:90px 0}
 .final h2{font-family:var(--display);font-weight:500;font-size:clamp(28px,5vw,46px);letter-spacing:-.02em;margin:0 0 16px;line-height:1.08}
 .final h2 em{font-style:italic;color:var(--acc)}
 .final p{color:var(--muted);font-size:18px;max-width:48ch;margin:0 auto 34px}
 .count{font-family:var(--mono);color:var(--gold);font-size:14px;margin-top:20px}
 
-/* rodapé */
 footer{border-top:1px solid var(--line);padding:40px 0;background:var(--panel)}
 .foot-in{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center;font-size:13.5px;color:var(--muted)}
 .disc{max-width:60ch;font-size:12.5px;line-height:1.55}
 
 @media(max-width:760px){
-  .anatomy,.ai-grid{grid-template-columns:1fr}
-  .hero{padding:48px 0 24px}
-  section{padding:60px 0}
-  .demo{margin-top:40px}
+  .anatomy,.ai-grid,.mods{grid-template-columns:1fr}
+  .hero{padding:48px 0 24px}section{padding:60px 0}.demo{margin-top:40px}
 }
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto}}
 </style>
@@ -215,17 +166,17 @@ footer{border-top:1px solid var(--line);padding:40px 0;background:var(--panel)}
   <div class="wrap">
     <span class="eyebrow"><span class="dot"></span>PROVA ENAMED · 13 DE SETEMBRO DE 2026</span>
     <h1>Não decore a prova.<br>Aprenda a <em>raciocinar</em> como ela.</h1>
-    <p class="sub">O ENAMED cobra conduta, não memória. Aqui cada assunto vem com a <b>lógica por trás</b>, a pegadinha que a banca arma e a âncora no SUS — mais uma IA que reexplica quando você trava.</p>
+    <p class="sub">Da graduação ao ENAMED, passando pelo internato Afya: a <b>prova oficial 2025.2 completa</b>, o internato dos <b>6 rodízios (A e B)</b> com correção comentada, estações <b>OSCE</b> e uma IA que reexplica quando você trava — tudo num app só.</p>
     <div class="cta-row">
       <a class="btn btn-primary" href="https://consultaia.github.io/enamed/">Começar agora →</a>
-      <a class="btn btn-ghost" href="#preco">Ver o que está incluso</a>
+      <a class="btn btn-ghost" href="#dentro">Ver o que tem dentro</a>
     </div>
 
-    <!-- QUESTÃO-HERÓI: a assinatura da página -->
+    <!-- QUESTÃO-HERÓI -->
     <div class="demo">
       <div class="demo-top">
         <span>questão · clínica médica</span>
-        <span class="tag">padrão INEP</span>
+        <span class="tag">correção comentada</span>
       </div>
       <div class="demo-body">
         <div class="q-area">Reta final · raciocínio, não decoreba</div>
@@ -252,15 +203,64 @@ footer{border-top:1px solid var(--line);padding:40px 0;background:var(--panel)}
 <!-- FAIXA DE NÚMEROS -->
 <div class="strip">
   <div class="wrap strip-in">
-    <span><span class="n">64</span> <b>assuntos</b> escritos à mão</span>
-    <span><span class="n">258</span> <b>questões</b> autorais</span>
-    <span><span class="n">5</span> <b>grandes áreas</b> · CM, CIR, GO, PED, MFC</span>
+    <span><span class="n">2.200+</span> <b>questões</b> comentadas</span>
+    <span><span class="n">6</span> <b>rodízios</b> do internato · A e B</span>
+    <span><span class="n">100</span> <b>questões</b> da prova oficial 2025.2</span>
     <span><span class="n">6</span> <b>meses</b> de acesso</span>
   </div>
 </div>
 
-<!-- MÉTODO: anatomia de um assunto -->
-<section id="metodo">
+<!-- O QUE TEM DENTRO -->
+<section id="dentro">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="sec-eyebrow">O que tem dentro</div>
+      <h2>Um app para cada etapa até a residência</h2>
+      <p>Graduação, internato, ENAMED e ENARE na mesma plataforma — organizados do jeito que você estuda de verdade.</p>
+    </div>
+    <div class="mods">
+      <div class="mod">
+        <div class="ic">🏛️</div>
+        <h3>Prova Oficial ENAMED 2025.2</h3>
+        <p>A prova real do INEP, completa, com as questões anuladas marcadas e sem penalizar você — para treinar no formato exato do dia 13/09.</p>
+        <span class="pill">100 questões oficiais</span>
+      </div>
+      <div class="mod">
+        <div class="ic">🩺</div>
+        <h3>Internato — 6 rodízios, A e B</h3>
+        <p>Cirurgia, Atenção Primária, Clínica Médica, GO, Pediatria e Urgência/Emergência/Saúde Mental. Questões no estilo das devolutivas, com correção comentada por tópico.</p>
+        <span class="pill">metades A e B por disciplina</span>
+      </div>
+      <div class="mod">
+        <div class="ic">⚡</div>
+        <h3>Super Revisão + Estudo Casado</h3>
+        <p>Resumo de alto rendimento, pegadinhas e mnemônicos por tema — e o modo lado a lado: revisão à esquerda, questões à direita, sem ficar pulando entre abas.</p>
+        <span class="pill">revisão ↔ questões num toque</span>
+      </div>
+      <div class="mod">
+        <div class="ic">🧑‍⚕️</div>
+        <h3>Estações OSCE</h3>
+        <p>Casos simulados com paciente virtual e examinador de IA: você conduz anamnese, exame, hipótese e conduta, e recebe a nota comentada.</p>
+        <span class="pill">prática de estação guiada</span>
+      </div>
+      <div class="mod">
+        <div class="ic">🔍</div>
+        <h3>Busca global</h3>
+        <p>Uma lupa que varre todo o banco por tema, área ou enunciado e abre a questão na hora. Achar conteúdo deixou de ser garimpo.</p>
+        <span class="pill">todo o acervo em um campo</span>
+      </div>
+      <div class="mod">
+        <div class="ic">📈</div>
+        <h3>Diagnóstico e trilha</h3>
+        <p>Um diagnóstico rápido descobre seus pontos fracos e a trilha prioriza o que você mais erra — o progresso fica salvo e você retoma de onde parou.</p>
+        <span class="pill">estudo que se adapta a você</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MÉTODO -->
+<section id="metodo" style="background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
   <div class="wrap">
     <div class="sec-head">
       <div class="sec-eyebrow">O método</div>
@@ -277,7 +277,7 @@ footer{border-top:1px solid var(--line);padding:40px 0;background:var(--panel)}
 </section>
 
 <!-- IA -->
-<section id="ia" style="background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+<section id="ia">
   <div class="wrap">
     <div class="sec-head">
       <div class="sec-eyebrow">A inteligência dentro do app</div>
@@ -294,7 +294,7 @@ footer{border-top:1px solid var(--line);padding:40px 0;background:var(--panel)}
 </section>
 
 <!-- PREÇO -->
-<section id="preco">
+<section id="preco" style="background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
   <div class="wrap">
     <div class="sec-head" style="text-align:center;margin-left:auto;margin-right:auto">
       <div class="sec-eyebrow">Acesso</div>
@@ -307,10 +307,11 @@ footer{border-top:1px solid var(--line);padding:40px 0;background:var(--panel)}
         <div class="amount">R$ 49<span class="cents">,90</span></div>
         <div class="amount-note">pagamento único · 6 meses de acesso</div>
         <ul class="plist">
-          <li><span class="ck">✓</span> Os 64 assuntos e as 258 questões autorais</li>
-          <li><span class="ck">✓</span> Simulados no formato oficial, 100 questões</li>
-          <li><span class="ck">✓</span> Aula adaptativa e tira-dúvida com IA</li>
-          <li><span class="ck">✓</span> Gerador de questões e correção por foto</li>
+          <li><span class="ck">✓</span> A prova oficial ENAMED 2025.2 completa</li>
+          <li><span class="ck">✓</span> Internato dos 6 rodízios (A e B), com correção comentada</li>
+          <li><span class="ck">✓</span> Super Revisão + Estudo Casado por tema</li>
+          <li><span class="ck">✓</span> Estações OSCE e simulados no formato oficial</li>
+          <li><span class="ck">✓</span> IA: reexplica, tira-dúvida, gera questão e resolve por foto</li>
           <li><span class="ck">✓</span> Sem renovação automática, sem pegadinha</li>
         </ul>
         <a class="btn btn-primary" href="https://consultaia.github.io/enamed/">Liberar meu acesso →</a>
@@ -321,17 +322,18 @@ footer{border-top:1px solid var(--line);padding:40px 0;background:var(--panel)}
 </section>
 
 <!-- FAQ -->
-<section id="faq" style="padding-top:20px">
+<section id="faq" style="padding-top:60px">
   <div class="wrap">
     <div class="sec-head" style="text-align:center;margin-left:auto;margin-right:auto">
       <div class="sec-eyebrow">Perguntas</div>
       <h2>O que costumam perguntar</h2>
     </div>
     <div class="faq">
-      <details open><summary>As questões são cópia das provas oficiais?</summary><p>Não. São questões autorais, escritas no padrão do ENAMED — caso clínico completo, raciocínio clínico e ancoragem no SUS. Ferramenta educacional independente, sem vínculo com o INEP ou o MEC.</p></details>
+      <details open><summary>Serve para o ENAMED e para o internato?</summary><p>Sim. A plataforma cobre a graduação, o internato (os 6 rodízios da Afya, com metades A e B), o ENAMED e ainda apoia quem vai para o ENARE. É pensada para acompanhar você da faculdade à residência.</p></details>
+      <details><summary>As questões são cópia das provas oficiais?</summary><p>Há questões autorais no padrão do ENAMED, questões de estudo no estilo das devolutivas dos rodízios e a prova oficial ENAMED 2025.2 (conteúdo público do INEP), sempre com correção comentada. É uma ferramenta educacional independente, sem vínculo com o INEP ou o MEC.</p></details>
       <details><summary>Preciso pagar mensalidade?</summary><p>Não. É um pagamento único de R$ 49,90 que libera seis meses de acesso completo. Não há renovação automática nem cobrança recorrente.</p></details>
-      <details><summary>Como funciona o acesso?</summary><p>São seis meses de acesso completo por um pagamento único de R$ 49,90. Você cria a conta, libera o acesso via Pix e usa tudo — os 64 assuntos, as questões e a IA — na hora.</p></details>
-      <details><summary>Serve só para o ENAMED?</summary><p>O foco é o ENAMED, mas o conteúdo das cinco grandes áreas também apoia quem estuda para Revalida e ENARE, provas que compartilham a mesma base clínica ancorada no SUS.</p></details>
+      <details><summary>O que é o Estudo Casado e as estações OSCE?</summary><p>O Estudo Casado mostra a Super Revisão de um tema e as questões dele lado a lado, na mesma tela. As estações OSCE são casos simulados com paciente virtual e examinador de IA, para você praticar anamnese, exame, hipótese e conduta com nota comentada.</p></details>
+      <details><summary>Funciona no celular e offline?</summary><p>Funciona no celular, tablet e computador — dá para instalar como app. Boa parte do conteúdo fica disponível mesmo com conexão instável, e seu progresso fica salvo na conta.</p></details>
       <details><summary>Como recebo o acesso depois de pagar?</summary><p>O pagamento é por Pix e a liberação é automática — assim que o pagamento é confirmado, o acesso completo abre na sua conta, sem espera.</p></details>
     </div>
   </div>
@@ -352,7 +354,7 @@ footer{border-top:1px solid var(--line);padding:40px 0;background:var(--panel)}
 <footer>
   <div class="wrap foot-in">
     <div class="brand"><span class="mark">E</span><span>ENAMED Engine</span></div>
-    <p class="disc">Ferramenta educacional independente, sem vínculo, afiliação ou endosso do INEP ou do Ministério da Educação. Todo o conteúdo é autoral e de finalidade exclusivamente educacional. Não substitui orientação médica.</p>
+    <p class="disc">Ferramenta educacional independente, sem vínculo, afiliação ou endosso do INEP, do MEC ou da Afya. Conteúdo de finalidade exclusivamente educacional. Não substitui orientação médica.</p>
   </div>
 </footer>
 
