@@ -2461,7 +2461,7 @@ function Shell({session}){
   useEffect(()=>{(async()=>{
     setLoading(true);
     const [q,r,d,s,a]=await Promise.all([
-      sb.from("questoes").select("*"),
+      (async()=>{let all=[],from=0;const step=1000;for(;;){const{data,error}=await sb.from("questoes").select("*").order("id",{ascending:true}).range(from,from+step-1);if(error||!data||!data.length)break;all=all.concat(data);if(data.length<step)break;from+=step;}return{data:all};})(),
       sb.from("respostas").select("*").eq("user_id",uid),
       sb.from("dominio").select("*").eq("user_id",uid),
       sb.from("srs").select("*").eq("user_id",uid),
