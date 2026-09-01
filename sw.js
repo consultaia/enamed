@@ -5,10 +5,8 @@
    ao usuário, sem precisar limpar cache. O cache serve só de
    reserva para quando estiver offline.
    ================================================================ */
-
-const VERSION = 'enamed-v' + '2026-08-25-01';  // troque a data a cada deploy grande
+const VERSION = 'enamed-v' + '2026-09-01-01';  // troque a data a cada deploy grande
 const CACHE = VERSION;
-
 // Arquivos que valem manter em cache como reserva offline.
 const ASSETS = [
   './',
@@ -17,7 +15,6 @@ const ASSETS = [
   './icon-192.png',
   './icon-512.png',
 ];
-
 // INSTALL: baixa a reserva e assume o controle imediatamente.
 self.addEventListener('install', (e) => {
   self.skipWaiting(); // não espera abas antigas fecharem
@@ -25,7 +22,6 @@ self.addEventListener('install', (e) => {
     caches.open(CACHE).then((c) => c.addAll(ASSETS).catch(() => {}))
   );
 });
-
 // ACTIVATE: apaga caches de versões antigas e assume as abas abertas.
 self.addEventListener('activate', (e) => {
   e.waitUntil(
@@ -34,7 +30,6 @@ self.addEventListener('activate', (e) => {
     ).then(() => self.clients.claim())
   );
 });
-
 // FETCH:
 // - Navegação / HTML  -> NETWORK-FIRST (sempre tenta a versão nova online;
 //   só usa cache se estiver offline). É isso que faz a atualização ser automática.
@@ -42,18 +37,17 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
-
   const url = new URL(req.url);
   const isHTML =
     req.mode === 'navigate' ||
     req.destination === 'document' ||
     url.pathname.endsWith('/') ||
     url.pathname.endsWith('index.html');
-
   if (isHTML) {
-    // NETWORK-FIRST: pega sempre o app mais novo quando há internet.
+    // NETWORK-FIRST + no-store: ignora o cache HTTP do navegador e vai
+    // direto à origem, garantindo o index.html mais novo quando há internet.
     e.respondWith(
-      fetch(req)
+      fetch(req, { cache: 'no-store' })
         .then((res) => {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put('./index.html', copy)).catch(() => {});
@@ -65,7 +59,6 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
-
   // Demais recursos: responde do cache e atualiza por trás.
   e.respondWith(
     caches.match(req).then((cached) => {
@@ -80,7 +73,6 @@ self.addEventListener('fetch', (e) => {
     })
   );
 });
-
 // Permite que a página mande o SW ativar na hora (usado no aviso de update).
 self.addEventListener('message', (e) => {
   if (e.data === 'skipWaiting') self.skipWaiting();
