@@ -2370,6 +2370,32 @@ function GlobalSearch(){
   </React.Fragment>;
 }
 
+function TECM({pool, registrar}){
+  const [iniciado,setIniciado]=useState(false);
+  const tecmQs=useMemo(()=>{
+    const arr=(pool||[]).filter(q=>(q&&q.transv&&q.transv.indexOf&&q.transv.indexOf("TECM")>=0)||(q&&q.tema&&(""+q.tema).indexOf("TECM — SBCM")===0));
+    const num=q=>{const m=/_q(\d+)$/.exec(q.id||"");return m?+m[1]:9999;};
+    return arr.slice().sort((a,b)=>num(a)-num(b));
+  },[pool]);
+  const p1=tecmQs.filter(q=>/Parte I(\b|$)/.test(q.tema||"")&&!/Parte II/.test(q.tema||"")).length;
+  const p2=tecmQs.length-p1;
+  if(!tecmQs.length) return <div className="card" style={{padding:22}}>
+    <div className="tag" style={{color:"var(--acc)"}}>TÍTULO DE ESPECIALISTA · SBCM 2026</div>
+    <h2 style={{fontSize:22,marginTop:4}}>🏛️ Prova de Título em Clínica Médica</h2>
+    <p className="muted" style={{marginTop:8}}>As questões da TECM ainda não apareceram. Rode o SQL <b>tecm_sbcm_2026.sql</b> no Supabase e recarregue o app (hard-refresh).</p></div>;
+  if(iniciado) return <div>
+    <button className="btn ghost sm" style={{marginBottom:10}} onClick={()=>setIniciado(false)}>← Sair da prova</button>
+    <Diagnostico pool={pool} registrar={registrar} modo="completo" questoesFixas={tecmQs} onFim={()=>{}}/>
+  </div>;
+  return <div className="card" style={{padding:22}}>
+    <div className="tag" style={{color:"var(--acc)"}}>TÍTULO DE ESPECIALISTA · SBCM 2026</div>
+    <h2 style={{fontSize:22,marginTop:4}}>🏛️ Prova de Título em Clínica Médica</h2>
+    <p className="muted" style={{marginTop:8}}>A prova oficial da Sociedade Brasileira de Clínica Médica (TECM 2026), completa e com gabarito oficial — {tecmQs.length} questões de 5 alternativas. Parte I: {p1} (conhecimentos gerais em CM) · Parte II: {p2} (raciocínio em urgência/emergência).</p>
+    <p className="muted" style={{fontSize:13,marginTop:6}}>Correção comentada ao final. Dá pra refazer quando quiser.</p>
+    <button className="btn" style={{marginTop:14}} onClick={()=>setIniciado(true)}>Começar prova →</button>
+  </div>;
+}
+
 function App(){
   const [session,setSession]=useState(null);
   const [booting,setBooting]=useState(true);
@@ -2558,13 +2584,14 @@ function Shell({session}){
       </div>
 
       <div className="nav">
-        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["flash","🃏 Flashcards"],["dash","📈 Meu progresso"]].map(([k,l])=>
+        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["tecm","🏛️ TECM"],["flash","🃏 Flashcards"],["dash","📈 Meu progresso"]].map(([k,l])=>
           <button key={k} className={tab===k?"on":""} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
 
       {tab==="trilha" && <Trilha store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={isPro} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
       {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} bloqueadas={isPro?0:bloqueadasFree} isPro={isPro} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
       {tab==="internato" && <Internato pool={questoes} registrar={registrar}/>}
+      {tab==="tecm" && <TECM pool={questoes} registrar={registrar}/>}
       {tab==="flash" && (isPro ? <Flashcards cards={FLASHCARDS} curriculo={CURRICULO} sb={sb} uid={uid}/> : <TravaFree titulo="Flashcards é PRO" texto="Revise todos os assuntos em cartões rápidos, com baralho diário e sequência de dias estudados." onAssinar={()=>setShowAssinar(true)}/>)}
       {tab==="dash" && (isPro ? <Dash store={store} temasFracos={temasFracos} onRefazer={()=>setDiag("rapido")}/> : <TravaFree titulo="Meu progresso é PRO" texto="Veja seu acerto por área, os temas onde mais erra e o quanto já dominou da trilha." onAssinar={()=>setShowAssinar(true)}/>)}
     </div>}
@@ -2799,7 +2826,7 @@ function Dash({store,temasFracos,onRefazer}){
 
 /* =================== TREINAR =================== */
 function QuestionCard({q,onResp,indice,total}){
-  const [sel,setSel]=useState(null);useEffect(()=>setSel(null),[q.id]);const L=["A","B","C","D"];
+  const [sel,setSel]=useState(null);useEffect(()=>setSel(null),[q.id]);const L=["A","B","C","D","E"];
   return <div className="card">
     <div className="row" style={{justifyContent:"space-between",marginBottom:10}}>
       <div className="row" style={{gap:8}}><span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(q.area)}</span><span className="pill">{q.tema}</span>{(q.transv||[]).map(t=><span key={t} className="pill" style={{color:"var(--acc2)"}}>{t}</span>)}</div>
@@ -3823,7 +3850,7 @@ function Simulado({pool,registrar,isPro}){
   if(!run)return <div className="card"><h3 style={{fontSize:17,marginBottom:8}}>Simulado no formato oficial</h3>
     <div className="muted" style={{fontSize:14,marginBottom:14,lineHeight:1.6}}>Respeita a proporção de 20/área (escalada ao banco). {isPro?"":"No plano free o simulado é reduzido — o completo é PRO."}</div>
     <button className="btn" onClick={montar}>Gerar simulado</button></div>;
-  const L=["A","B","C","D"];const ac=prova.filter(q=>resp[q.id]===q.correta).length;
+  const L=["A","B","C","D","E"];const ac=prova.filter(q=>resp[q.id]===q.correta).length;
   return <div>{!fim&&<div className="muted" style={{fontSize:13,marginBottom:12}}>{prova.length} questões · responda e finalize.</div>}
     {prova.map((q,idx)=><div key={q.id} className="card" style={{marginBottom:14}}>
       <div className="row" style={{gap:8,marginBottom:8}}><span className="muted" style={{fontSize:13}}>{idx+1}.</span><span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(q.area)}</span></div>
