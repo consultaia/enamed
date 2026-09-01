@@ -2897,7 +2897,8 @@ function Internato({pool, registrar}){
     return <RunnerInternato nome={bloco.nome} qs={bloco.qs}
       label={(MOD_TEMA[modulo]||modulo)+" "+half}
       registrar={registrar} onVoltar={()=>setBloco(null)}
-      onRevisar={temGuiaBloco?()=>{setRevTopico(bloco.nome);setBloco(null);setSuperrev(true);window.scrollTo(0,0);}:null}/>;
+      onRevisar={temGuiaBloco?()=>{setRevTopico(bloco.nome);setBloco(null);setSuperrev(true);window.scrollTo(0,0);}:null}
+      guiaHtml={temGuiaBloco?SUPERREV[modulo+"|"+half].html():null} topico={bloco.nome}/>;
   }
 
   /* -------- TELA: metades A/B de um módulo -------- */
@@ -2986,12 +2987,16 @@ function Internato({pool, registrar}){
   </div>;
 }
 
-function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar}){
+function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar, guiaHtml, topico}){
   const fila = useMemo(()=>qs.slice(),[nome]);
   const [i,setI]=useState(0);
   const [feito,setFeito]=useState(false);
   const [acertos,setAcertos]=useState(0);
   useEffect(()=>{setI(0);setFeito(false);setAcertos(0);},[nome]);
+  const [casado,setCasado]=useState(false);
+  const [wide,setWide]=useState(typeof window!=="undefined"?window.innerWidth>=1000:true);
+  useEffect(()=>{const h=()=>setWide(window.innerWidth>=1000);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
+  const deepRev = topico ? ("<scr"+"ipt>(function(){try{var W="+JSON.stringify(topico)+";function N(s){return (s||'').toString().toLowerCase().replace(/[^a-z0-9]+/g,'');}var w=N(W);var i=-1;if(typeof DATA!=='undefined'&&w){i=DATA.findIndex(function(t){var a=N(t.titulo);if(!a)return false;return a===w||a.indexOf(w)===0||w.indexOf(a)===0||a.slice(0,14)===w.slice(0,14);});}if(i>=0&&typeof state!=='undefined'&&typeof render==='function'){state.topic=i;state.tab='resumo';render();}}catch(e){}})();</scr"+"ipt>") : "";
 
   const q=fila[i];
   const fim = i>=fila.length;
@@ -3000,6 +3005,7 @@ function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar}){
     <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:8}}>
       <button className="btn ghost sm" onClick={onVoltar}>← Blocos</button>
       {onRevisar&&<button className="btn ghost sm" onClick={onRevisar} title="Abrir a Super Revisão desta metade">📖 Revisão deste tema</button>}
+      {guiaHtml&&wide&&<button className="btn ghost sm" onClick={()=>setCasado(c=>!c)} title="Ver revisão e questões lado a lado">{casado?"⬛ Só questões":"🔗 Estudo casado"}</button>}
     </div>
     <div style={{margin:"14px 0 4px"}}>
       <div className="tag" style={{color:"var(--acc)"}}>{(label||"INTERNATO").toUpperCase()}</div>
@@ -3017,7 +3023,7 @@ function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar}){
             <button className="btn" onClick={onVoltar}>Voltar aos blocos</button>
           </div>
         </div>
-      : <div>
+      : (()=>{ const qBlock=<div>
           <QuestionCard q={q} indice={i} total={fila.length} onResp={(qq,ok)=>{ if(registrar)registrar(qq,ok); if(ok)setAcertos(a=>a+1); setFeito(true); }}/>
           <div className="row" style={{marginTop:14}}>
             <button className="btn" disabled={!feito} onClick={()=>{setFeito(false);setI(x=>x+1);}}>
@@ -3025,7 +3031,17 @@ function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar}){
             </button>
             {!feito && <span className="muted" style={{fontSize:13}}>Escolha uma alternativa para avançar.</span>}
           </div>
-        </div>}
+        </div>;
+        if(casado && wide && guiaHtml){
+          return <div style={{display:"flex",gap:14,alignItems:"stretch"}}>
+            <div style={{flex:"1 1 0",minWidth:0}}>{qBlock}</div>
+            <div style={{flex:"1 1 0",minWidth:0,borderRadius:12,overflow:"hidden",border:"1px solid rgba(127,127,127,.25)"}}>
+              <iframe title="Super Revisão" srcDoc={guiaHtml+deepRev} style={{width:"100%",height:"74vh",border:0,display:"block"}}/>
+            </div>
+          </div>;
+        }
+        return qBlock;
+      })()}
   </div>;
 }
 
