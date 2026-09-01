@@ -2876,7 +2876,10 @@ function Internato({pool, registrar}){
   if(superrev){
     const g=SUPERREV[modulo+"|"+half];
     return <div>
-      <button className="btn ghost sm" onClick={()=>setSuperrev(false)}>← Voltar</button>
+      <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:8}}>
+        <button className="btn ghost sm" onClick={()=>setSuperrev(false)}>← Voltar</button>
+        <button className="btn ghost sm" onClick={()=>{setSuperrev(false);window.scrollTo(0,0);}} title="Ir treinar as questões desta metade">✏️ Praticar questões</button>
+      </div>
       <div style={{margin:"14px 0 10px"}}>
         <div className="tag" style={{color:"var(--acc)"}}>{(MOD_TEMA[modulo]||modulo).toUpperCase()} {half}</div>
         <h2 style={{fontSize:22,marginTop:4}}>⚡ Super Revisão</h2>
@@ -2888,9 +2891,11 @@ function Internato({pool, registrar}){
 
   /* -------- TELA: respondendo um bloco -------- */
   if(bloco){
+    const temGuiaBloco = !!SUPERREV[modulo+"|"+half];
     return <RunnerInternato nome={bloco.nome} qs={bloco.qs}
       label={(MOD_TEMA[modulo]||modulo)+" "+half}
-      registrar={registrar} onVoltar={()=>setBloco(null)}/>;
+      registrar={registrar} onVoltar={()=>setBloco(null)}
+      onRevisar={temGuiaBloco?()=>{setBloco(null);setSuperrev(true);window.scrollTo(0,0);}:null}/>;
   }
 
   /* -------- TELA: metades A/B de um módulo -------- */
@@ -2979,7 +2984,7 @@ function Internato({pool, registrar}){
   </div>;
 }
 
-function RunnerInternato({nome, qs, label, registrar, onVoltar}){
+function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar}){
   const fila = useMemo(()=>qs.slice(),[nome]);
   const [i,setI]=useState(0);
   const [feito,setFeito]=useState(false);
@@ -2990,7 +2995,10 @@ function RunnerInternato({nome, qs, label, registrar, onVoltar}){
   const fim = i>=fila.length;
 
   return <div>
-    <button className="btn ghost sm" onClick={onVoltar}>← Blocos</button>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:8}}>
+      <button className="btn ghost sm" onClick={onVoltar}>← Blocos</button>
+      {onRevisar&&<button className="btn ghost sm" onClick={onRevisar} title="Abrir a Super Revisão desta metade">📖 Revisão deste tema</button>}
+    </div>
     <div style={{margin:"14px 0 4px"}}>
       <div className="tag" style={{color:"var(--acc)"}}>{(label||"INTERNATO").toUpperCase()}</div>
       <h2 style={{fontSize:21,marginTop:4}}>{nome}</h2>
