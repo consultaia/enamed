@@ -2864,6 +2864,7 @@ function Internato({pool, registrar}){
   const [bloco,setBloco]=useState(null);      // {nome, qs}
   const [superrev,setSuperrev]=useState(false);// guia Super Revisão aberto
   const [osce,setOsce]=useState(false);        // estação OSCE aberta
+  const [revTopico,setRevTopico]=useState(null); // tópico alvo p/ deep-link na Super Revisão
 
   const totalMod=(modId)=> questoesMetade(pool,modId,"A").length + questoesMetade(pool,modId,"B").length;
 
@@ -2875,6 +2876,7 @@ function Internato({pool, registrar}){
   /* -------- TELA: Super Revisão (guia incorporado) -------- */
   if(superrev){
     const g=SUPERREV[modulo+"|"+half];
+    const deep = revTopico ? ("<scr"+"ipt>(function(){try{var W="+JSON.stringify(revTopico)+";function N(s){return (s||'').toString().toLowerCase().replace(/[^a-z0-9]+/g,'');}var w=N(W);var i=-1;if(typeof DATA!=='undefined'&&w){i=DATA.findIndex(function(t){var a=N(t.titulo);if(!a)return false;return a===w||a.indexOf(w)===0||w.indexOf(a)===0||a.slice(0,14)===w.slice(0,14);});}if(i>=0&&typeof state!=='undefined'&&typeof render==='function'){state.topic=i;state.tab='resumo';render();}}catch(e){}})();</scr"+"ipt>") : "";
     return <div>
       <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:8}}>
         <button className="btn ghost sm" onClick={()=>setSuperrev(false)}>← Voltar</button>
@@ -2882,9 +2884,9 @@ function Internato({pool, registrar}){
       </div>
       <div style={{margin:"14px 0 10px"}}>
         <div className="tag" style={{color:"var(--acc)"}}>{(MOD_TEMA[modulo]||modulo).toUpperCase()} {half}</div>
-        <h2 style={{fontSize:22,marginTop:4}}>⚡ Super Revisão</h2>
+        <h2 style={{fontSize:22,marginTop:4}}>⚡ Super Revisão{revTopico?<span className="muted" style={{fontSize:15,fontWeight:400}}> · {revTopico}</span>:null}</h2>
       </div>
-      <iframe title={"Super Revisão — "+(g?g.titulo:"")} srcDoc={g?g.html():""} className="srev-frame"
+      <iframe title={"Super Revisão — "+(g?g.titulo:"")} srcDoc={g?(g.html()+deep):""} className="srev-frame"
         style={{width:"100%",height:"calc(100vh - 150px)",minHeight:600,border:"1px solid var(--line)",borderRadius:16,background:"#0d1417"}}/>
     </div>;
   }
@@ -2895,7 +2897,7 @@ function Internato({pool, registrar}){
     return <RunnerInternato nome={bloco.nome} qs={bloco.qs}
       label={(MOD_TEMA[modulo]||modulo)+" "+half}
       registrar={registrar} onVoltar={()=>setBloco(null)}
-      onRevisar={temGuiaBloco?()=>{setBloco(null);setSuperrev(true);window.scrollTo(0,0);}:null}/>;
+      onRevisar={temGuiaBloco?()=>{setRevTopico(bloco.nome);setBloco(null);setSuperrev(true);window.scrollTo(0,0);}:null}/>;
   }
 
   /* -------- TELA: metades A/B de um módulo -------- */
@@ -2920,7 +2922,7 @@ function Internato({pool, registrar}){
       </div>
 
       {guia &&
-        <div className="hero" style={{marginTop:14,cursor:"pointer"}} onClick={()=>{setSuperrev(true);window.scrollTo(0,0);}}>
+        <div className="hero" style={{marginTop:14,cursor:"pointer"}} onClick={()=>{setRevTopico(null);setSuperrev(true);window.scrollTo(0,0);}}>
           <div className="row" style={{justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
             <div>
               <div style={{fontWeight:700,fontSize:16}}>⚡ Super Revisão · {guia.titulo}</div>
