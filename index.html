@@ -2396,6 +2396,76 @@ function TECM({pool, registrar}){
   </div>;
 }
 
+function RodizioSprint({qs, label, registrar, onVoltar}){
+  const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;};
+  const [fila,setFila]=useState(()=>shuffle(qs||[]));
+  const [i,setI]=useState(0);
+  const [feito,setFeito]=useState(false);
+  const [log,setLog]=useState([]);
+  const [rodada,setRodada]=useState(1);
+  const [fim,setFim]=useState(false);
+  useEffect(()=>{ setFila(shuffle(qs||[])); setI(0); setFeito(false); setLog([]); setRodada(1); setFim(false); },[qs]);
+  const total=fila.length;
+  const q=fila[i];
+  const acertos=log.filter(x=>x.ok).length;
+  const temaCurto=t=>{ const p=(""+(t||"")).split("· "); return p.length>1?p[p.length-1]:(t||"—"); };
+  const reiniciar=(base)=>{ setFila(shuffle(base)); setI(0); setFeito(false); setLog([]); setFim(false); };
+
+  if(!total) return <div><button className="btn ghost sm" onClick={onVoltar}>← Sair do rodízio</button>
+    <div className="card muted" style={{marginTop:12,padding:20}}>Não há questões carregadas para {label}.</div></div>;
+
+  if(fim){
+    const porTema={};
+    log.forEach(x=>{ const k=temaCurto(x.tema); porTema[k]=porTema[k]||{c:0,t:0}; porTema[k].t++; if(x.ok)porTema[k].c++; });
+    const linhas=Object.keys(porTema).map(t=>({t,c:porTema[t].c,tt:porTema[t].t,pct:Math.round(porTema[t].c/porTema[t].t*100)})).sort((a,b)=>a.pct-b.pct);
+    const missedIds={}; log.forEach(x=>{ if(!x.ok) missedIds[x.id]=1; });
+    const missedQs=(qs||[]).filter(x=>missedIds[x.id]);
+    const nota=Math.round(acertos/Math.max(1,log.length)*100);
+    return <div>
+      <button className="btn ghost sm" onClick={onVoltar}>← Sair do rodízio</button>
+      <div className="card" style={{padding:22,marginTop:12}}>
+        <div className="tag" style={{color:"var(--acc)"}}>RODÍZIO · {label} · rodada {rodada}</div>
+        <h2 style={{fontSize:28,marginTop:6}}>{nota}% <span className="muted" style={{fontSize:16,fontWeight:400}}>({acertos}/{log.length})</span></h2>
+        <div className="muted" style={{fontSize:13,marginTop:2}}>Seus tópicos — do mais fraco ao mais forte:</div>
+        <div style={{marginTop:14,display:"grid",gap:9}}>
+          {linhas.map(l=>{ const cor=l.pct>=70?"var(--acc)":l.pct>=50?"var(--warn)":"var(--bad)";
+            return <div key={l.t}>
+              <div className="row" style={{justifyContent:"space-between",fontSize:13,marginBottom:3,gap:8}}>
+                <span style={{minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.t}</span>
+                <span style={{color:cor,fontWeight:600,flex:"none"}}>{l.pct}% · {l.c}/{l.tt}</span>
+              </div>
+              <div style={{height:7,borderRadius:5,background:"rgba(127,127,127,.18)",overflow:"hidden"}}>
+                <div style={{width:l.pct+"%",height:"100%",background:cor}}/>
+              </div>
+            </div>; })}
+        </div>
+        <div className="row" style={{gap:10,marginTop:18,flexWrap:"wrap"}}>
+          {missedQs.length>0 && <button className="btn" onClick={()=>{ setRodada(r=>r+1); reiniciar(missedQs); }}>🔁 Re-treinar os {missedQs.length} que errei</button>}
+          <button className="btn ghost" onClick={()=>{ setRodada(1); reiniciar(qs||[]); }}>↻ Recomeçar tudo</button>
+        </div>
+      </div>
+    </div>;
+  }
+
+  return <div>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:8}}>
+      <button className="btn ghost sm" onClick={onVoltar}>← Sair do rodízio</button>
+      <span className="muted" style={{fontSize:13}}>{i+1}/{total} · acertos {acertos}</span>
+    </div>
+    <div style={{height:6,borderRadius:5,background:"rgba(127,127,127,.18)",overflow:"hidden",margin:"10px 0 4px"}}>
+      <div style={{width:Math.round(i/Math.max(1,total)*100)+"%",height:"100%",background:"var(--acc)",transition:"width .3s"}}/>
+    </div>
+    <div className="muted" style={{fontSize:11.5,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>🏁 Rodízio {label} · rodada {rodada}</div>
+    <QuestionCard q={q} indice={i} total={total} onResp={(qq,ok)=>{ if(registrar)registrar(qq,ok); setLog(l=>l.concat([{id:qq.id,tema:qq.tema,ok:ok}])); setFeito(true); }}/>
+    <div className="row" style={{marginTop:14}}>
+      <button className="btn" disabled={!feito} onClick={()=>{ if(i<total-1){setFeito(false);setI(x=>x+1);} else {setFim(true);window.scrollTo(0,0);} }}>
+        {i<total-1?"Próxima":"Ver resultado"}
+      </button>
+      {!feito && <span className="muted" style={{fontSize:13}}>Escolha uma alternativa para avançar.</span>}
+    </div>
+  </div>;
+}
+
 function App(){
   const [session,setSession]=useState(null);
   const [booting,setBooting]=useState(true);
@@ -2892,6 +2962,7 @@ function Internato({pool, registrar}){
   const [superrev,setSuperrev]=useState(false);// guia Super Revisão aberto
   const [osce,setOsce]=useState(false);        // estação OSCE aberta
   const [revTopico,setRevTopico]=useState(null); // tópico alvo p/ deep-link na Super Revisão
+  const [rodizio,setRodizio]=useState(false);   // modo rodízio (sprint da metade)
 
   const totalMod=(modId)=> questoesMetade(pool,modId,"A").length + questoesMetade(pool,modId,"B").length;
 
@@ -2928,6 +2999,12 @@ function Internato({pool, registrar}){
       guiaHtml={temGuiaBloco?SUPERREV[modulo+"|"+half].html():null} topico={bloco.nome}/>;
   }
 
+  /* -------- TELA: Modo Rodízio (sprint da metade) -------- */
+  if(rodizio && modulo){
+    const todas = blocosMetade(pool,modulo,half).reduce((a,b)=>a.concat(b.qs||[]),[]);
+    return <RodizioSprint qs={todas} label={(MOD_TEMA[modulo]||modulo)+" "+half} registrar={registrar} onVoltar={()=>setRodizio(false)}/>;
+  }
+
   /* -------- TELA: metades A/B de um módulo -------- */
   if(modulo){
     const m = MODULOS_INTERNATO.find(x=>x.id===modulo)||{nome:modulo,icone:""};
@@ -2936,7 +3013,7 @@ function Internato({pool, registrar}){
     const temOSCE = (modulo==="CIR" && half==="A"); // estações OSCE atuais são de Cirurgia A
     const primeiraPalavra = (m.nome||"").split(" ")[0];
     return <div>
-      <button className="btn ghost sm" onClick={()=>{setModulo(null);setHalf("A");}}>← Módulos</button>
+      <button className="btn ghost sm" onClick={()=>{setModulo(null);setHalf("A");setRodizio(false);}}>← Módulos</button>
       <div style={{margin:"14px 0 10px"}}>
         <div className="tag" style={{color:"var(--acc)"}}>INTERNATO</div>
         <h2 style={{fontSize:22,marginTop:4}}>{m.icone} {m.nome}</h2>
@@ -2968,6 +3045,17 @@ function Internato({pool, registrar}){
               <div className="muted" style={{fontSize:13,marginTop:4}}>Simule a prova prática com tutor por IA — sete estações cirúrgicas comentadas.</div>
             </div>
             <span className="btn sm">Treinar OSCE →</span>
+          </div>
+        </div>}
+
+      {blocos.length>0 &&
+        <div className="hero" style={{marginTop:12,cursor:"pointer"}} onClick={()=>{setRodizio(true);window.scrollTo(0,0);}}>
+          <div className="row" style={{justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:10}}>
+            <div>
+              <div style={{fontWeight:700,fontSize:16}}>🏁 Modo Rodízio</div>
+              <div className="muted" style={{fontSize:13,marginTop:4}}>Sprint com todas as questões de {primeiraPalavra} {half}, embaralhadas — no fim, seu diagnóstico por tópico e re-treino dos erros.</div>
+            </div>
+            <span className="btn sm">Iniciar sprint →</span>
           </div>
         </div>}
 
