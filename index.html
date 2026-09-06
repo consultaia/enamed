@@ -2383,7 +2383,7 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
     const num=q=>{const m=/_q(\d+)$/.exec(q.id||"");return m?+m[1]:9999;};
     return Object.keys(grupos).map(function(ed){
       const qs=grupos[ed].slice().sort((a,b)=>num(a)-num(b));
-      let nome=((qs[0]&&qs[0].tema)?qs[0].tema:ed).replace(/\s·\sParte\s.*$/,"").trim();
+      let nome=({"ENARE_2024_2025":"ENARE 2024/2025 · Acesso Direto"})[ed] || ((qs[0]&&qs[0].tema)?qs[0].tema:ed).replace(/\s·\sParte\s.*$/,"").trim();
       return {ed:ed, nome:nome, qs:qs};
     }).sort((a,b)=>a.nome<b.nome?1:(a.nome>b.nome?-1:0));
   },[pool,flag]);
@@ -2574,7 +2574,7 @@ function Shell({session}){
       sb.from("srs").select("*").eq("user_id",uid),
       sb.from("assinaturas").select("*").eq("user_id",uid).order("criado_em",{ascending:false}).limit(1),
     ]);
-    let qs=(q.data||[]).map(x=>({id:x.id,area:x.area,tema:x.tema,transv:x.transv||[],dif:x.dificuldade,enun:x.enunciado,alts:x.alternativas,correta:x.correta,coment:x.comentario,premium:x.premium}));
+    let qs=(q.data||[]).map(x=>({id:x.id,area:x.area,tema:x.tema,transv:x.transv||[],dif:x.dificuldade,enun:x.enunciado,alts:x.alternativas,correta:x.correta,coment:x.comentario,premium:x.premium,anulada:!(x.correta>=0)}));
     if(qs.length===0){ qs=SEED; }
     else { // garante que as questoes-de-assunto do SEED existam (mescla sem duplicar)
       const ids=new Set(qs.map(x=>x.id));
