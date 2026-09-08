@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>ENAMED Engine — da faculdade à residência</title>
-<meta name="description" content="Uma plataforma para cada prova que importa na sua medicina: faculdade, ENAMED, residência, ENARE e Revalida. Só o que cai na prova, provas oficiais na íntegra e questão até você dominar. Acesso 6 meses por R$49,90." />
+<title>Preceptor — estude só o que cai na prova, da faculdade à residência</title>
+<meta name="description" content="Preceptor (antes ENAMED Engine): mais de 2.800 questões com gabarito comentado, provas oficiais na íntegra (ENAMED, ENARE, SUS-BA, Revalida, TECM), questões originais das N2 do internato, OSCE com IA e revisão espaçada. Acesso 6 meses por R$49,90." />
 <meta name="theme-color" content="#0d1618" />
-<meta property="og:title" content="ENAMED Engine — da faculdade à residência" />
-<meta property="og:description" content="Resumos A a Z, provas oficiais na íntegra (ENAMED, Revalida, ENARE, TECM) e IA que ensina a raciocinar. Da graduação à residência. R$49,90, 6 meses." />
+<meta property="og:title" content="Preceptor — estude só o que cai na prova" />
+<meta property="og:description" content="Da faculdade à residência: 2.800+ questões comentadas, provas oficiais na íntegra, N2 do internato, OSCE com IA e revisão espaçada. R$49,90, 6 meses, pagamento único." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://consultaia.github.io/enamed/" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -25,7 +25,8 @@ main{position:relative;z-index:1}
 nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);background:rgba(13,22,24,.72);border-bottom:1px solid var(--line)}
 .nav-in{display:flex;align-items:center;justify-content:space-between;height:60px}
 .brand{display:flex;align-items:center;gap:10px;font-weight:600}
-.mark{width:28px;height:28px;border-radius:8px;background:linear-gradient(150deg,var(--acc),var(--acc2));display:grid;place-items:center;color:#04120c;font-family:var(--mono);font-weight:600}
+.mark{position:relative;width:28px;height:28px;border-radius:8px;background:linear-gradient(150deg,var(--pan2),#0e2420);border:1px solid #2a5a4e;display:grid;place-items:center;color:var(--ink);font-family:var(--mono);font-weight:600}
+.mark::after{content:"✓";position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;border-radius:50%;background:var(--gold);color:#1a1204;font-size:9px;font-weight:700;display:grid;place-items:center;font-family:var(--sans)}
 .brand small{color:var(--mut);font-weight:500}
 .cta{font-size:14px;font-weight:600;padding:9px 16px;border-radius:10px;background:var(--acc);color:#04120c;text-decoration:none;transition:transform .15s,box-shadow .15s}
 .cta:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(61,220,151,.25)}
@@ -43,11 +44,17 @@ h1 em{font-style:italic;color:var(--acc)}
 .btn-g{background:transparent;color:var(--ink);border-color:var(--line)}
 .btn-g:hover{border-color:var(--acc);color:var(--acc)}
 .note{font-size:13px;color:var(--mut);margin-top:14px}.note b{color:var(--acc)}
+.was{font-size:13px;color:var(--mut);margin-top:8px}.was b{color:var(--ink);font-weight:500}
 section{padding:56px 0}
 .sh{text-align:center;max-width:52ch;margin:0 auto 34px}
 .kick{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--acc);margin-bottom:12px}
 .sh h2{font-family:var(--disp);font-weight:500;letter-spacing:-.02em;font-size:clamp(24px,4vw,34px);line-height:1.12;margin:0 0 10px}
 .sh p{color:var(--mut);font-size:16px;margin:0}
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:-8px}
+.st{border:1px solid var(--line);border-radius:12px;padding:16px 14px;background:var(--pan);text-align:center}
+.st .n{font-family:var(--disp);font-size:30px;font-weight:600;letter-spacing:-.02em;color:var(--acc);line-height:1}
+.st .l{font-size:12.5px;color:var(--mut);margin-top:6px}
 /* personas */
 .who{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 .card{border:1px solid var(--line);border-radius:14px;padding:22px;background:linear-gradient(160deg,var(--pan),#0f1c1a)}
@@ -62,7 +69,7 @@ section{padding:56px 0}
 .f b{display:block;margin-bottom:2px;letter-spacing:-.01em}
 .f span{font-size:14px;color:var(--mut)}
 /* price */
-.price{max-width:440px;margin:0 auto;border:1px solid rgba(230,180,80,.35);border-radius:16px;background:linear-gradient(165deg,var(--pan2),#102520);padding:34px 30px;text-align:center;position:relative}
+.price{max-width:460px;margin:0 auto;border:1px solid rgba(230,180,80,.35);border-radius:16px;background:linear-gradient(165deg,var(--pan2),#102520);padding:34px 30px;text-align:center;position:relative}
 .flag{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--gold);color:#1a1204;font-size:12px;font-weight:700;padding:5px 16px;border-radius:100px;font-family:var(--mono)}
 .amt{font-family:var(--disp);font-size:56px;font-weight:600;letter-spacing:-.03em;line-height:1;margin:10px 0 2px}
 .amt .c{font-size:26px;vertical-align:super}
@@ -86,47 +93,58 @@ details p{margin:12px 0 0;color:var(--mut);font-size:14.5px}
 footer{border-top:1px solid var(--line);padding:32px 0;background:var(--pan)}
 .foot{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:center;font-size:13px;color:var(--mut)}
 .disc{max-width:60ch;font-size:12px;line-height:1.5}
-@media(max-width:760px){.who,.feat{grid-template-columns:1fr}.hero{padding:44px 0 4px}section{padding:44px 0}}
+@media(max-width:760px){.who,.feat{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.hero{padding:44px 0 4px}section{padding:44px 0}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
 <div class="aura"></div>
 <nav><div class="wrap nav-in">
-  <div class="brand"><span class="mark">E</span><span>ENAMED Engine <small>· estudo com IA</small></span></div>
+  <div class="brand"><span class="mark">P</span><span>Preceptor <small>· antes ENAMED Engine</small></span></div>
   <a class="cta" href="https://consultaia.github.io/enamed/">Entrar</a>
 </div></nav>
 
 <main>
 <header class="hero"><div class="wrap">
-  <span class="eyebrow"><span class="dot"></span>DA FACULDADE À RESIDÊNCIA</span>
+  <span class="eyebrow"><span class="dot"></span>ESTUDE COM O PRECEPTOR</span>
   <h1>Estude só o que <em>cai na prova</em> — e acerte mais.</h1>
-  <p class="sub">Do jeito reto: o que a banca cobra em faculdade, ENAMED, residência, ENARE e Revalida, sem enrolação. <b>Direto ao ponto</b>, com provas oficiais na íntegra e questão até você dominar.</p>
+  <p class="sub">Do jeito reto: o que a banca cobra na faculdade, nas <b>N2 do internato</b>, no ENAMED, na residência, no ENARE, no SUS-BA e no Revalida. <b>Direto ao ponto</b>, com provas oficiais na íntegra e questão até você dominar.</p>
   <div class="btns">
     <a class="btn btn-p" href="https://consultaia.github.io/enamed/">Começar agora →</a>
-    <a class="btn btn-g" href="#preco">Ver planos</a>
+    <a class="btn btn-g" href="#preco">Ver plano</a>
   </div>
   <div class="note"><b>R$ 49,90</b> · 6 meses · pagamento único via Pix</div>
+  <div class="was">O <b>ENAMED Engine</b> cresceu e virou o Preceptor: mesma plataforma, agora pra todas as provas que importam.</div>
 </div></header>
 
+<!-- NÚMEROS -->
+<section style="padding-top:36px;padding-bottom:20px"><div class="wrap">
+  <div class="stats">
+    <div class="st"><div class="n">2.800+</div><div class="l">questões com gabarito comentado</div></div>
+    <div class="st"><div class="n">5</div><div class="l">provas oficiais na íntegra</div></div>
+    <div class="st"><div class="n">7</div><div class="l">simulados ENAMED completos</div></div>
+    <div class="st"><div class="n">40+</div><div class="l">estações OSCE com IA</div></div>
+  </div>
+</div></section>
+
 <!-- PARA QUEM -->
-<section id="quem"><div class="wrap">
+<section id="quem" style="padding-top:28px"><div class="wrap">
   <div class="sh"><div class="kick">Feito para você</div><h2>Onde quer que você esteja na medicina</h2></div>
   <div class="who">
     <div class="card">
-      <div class="ic">🎓</div><div class="for">ESTUDANTE DE MEDICINA</div>
-      <h3>Do 1º período ao internato</h3>
-      <p>O essencial de cada tema + questão por rodízio. Passa nas provas da faculdade e já chega treinado pro ENAMED.</p>
+      <div class="ic">🎓</div><div class="for">ESTUDANTE · INTERNATO</div>
+      <h3>Do rodízio à N2</h3>
+      <p>As questões originais das provas N2 dos rodízios do internato, comentadas. Passa na N2 e já chega treinado pro ENAMED.</p>
     </div>
     <div class="card">
       <div class="ic">🩺</div><div class="for">CONCLUINTE · ENAMED</div>
       <h3>Chegue pronto ao ENAMED</h3>
-      <p>Prova oficial na íntegra, simulado no formato real e diagnóstico que mostra onde você perde ponto — pra corrigir a tempo.</p>
+      <p>Prova oficial na íntegra, 7 simulados completos cronometrados e diagnóstico que mostra onde você perde ponto — pra corrigir a tempo.</p>
     </div>
     <div class="card">
       <div class="ic">🏥</div><div class="for">MÉDICO FORMADO</div>
-      <h3>Residência, ENARE e Revalida</h3>
-      <p>As provas que abrem a residência num lugar só — cadernos oficiais completos e treino direto na aprovação.</p>
+      <h3>Residência, ENARE, SUS-BA e Revalida</h3>
+      <p>As provas que abrem a residência num lugar só — cadernos oficiais completos, inclusive o acesso direto do SUS-BA. E a TECM.</p>
     </div>
   </div>
 </div></section>
@@ -136,7 +154,9 @@ footer{border-top:1px solid var(--line);padding:32px 0;background:var(--pan)}
   <div class="sh"><div class="kick">Por que funciona</div><h2>Cirúrgico pro que a banca cobra</h2><p>Nada de resumão de 3 horas. É o essencial que faz você marcar a certa — e treino até virar automático.</p></div>
   <div class="feat">
     <div class="f"><span class="fi">🎯</span><div><b>Só o que cai</b><span>Alto rendimento: a pegadinha da banca, a conduta que ela quer e a âncora no SUS. Você chega sabendo onde ela ataca.</span></div></div>
-    <div class="f"><span class="fi">🏛️</span><div><b>Provas oficiais na íntegra</b><span>ENAMED, Revalida e ENARE com gabarito comentado — treine no formato exato do dia da prova. E a TECM.</span></div></div>
+    <div class="f"><span class="fi">🏛️</span><div><b>Provas oficiais na íntegra</b><span>ENAMED, Revalida, ENARE, SUS-BA e TECM com gabarito comentado e anuladas marcadas — treine no formato exato do dia da prova.</span></div></div>
+    <div class="f"><span class="fi">🩺</span><div><b>Estações OSCE com IA</b><span>Paciente simulado que responde ao seu atendimento e examinador que pontua cada item. Treine a prática antes da prática.</span></div></div>
+    <div class="f"><span class="fi">🔁</span><div><b>Revisão espaçada + ofensiva diária</b><span>O que você errou volta no dia certo, sozinho. E a ofensiva mantém o ritmo até a prova.</span></div></div>
     <div class="f"><span class="fi">🏁</span><div><b>Questão até dominar</b><span>Modo Rodízio: sprint por tema que aponta seus erros e te faz refazer só o que errou, até virar automático.</span></div></div>
     <div class="f"><span class="fi">🤖</span><div><b>IA no seu ritmo</b><span>Travou? Ela reexplica de outro jeito, tira sua dúvida na hora, gera questão inédita e resolve por foto.</span></div></div>
   </div>
@@ -150,15 +170,17 @@ footer{border-top:1px solid var(--line);padding:32px 0;background:var(--pan)}
     <div class="amt">R$ 49<span class="c">,90</span></div>
     <div class="pnote">pagamento único · 6 meses · menos de R$ 9/mês</div>
     <ul class="pl">
-      <li><span class="ck">✓</span> Só o essencial que cai — sem resumão interminável</li>
-      <li><span class="ck">✓</span> Provas oficiais (ENAMED, Revalida, ENARE) + TECM</li>
-      <li><span class="ck">✓</span> Internato dos 6 rodízios, com revisão e questão comentada</li>
-      <li><span class="ck">✓</span> Modo Rodízio, Estudo Casado e busca global</li>
+      <li><span class="ck">✓</span> Mais de 2.800 questões com gabarito comentado</li>
+      <li><span class="ck">✓</span> Provas oficiais na íntegra: ENAMED, Revalida, ENARE, SUS-BA e TECM</li>
+      <li><span class="ck">✓</span> Internato: questões originais das provas N2 dos rodízios</li>
+      <li><span class="ck">✓</span> 7 simulados ENAMED completos e cronometrados</li>
+      <li><span class="ck">✓</span> Estações OSCE com paciente e examinador de IA</li>
+      <li><span class="ck">✓</span> Revisão espaçada, ofensiva diária, Modo Rodízio e busca global</li>
       <li><span class="ck">✓</span> IA: reexplica, tira-dúvida, gera questão e resolve por foto</li>
       <li><span class="ck">✓</span> Sem renovação automática, sem pegadinha</li>
     </ul>
     <a class="btn btn-p" href="https://consultaia.github.io/enamed/">Liberar meu acesso →</a>
-    <p class="micro">Pix, liberação na hora. Cancelar? Nem precisa — é pagamento único.</p>
+    <p class="micro">Pix, liberação na hora. Tem amostra grátis pra testar antes. Cancelar? Nem precisa — é pagamento único.</p>
   </div>
 </div></section>
 
@@ -166,9 +188,10 @@ footer{border-top:1px solid var(--line);padding:32px 0;background:var(--pan)}
 <section style="padding-top:8px"><div class="wrap">
   <div class="sh"><div class="kick">Perguntas</div><h2>Rápidas</h2></div>
   <div class="faq">
-    <details open><summary>Serve pra qual etapa?</summary><p>Da graduação (todo semestre) ao internato, ENAMED, residência, ENARE e Revalida. É pensada pra te acompanhar da faculdade até a residência.</p></details>
-    <details><summary>Como é o pagamento?</summary><p>Pagamento único de R$ 49,90 por 6 meses de acesso completo, via Pix, com liberação automática. Sem mensalidade nem renovação automática.</p></details>
-    <details><summary>As provas oficiais são completas?</summary><p>Sim — cadernos oficiais na íntegra (conteúdo público do INEP/bancas), com gabarito comentado e questões anuladas marcadas. Ferramenta educacional independente, sem vínculo com INEP, MEC ou qualquer banca.</p></details>
+    <details open><summary>Serve pra qual etapa?</summary><p>Da graduação ao internato (com as N2 dos rodízios), ENAMED, residência, ENARE, SUS-BA, Revalida e TECM. É pensada pra te acompanhar da faculdade até a residência.</p></details>
+    <details><summary>Era o ENAMED Engine?</summary><p>Sim. O ENAMED Engine nasceu focado no ENAMED e cresceu tanto — internato, ENARE, SUS-BA, Revalida, TECM, OSCE — que ganhou um nome à altura: Preceptor. Mesma conta, mesmo progresso, muito mais conteúdo.</p></details>
+    <details><summary>Como é o pagamento?</summary><p>Pagamento único de R$ 49,90 por 6 meses de acesso completo, via Pix, com liberação automática. Sem mensalidade nem renovação automática. Dá pra testar uma amostra grátis antes.</p></details>
+    <details><summary>As provas oficiais são completas?</summary><p>Sim — cadernos oficiais na íntegra (conteúdo público do INEP e das bancas, como a ABAEM no SUS-BA), com gabarito comentado e questões anuladas marcadas. Ferramenta educacional independente, sem vínculo com INEP, MEC ou qualquer banca.</p></details>
     <details><summary>Funciona no celular?</summary><p>Sim, no celular, tablet e computador — dá pra instalar como app, e o progresso fica salvo na sua conta.</p></details>
   </div>
 </div></section>
@@ -181,8 +204,8 @@ footer{border-top:1px solid var(--line);padding:32px 0;background:var(--pan)}
 </main>
 
 <footer><div class="wrap foot">
-  <div class="brand"><span class="mark">E</span><span>ENAMED Engine</span></div>
-  <p class="disc">Ferramenta educacional independente, sem vínculo, afiliação ou endosso do INEP, do MEC ou de qualquer banca examinadora. Conteúdo de finalidade exclusivamente educacional. Não substitui orientação médica.</p>
+  <div class="brand"><span class="mark">P</span><span>Preceptor</span></div>
+  <p class="disc">Ferramenta educacional independente, sem vínculo, afiliação ou endosso do INEP, do MEC, de qualquer banca examinadora ou instituição de ensino. Conteúdo de finalidade exclusivamente educacional. Não substitui orientação médica.</p>
 </div></footer>
 </body>
 </html>
