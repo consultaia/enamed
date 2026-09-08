@@ -27,5 +27,21 @@
       "type": "image/png",
       "purpose": "maskable"
     }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot-wide.png",
+      "sizes": "1352x690",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Preceptor no desktop — revisão espaçada e diagnóstico"
+    },
+    {
+      "src": "screenshot-narrow.png",
+      "sizes": "404x634",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Preceptor no celular"
+    }
   ]
 }
