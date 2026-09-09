@@ -2629,6 +2629,10 @@ function Shell({session}){
   const [showAssinar,setShowAssinar]=useState(false);
   const [streak,setStreak]=useState(()=>{try{return JSON.parse(localStorage.getItem("enamed_streak")||"null")}catch(e){return null}});
   const [revisando,setRevisando]=useState(false);
+  const [meta,setMeta]=useState(()=>{try{return {...META_PADRAO,...JSON.parse(localStorage.getItem("preceptor_meta")||"{}")}}catch(e){return META_PADRAO}});
+  const [metaDias,setMetaDias]=useState(()=>{try{return JSON.parse(localStorage.getItem("preceptor_meta_dias")||"[]")}catch(e){return []}});
+  const [metaConfig,setMetaConfig]=useState(false);
+  const [metaCelebra,setMetaCelebra]=useState(false);
 
   const recarregarAssinatura=async()=>{
     const {data}=await sb.from("assinaturas").select("*").eq("user_id",uid).order("criado_em",{ascending:false}).limit(1);
@@ -2639,13 +2643,15 @@ function Shell({session}){
 
   useEffect(()=>{(async()=>{
     setLoading(true);
-    const [q,r,d,s,a,st]=await Promise.all([
+    const [q,r,d,s,a,st,mt,md]=await Promise.all([
       (async()=>{let all=[],from=0;const step=1000;for(;;){const{data,error}=await sb.from("questoes").select("*").order("id",{ascending:true}).range(from,from+step-1);if(error||!data||!data.length)break;all=all.concat(data);if(data.length<step)break;from+=step;}return{data:all};})(),
       sb.from("respostas").select("*").eq("user_id",uid),
       sb.from("dominio").select("*").eq("user_id",uid),
       sb.from("srs").select("*").eq("user_id",uid),
       sb.from("assinaturas").select("*").eq("user_id",uid).order("criado_em",{ascending:false}).limit(1),
       sb.from("streak").select("dias_seguidos,ultimo_dia").eq("user_id",uid).maybeSingle().then(r=>r,()=>({data:null})),
+      sb.from("meta_diaria").select("meta,modo,area_foco").eq("user_id",uid).maybeSingle().then(r=>r,()=>({data:null})),
+      sb.from("meta_dias").select("dia").eq("user_id",uid).then(r=>r,()=>({data:[]})),
     ]);
     let qs=(q.data||[]).map(x=>({id:x.id,area:x.area,tema:x.tema,transv:x.transv||[],dif:x.dificuldade,enun:x.enunciado,alts:x.alternativas,correta:x.correta,coment:x.comentario,premium:x.premium,anulada:!(x.correta>=0)}));
     if(qs.length===0){ qs=SEED; }
@@ -2654,7 +2660,9 @@ function Shell({session}){
       SEED.forEach(sq=>{ if(!ids.has(sq.id)) qs.push(sq); });
     }
     try{window.__ALLQ=qs;}catch(_e){} setQuestoes(qs);
-    setLog((r.data||[]).map(x=>({id:x.questao_id,area:x.area,tema:x.tema,ok:x.acertou})));
+    setLog((r.data||[]).map(x=>({id:x.questao_id,area:x.area,tema:x.tema,ok:x.acertou,dia:dataLocal(x.criado_em||x.created_at)})));
+    if(mt&&mt.data){const m={meta:mt.data.meta||20,modo:mt.data.modo||"geral",area_foco:mt.data.area_foco||"CM"};setMeta(m);try{localStorage.setItem("preceptor_meta",JSON.stringify(m))}catch(e){}}
+    if(md&&md.data){const ds=(md.data||[]).map(x=>(x.dia+"").slice(0,10));setMetaDias(ds);try{localStorage.setItem("preceptor_meta_dias",JSON.stringify(ds))}catch(e){}}
     const dm={};(d.data||[]).forEach(x=>dm[x.topico_id]={nivel:x.nivel,last:x.atualizado_em});setDominio(dm);
     const sr={};(s.data||[]).forEach(x=>sr[x.questao_id]={ef:x.ef,intervalo:x.intervalo,reps:x.reps,due:x.due});setSrs(sr);
     setAssinatura((a.data&&a.data[0])||{plano:"free",status:"ativa"});
@@ -2664,8 +2672,20 @@ function Shell({session}){
 
   const isPro = assinatura && assinatura.status==="ativa" && assinatura.plano!=="free" && (!assinatura.expira_em || new Date(assinatura.expira_em)>new Date());
 
+  const hojeMeta=dataLocal();
+  const metaProg=useMemo(()=>calcMeta(log,meta,hojeMeta),[log,meta,hojeMeta]);
+  useEffect(()=>{
+    if(loading||!metaProg.batida||metaDias.includes(hojeMeta)) return;
+    const ds=[...metaDias,hojeMeta]; setMetaDias(ds); try{localStorage.setItem("preceptor_meta_dias",JSON.stringify(ds))}catch(e){}
+    setMetaCelebra(true); setTimeout(()=>setMetaCelebra(false),6000);
+    try{ sb.from("meta_dias").upsert({user_id:uid,dia:hojeMeta,meta:metaProg.alvo,modo:metaProg.modo}).then(()=>{},()=>{}); }catch(e){}
+  },[metaProg.batida,loading]);
+  const salvarMeta=async(m)=>{
+    setMeta(m); setMetaConfig(false); try{localStorage.setItem("preceptor_meta",JSON.stringify(m))}catch(e){}
+    try{ await sb.from("meta_diaria").upsert({user_id:uid,meta:m.meta,modo:m.modo,area_foco:m.area_foco,atualizado_em:new Date().toISOString()}); }catch(e){}
+  };
   const registrar=async(q,ok)=>{
-    setLog(l=>[...l,{id:q.id,area:q.area,tema:q.tema,ok}]);
+    setLog(l=>[...l,{id:q.id,area:q.area,tema:q.tema,ok,dia:dataLocal()}]);
     const nova=schedule(srs[q.id],ok);
     setSrs(s=>({...s,[q.id]:nova}));
     await sb.from("respostas").insert({user_id:uid,questao_id:q.id,area:q.area,tema:q.tema,acertou:ok});
@@ -2741,6 +2761,7 @@ function Shell({session}){
       </div>
     : revisando ? <RevisaoHoje qs={questoesVencidas(poolVisivel,srs)} registrar={registrar} onVoltar={()=>setRevisando(false)}/>
     : <div>
+      {metaConfig ? <MetaConfig meta={meta} onSalvar={salvarMeta} onFechar={()=>setMetaConfig(false)}/> : <MetaDiariaCard prog={metaProg} meta={meta} diasPerfeitos={metaDias.length} celebra={metaCelebra} onConfig={()=>setMetaConfig(true)} onPraticar={()=>setTab("praticar")}/>}
       {(()=>{
         const venc=questoesVencidas(poolVisivel,srs); const n=venc.length;
         const prox=proximaRevisao(srs);
@@ -2759,8 +2780,8 @@ function Shell({session}){
               </div>
             </div>
             <div style={{textAlign:"right",flex:"none"}}>
-              <div style={{fontSize:22,fontWeight:700,lineHeight:1}} title="Dias seguidos estudando">🔥 {dias}<span className="muted" style={{fontSize:12,fontWeight:400}}> {dias===1?"dia":"dias"}</span></div>
-              <div className="muted" style={{fontSize:11,marginTop:2}}>{feitoHoje?"meta de hoje ✓":"responda 1 pra manter"}</div>
+              <div style={{fontSize:22,fontWeight:700,lineHeight:1}} title="Dias seguidos estudando">🔥 {dias}<span className="muted" style={{fontSize:12,fontWeight:400}}> {dias===1?"dia seguido":"dias seguidos"}</span></div>
+              <div className="muted" style={{fontSize:11,marginTop:2}}>{feitoHoje?"Sequência mantida ✓ · 1 questão por dia já conta":"Responda 1 questão hoje pra não quebrar a sequência"}</div>
               {n>0 && <button className="btn sm" style={{marginTop:8}} onClick={()=>setRevisando(true)}>Revisar agora</button>}
             </div>
           </div>
@@ -2781,7 +2802,7 @@ function Shell({session}){
       </div>
 
       {tab==="trilha" && <Trilha store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={isPro} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
-      {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} bloqueadas={isPro?0:bloqueadasFree} isPro={isPro} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
+      {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} metaHoje={metaProg} bloqueadas={isPro?0:bloqueadasFree} isPro={isPro} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
       {tab==="internato" && <Internato pool={questoes} registrar={registrar}/>}
       {tab==="tecm" && <ExameProvas pool={questoes} registrar={registrar} flag="TECM" icone="🏛️" titulo="Título de Especialista em Clínica Médica" subtitulo="TÍTULO DE ESPECIALISTA · SBCM"/>}
       {tab==="revalida" && <ExameProvas pool={questoes} registrar={registrar} flag="REVALIDA" icone="🏥" titulo="Revalida" subtitulo="REVALIDAÇÃO DE DIPLOMA MÉDICO · INEP"/>}
@@ -2952,6 +2973,76 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
 }
 
 /* =================== DASH =================== */
+/* =================== META DIÁRIA =================== */
+function dataLocal(x){ const t=x?new Date(x):new Date(); if(isNaN(t)) return ""; return new Date(t.getTime()-t.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+const META_PADRAO={meta:20,modo:"geral",area_foco:"CM"};
+function calcMeta(log,meta,hoje){
+  const hojeLog=log.filter(l=>l.dia===hoje);
+  const alvo=Math.max(1,parseInt(meta.meta)||20);
+  if(meta.modo==="foco"){ const f=hojeLog.filter(l=>l.area===meta.area_foco).length; return {modo:"foco",feito:f,alvo,batida:f>=alvo,porArea:null}; }
+  if(meta.modo==="dividida"){
+    const cada=Math.max(1,Math.ceil(alvo/AREAS.length));
+    const porArea=AREAS.map(a=>({k:a.k,nome:a.nome,feito:hojeLog.filter(l=>l.area===a.k).length,alvo:cada}));
+    const feito=porArea.reduce((s,x)=>s+Math.min(x.feito,x.alvo),0);
+    return {modo:"dividida",feito,alvo:cada*AREAS.length,cada,batida:porArea.every(x=>x.feito>=x.alvo),porArea};
+  }
+  return {modo:"geral",feito:hojeLog.length,alvo,batida:hojeLog.length>=alvo,porArea:null};
+}
+function MetaDiariaCard({prog,meta,diasPerfeitos,celebra,onConfig,onPraticar}){
+  const pct=Math.min(100,Math.round(prog.feito/prog.alvo*100));
+  const nomeArea=k=>(AREAS.find(a=>a.k===k)||{}).nome||k;
+  const sub=prog.modo==="foco"?"Foco em "+nomeArea(meta.area_foco):prog.modo==="dividida"?"Dividida entre as áreas · "+prog.cada+" em cada":"Geral · qualquer área";
+  const cor=prog.batida?"var(--gold)":"var(--acc)";
+  const titulo=prog.batida?"Dia perfeito! Meta batida.":(prog.feito===0?"Sua meta de hoje: "+prog.alvo+" questões — bora?":prog.feito+" de "+prog.alvo+" questões");
+  return <div className="card" style={{marginBottom:16,borderColor:cor}}>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
+      <div style={{minWidth:0,flex:1}}>
+        <div className="tag" style={{color:cor}}>🎯 META DE HOJE</div>
+        <b style={{fontSize:17,display:"block",marginTop:4}}>{titulo}</b>
+        <div className="muted" style={{fontSize:13,marginTop:4}}>{sub}</div>
+        {prog.modo!=="dividida" && <div style={{height:8,background:"var(--line)",borderRadius:99,marginTop:10,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:cor,transition:"width .3s"}}/></div>}
+        {prog.modo==="dividida" && <div style={{marginTop:10,display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(105px,1fr))",gap:8}}>
+          {prog.porArea.map(a=><div key={a.k}>
+            <div className="row" style={{justifyContent:"space-between",fontSize:12}}><span className="muted">{a.k}</span><b style={{color:a.feito>=a.alvo?"var(--gold)":"inherit"}}>{Math.min(a.feito,a.alvo)}/{a.alvo}</b></div>
+            <div style={{height:6,background:"var(--line)",borderRadius:99,overflow:"hidden",marginTop:3}}><div style={{width:Math.min(100,Math.round(a.feito/a.alvo*100))+"%",height:"100%",background:a.feito>=a.alvo?"var(--gold)":"var(--acc)",transition:"width .3s"}}/></div>
+          </div>)}
+        </div>}
+        {celebra && <div style={{marginTop:10,fontSize:13,color:"var(--gold)",fontWeight:600}}>🏆 Dia perfeito registrado. Amanhã tem mais.</div>}
+      </div>
+      <div style={{textAlign:"right",flex:"none"}}>
+        <div style={{fontSize:22,fontWeight:700,lineHeight:1}} title="Dias em que você bateu a meta">🏆 {diasPerfeitos}<span className="muted" style={{fontSize:12,fontWeight:400}}> {diasPerfeitos===1?"dia perfeito":"dias perfeitos"}</span></div>
+        <div className="row" style={{justifyContent:"flex-end",gap:10,marginTop:8}}>
+          <span className="link" style={{fontSize:13}} onClick={onConfig}>Ajustar</span>
+          {!prog.batida && <button className="btn sm" onClick={onPraticar}>Praticar</button>}
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+function MetaConfig({meta,onSalvar,onFechar}){
+  const [m,setM]=useState({...META_PADRAO,...meta});
+  const opts=[10,20,30,50];
+  const custom=!opts.includes(parseInt(m.meta));
+  const cada=Math.ceil((parseInt(m.meta)||20)/AREAS.length);
+  return <div className="card" style={{marginBottom:16,borderColor:"var(--acc)"}}>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center"}}><b style={{fontSize:16}}>Meta diária</b><span className="link" style={{fontSize:13}} onClick={onFechar}>Fechar</span></div>
+    <div className="muted" style={{fontSize:13,margin:"6px 0 12px"}}>Quantas questões você quer responder por dia? Bater a meta conta um dia perfeito — a ofensiva continua valendo com 1 questão.</div>
+    <label>Questões por dia</label>
+    <div className="row" style={{gap:8,flexWrap:"wrap",alignItems:"center"}}>
+      {opts.map(n=><button key={n} className={"btn "+(parseInt(m.meta)===n?"":"ghost")+" sm"} onClick={()=>setM({...m,meta:n})}>{n}</button>)}
+      <input type="number" min="1" max="500" value={custom?m.meta:""} placeholder="outro" style={{width:90,margin:0}} onChange={e=>setM({...m,meta:Math.max(1,parseInt(e.target.value)||1)})}/>
+    </div>
+    <label style={{marginTop:12}}>Como contar</label>
+    <div className="row" style={{gap:8,flexWrap:"wrap"}}>
+      {[["geral","Geral"],["dividida","Dividida entre as áreas"],["foco","Foco em uma área"]].map(([k,l])=><button key={k} className={"btn "+(m.modo===k?"":"ghost")+" sm"} onClick={()=>setM({...m,modo:k})}>{l}</button>)}
+    </div>
+    {m.modo==="foco" && <><label style={{marginTop:12}}>Área de foco</label><select value={m.area_foco||"CM"} onChange={e=>setM({...m,area_foco:e.target.value})}>{AREAS.map(a=><option key={a.k} value={a.k}>{a.nome}</option>)}</select></>}
+    {m.modo==="dividida" && <div className="muted" style={{fontSize:12,marginTop:8}}>{cada} questões em cada uma das {AREAS.length} áreas ({cada*AREAS.length} no total).</div>}
+    {m.modo==="geral" && <div className="muted" style={{fontSize:12,marginTop:8}}>Qualquer área conta.</div>}
+    <div style={{marginTop:14}}><button className="btn" onClick={()=>onSalvar({meta:Math.max(1,parseInt(m.meta)||20),modo:m.modo,area_foco:m.area_foco||"CM"})}>Salvar meta</button></div>
+  </div>;
+}
+
 function Dash({store,temasFracos,onRefazer}){
   const s=useMemo(()=>{
     const byArea={};AREAS.forEach(a=>byArea[a.k]={t:0,ok:0,q:0});
@@ -3886,8 +3977,9 @@ function Praticar(props){
         </div>
       </div>
     </div>
-    <div className="row" style={{gap:6,marginBottom:16}}>
+    <div className="row" style={{gap:6,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
       {sub.map(([k,l])=><button key={k} className={"btn "+(modo===k?"":"ghost")+" sm"} onClick={()=>setModo(k)}>{l}</button>)}
+      {props.metaHoje && <span title="Meta de hoje" style={{marginLeft:"auto",fontFamily:"var(--mono)",fontSize:13,color:props.metaHoje.batida?"var(--gold,#e6b450)":"var(--acc)"}}>🎯 {Math.min(props.metaHoje.feito,props.metaHoje.alvo)}/{props.metaHoje.alvo}{props.metaHoje.batida?" ✓":""}</span>}
     </div>
     {modo==="treinar" && <Treinar {...props} onNovasQuestoes={props.onNovasQuestoes}/>}
     {modo==="simulado" && (props.isPro ? <Simulado pool={props.pool} registrar={props.registrar} isPro={props.isPro}/> : <TravaFree titulo="Simulado é PRO" texto="Monte provas no formato oficial (20 por área) com nota e correção comentada." onAssinar={props.onAssinar}/>)}
