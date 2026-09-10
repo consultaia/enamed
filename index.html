@@ -204,7 +204,7 @@ function aplicarRegrasClinicas(rota, corpo){
       return {...corpo, contexto: REGRAS_CLINICAS};
     if(rota==="/reexplicar" && typeof corpo.aula==="string" && corpo.aula.indexOf("REGRAS CLÍNICAS INEGOCIÁVEIS")<0)
       return {...corpo, aula: corpo.aula+"\n\n"+REGRAS_CLINICAS};
-    if(rota==="/gerar-questao" || rota==="/resolver")
+    if(rota==="/gerar-questao" || rota==="/resolver-questao")
       return {...corpo, regras: REGRAS_CLINICAS}; // o Worker pode incorporar ao prompt
   }catch(e){}
   return corpo;
