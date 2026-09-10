@@ -179,7 +179,38 @@ const SUPABASE_ANON_KEY = "sb_publishable_KhmIwvVbXtecadyEPrBonQ_ZUTQVLRP";
 // URL do seu Cloudflare Worker (ex.: https://enamed-worker.SEU-SUBDOMINIO.workers.dev)
 const WORKER_URL = "https://enamed-worker.janan-almeida.workers.dev";
 let AUTH_TOKEN = "";
+/* =================== REGRAS CLÍNICAS INEGOCIÁVEIS (injetadas em toda chamada de IA) =================== */
+const REGRAS_CLINICAS = [
+"REGRAS CLÍNICAS INEGOCIÁVEIS — obedeça sempre; se conflitarem com o texto-base, prevalecem estas regras e as diretrizes vigentes. NÃO copie este bloco na resposta.",
+"1) Ânion gap: DECLARE a fórmula usada e a faixa normal correspondente. Padrão: AG = Na − (Cl + HCO3), normal 8–12 mEq/L. Se incluir K (Na + K − (Cl + HCO3)), a faixa normal é até ~16. Nunca misture fórmula com K e faixa 'até 12'. Winter: pCO2 esperada = 1,5 × HCO3 + 8 (± 2). Em acidose de AG elevado, avalie o delta-delta (ΔAG/ΔHCO3) para distúrbio metabólico associado.",
+"2) Cetoacidose diabética: ordem obrigatória volume → potássio → insulina → bicarbonato (exceção). Insulina SÓ se K ≥ 3,3 mEq/L; se K < 3,3, repor potássio antes e adiar a insulina; K 3,3–5,2: repor junto; K > 5,2: não repor. Bicarbonato apenas se pH < 6,9. Nunca apresente bicarbonato como etapa de rotina.",
+"3) Hipercalemia com alteração de ECG: cálcio (gluconato/cloreto) PRIMEIRO, para estabilizar a membrana; depois insulina + glicose e beta-agonista (redistribuem); depois remoção (diurético, resina, diálise). Cálcio não reduz o potássio.",
+"4) Sepse: definição = infecção + SOFA ≥ 2 (SIRS não define sepse). Pacote de 1 h: lactato, hemoculturas ANTES do antibiótico sem atrasá-lo, antibiótico em até 1 h, cristaloide 30 mL/kg se hipotensão ou lactato ≥ 4, noradrenalina (primeira escolha) se PAM < 65.",
+"5) TEP: instável (hipotensão) → trombólise; estável → anticoagular. D-dímero só em probabilidade baixa/intermediária; angioTC é o exame de escolha.",
+"6) SCA: IAM com supra → reperfusão decidida pelo ECG, sem esperar troponina (ICP se ≤ 120 min; senão fibrinólise em ≤ 30 min). Infarto de VD → sem nitrato, morfina ou diurético; sim volume. SCA sem supra → NUNCA fibrinolítico.",
+"7) AVC isquêmico: trombólise em até 4,5 h contadas do último momento visto bem; PA ≤ 185/110 antes e ≤ 180/105 nas 24 h após; sem antitrombótico por 24 h pós-lise. DM com AVC prévio NÃO contraindica.",
+"8) Anafilaxia: adrenalina IM 0,01 mg/kg (máx. 0,5 mg) na face lateral da coxa é a PRIMEIRA droga; anti-histamínico e corticoide são adjuvantes, nunca substitutos.",
+"9) Bradicardia instável: atropina 1 mg a cada 3–5 min (máx. 3 mg); em BAV total ou Mobitz II não atrasar o marcapasso transcutâneo. Taquiarritmia instável com pulso: cardioversão SINCRONIZADA.",
+"10) Doses e limiares: ao citar dose, informe unidade, via e limite. Se houver divergência entre fontes, cite a diretriz mais recente (SBC, SBD, AHA, ADA, Surviving Sepsis, ATLS, AHA/ASA) e diga qual. Se não tiver certeza de um número, diga que o aluno deve confirmar na diretriz — não invente."
+].join("\n");
+function aplicarRegrasClinicas(rota, corpo){
+  try{
+    if(!corpo||typeof corpo!=="object") return corpo;
+    const tema=""+(corpo.tema||"");
+    if(/^OSCE/i.test(tema)) return corpo; // simulação de paciente/examinador: sem injeção
+    if(rota==="/tirar-duvida" && typeof corpo.contexto==="string" && corpo.contexto.indexOf("REGRAS CLÍNICAS INEGOCIÁVEIS")<0)
+      return {...corpo, contexto: REGRAS_CLINICAS+"\n\n"+corpo.contexto};
+    if(rota==="/tirar-duvida" && corpo.contexto==null)
+      return {...corpo, contexto: REGRAS_CLINICAS};
+    if(rota==="/reexplicar" && typeof corpo.aula==="string" && corpo.aula.indexOf("REGRAS CLÍNICAS INEGOCIÁVEIS")<0)
+      return {...corpo, aula: corpo.aula+"\n\n"+REGRAS_CLINICAS};
+    if(rota==="/gerar-questao" || rota==="/resolver")
+      return {...corpo, regras: REGRAS_CLINICAS}; // o Worker pode incorporar ao prompt
+  }catch(e){}
+  return corpo;
+}
 async function wfetch(rota, corpo){
+  corpo = aplicarRegrasClinicas(rota, corpo);
   const h={"Content-Type":"application/json"};
   if(AUTH_TOKEN) h["Authorization"]="Bearer "+AUTH_TOKEN;
   return fetch(WORKER_URL+rota,{method:"POST",headers:h,body:JSON.stringify(corpo)});
