@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.12b";
+  window.APP_VERSION="2026.09.12f";
   // Registro do service worker com atualização AUTOMÁTICA.
   // Sempre que você publicar uma versão nova, o app se atualiza sozinho
   // para todos os usuários — sem precisar limpar cache.
@@ -152,6 +152,10 @@
   @media(max-width:380px){
     .nav button{padding:7px 9px;font-size:12px}
   }
+</style>
+<style id="tour-css">
+.tour-glow{outline:2px solid var(--acc);outline-offset:3px;border-radius:14px;box-shadow:0 0 0 8px color-mix(in srgb,var(--acc) 22%,transparent);transition:box-shadow .25s}
+.tour-balao{position:fixed;left:12px;right:12px;bottom:14px;z-index:9999;max-width:560px;margin:0 auto;box-shadow:0 18px 50px rgba(0,0,0,.45)}
 </style>
 </head>
 <body>
@@ -2680,6 +2684,17 @@ function Shell({session}){
   const [metaCelebra,setMetaCelebra]=useState(false);
   const [videoaulas,setVideoaulas]=useState([]);
   const [novaVersao,setNovaVersao]=useState(null);
+  const [tour,setTour]=useState(()=>{try{return !localStorage.getItem("preceptor_tour_v1")}catch(e){return false}});
+  const [pesquisa,setPesquisa]=useState(null); // gatilho ativo: "trial" | "paywall" | null
+  const pesqOk=k=>{ try{ const v=localStorage.getItem("preceptor_pesquisa_"+k); if(!v) return true; if(v==="respondida") return false; return Date.now()>parseInt(v); }catch(e){ return false; } };
+  const pesqDepois=k=>{ try{localStorage.setItem("preceptor_pesquisa_"+k, String(Date.now()+24*3600*1000));}catch(e){} setPesquisa(null); };
+  const pesqRespondida=k=>{ try{localStorage.setItem("preceptor_pesquisa_"+k,"respondida");}catch(e){} };
+  const enviarPesquisa=async(r)=>{ pesqRespondida(r.gatilho); try{ await sb.from("pesquisas").insert({user_id:uid,gatilho:r.gatilho,intencao:r.intencao,motivos:r.motivos||[],texto:r.texto||"",plano:(assinatura&&assinatura.plano)||"free",trial_ativo:!!trialAtivo,horas_trial_restantes:trialAtivo?trialRestante:0,versao:window.APP_VERSION||""}); }catch(e){} };
+  // gatilho TRIAL: últimas 3 h ou até 7 dias após expirar
+  useEffect(()=>{ if(loading||isPro||pesquisa||!trialFim) return; const ms=trialFim-new Date(); if((ms>0&&ms<=3*3600*1000)||(ms<=0&&ms>-7*24*3600*1000)){ if(pesqOk("trial")) setPesquisa("trial"); } },[loading,isPro,trialFim]);
+  // gatilho PAYWALL: 2ª vez que fecha a assinatura sem pagar
+  const showAssinarRef=useRef(false);
+  useEffect(()=>{ if(showAssinarRef.current && !showAssinar && !isPro){ try{ const n=(parseInt(localStorage.getItem("preceptor_paywall_fechou")||"0")+1); localStorage.setItem("preceptor_paywall_fechou",String(n)); if(n>=2 && !pesquisa && pesqOk("paywall")) setPesquisa("paywall"); }catch(e){} } showAssinarRef.current=showAssinar; },[showAssinar,isPro]);
   useEffect(()=>{
     let vivo=true;
     const checar=async()=>{ try{
@@ -2731,6 +2746,14 @@ function Shell({session}){
   })()},[uid]);
 
   const isPro = assinatura && assinatura.status==="ativa" && assinatura.plano!=="free" && (!assinatura.expira_em || new Date(assinatura.expira_em)>new Date());
+  // === TESTE GRÁTIS: acesso completo ao conteúdo por TRIAL_HORAS a partir do cadastro; IA continua exclusiva do PRO ===
+  const TRIAL_HORAS = 24;
+  const trialFim = (session&&session.user&&session.user.created_at) ? new Date(new Date(session.user.created_at).getTime()+TRIAL_HORAS*3600*1000) : null;
+  const trialAtivo = !isPro && !!trialFim && trialFim > new Date();
+  const trialRestante = trialAtivo ? Math.max(1, Math.ceil((trialFim - new Date())/3600000)) : 0;
+  const acesso = isPro || trialAtivo;
+  const isAdmin = !!(session&&session.user&&session.user.email===ADMIN_EMAIL);
+  useEffect(()=>{ try{ window.__PRO=!!isPro; window.__ACESSO=!!acesso; window.__ABRIR_ASSINAR=()=>setShowAssinar(true); }catch(e){} },[isPro,acesso]);
 
   const hojeMeta=dataLocal();
   const metaProg=useMemo(()=>calcMeta(log,meta,hojeMeta),[log,meta,hojeMeta]);
@@ -2780,7 +2803,7 @@ function Shell({session}){
   const FREE_QUESTOES = 2;        // só 2 questões no Treinar
   // pool grátis: apenas 2 questões (as marcadas como não-premium), limitado a FREE_QUESTOES
   const poolFree = questoes.filter(q=>!q.premium).slice(0, FREE_QUESTOES);
-  const poolVisivel = isPro ? questoes : poolFree;
+  const poolVisivel = acesso ? questoes : poolFree;
   const bloqueadasFree = questoes.length - poolFree.length;
 
   if(loading) return <div className="center"><div className="muted">Sincronizando seu progresso...</div></div>;
@@ -2792,7 +2815,7 @@ function Shell({session}){
         <h1 style={{fontSize:28,marginTop:6}}>Olá{session.user.user_metadata&&session.user.user_metadata.nome?", "+session.user.user_metadata.nome:""}</h1>
       </div>
       <div style={{textAlign:"right"}}>
-        <span className="pill" style={{color:isPro?"var(--gold)":"var(--muted)",borderColor:isPro?"var(--gold)":"var(--line)"}}>{isPro?"PRO":"Demonstração"}</span>
+        <span id="tour-pill" className="pill" style={{color:isPro?"var(--gold)":(trialAtivo?"var(--acc)":"var(--muted)"),borderColor:isPro?"var(--gold)":(trialAtivo?"var(--acc)":"var(--line)")}}>{isPro?"PRO":(trialAtivo?"TESTE GRÁTIS · "+trialRestante+"h":"Demonstração")}</span>
         <div className="row" style={{marginTop:8,justifyContent:"flex-end",gap:12}}>
           <span className="link" style={{fontSize:13}} onClick={()=>setTema(tema==="escuro"?"claro":"escuro")}>{tema==="escuro"?"☀ Claro":"🌙 Escuro"}</span>
           <span className="link" style={{fontSize:13}} onClick={()=>sb.auth.signOut()}>Sair</span>
@@ -2800,7 +2823,12 @@ function Shell({session}){
       </div>
     </div>
 
-    {!isPro && <div className="lock" style={{marginTop:16,textAlign:"left"}}>
+    {trialAtivo && <div className="card" style={{marginTop:16,borderColor:"var(--acc)"}}>
+        <div className="tag" style={{color:"var(--acc)"}}>TESTE GRÁTIS · {trialRestante}h restantes</div>
+        <div style={{fontSize:14,lineHeight:1.55,marginTop:4}}>Você tem <b>acesso completo</b> a questões, provas oficiais, simulados, guias, flashcards e progresso até <b>{trialFim.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</b>. A <b>IA</b> — tira-dúvida, reexplicar, OSCE com paciente simulado, gerar questão e resolver por foto — é exclusiva do PRO.</div>
+        <div className="row" style={{gap:10,marginTop:10,flexWrap:"wrap"}}><button className="btn sm" onClick={()=>setShowAssinar(true)}>Liberar a IA · R$ 49,90 / 6 meses</button><span className="muted" style={{fontSize:12,alignSelf:"center"}}>Pix, na hora, sem renovação automática.</span></div>
+    </div>}
+    {!acesso && <div className="lock" style={{marginTop:16,textAlign:"left"}}>
       <b>Você está na versão de demonstração.</b> Ela mostra 1 assunto da Trilha e 2 questões — uma amostra do método.
       <div className="muted" style={{fontSize:13,marginTop:6}}>O Combo até o ENAMED libera: os {CURRICULO.length} assuntos da Trilha, {questoes.length}+ questões, simulados no formato oficial, dashboard de padrões completo e resolver questão por foto.</div>
       <div style={{marginTop:12}}><button className="btn" onClick={()=>setShowAssinar(true)}>Liberar acesso — R$ 49,90 (6 meses)</button></div>
@@ -2810,7 +2838,7 @@ function Shell({session}){
     {diag ? <div>
         <button className="btn ghost sm" onClick={()=>setDiag(null)}>← Sair do teste</button>
         <div style={{marginTop:14}}>
-          <Diagnostico pool={isPro?questoes:poolVisivel} registrar={registrar} modo={diag} questoesFixas={diag==="enamed"?(window.ENAMED_OFICIAL||[]):null}
+          <Diagnostico pool={acesso?questoes:poolVisivel} registrar={registrar} modo={diag} questoesFixas={diag==="enamed"?(window.ENAMED_OFICIAL||[]):null}
             onFim={(fracos)=>{
               const ids=(fracos||[]).map(f=>f.area+"||"+f.tema);
               setTemasFracos(ids); setJaFezDiag(true);
@@ -2821,7 +2849,7 @@ function Shell({session}){
       </div>
     : revisando ? <RevisaoHoje qs={questoesVencidas(poolVisivel,srs)} registrar={registrar} onVoltar={()=>setRevisando(false)}/>
     : <div>
-      {metaConfig ? <MetaConfig meta={meta} onSalvar={salvarMeta} onFechar={()=>setMetaConfig(false)}/> : <MetaDiariaCard prog={metaProg} meta={meta} diasPerfeitos={metaDias.length} celebra={metaCelebra} onConfig={()=>setMetaConfig(true)} onPraticar={()=>setTab("praticar")}/>}
+      {metaConfig ? <MetaConfig meta={meta} onSalvar={salvarMeta} onFechar={()=>setMetaConfig(false)}/> : <div id="tour-meta"><MetaDiariaCard prog={metaProg} meta={meta} diasPerfeitos={metaDias.length} celebra={metaCelebra} onConfig={()=>setMetaConfig(true)} onPraticar={()=>setTab("praticar")}/></div>}
       {(()=>{
         const venc=questoesVencidas(poolVisivel,srs); const n=venc.length;
         const prox=proximaRevisao(srs);
@@ -2848,7 +2876,7 @@ function Shell({session}){
         </div>;
       })()}
       <div className="card" style={{marginBottom:16,borderColor:"var(--acc)"}}>
-        <b style={{fontSize:16}}>Escolha seu diagnóstico</b>
+        <b style={{fontSize:16}} id="tour-diag">Escolha seu diagnóstico</b>
         <div className="muted" style={{fontSize:13,margin:"6px 0 12px"}}>Descubra seus pontos fracos e deixe a trilha priorizar o que você mais erra — ou treine no formato da prova oficial. Dá pra refazer quando quiser.</div>
         <div className="row" style={{gap:10,flexWrap:"wrap"}}>
           <button className="btn" onClick={()=>setDiag("rapido")}>⚡ Diagnóstico rápido (~20)</button>
@@ -2862,20 +2890,23 @@ function Shell({session}){
           <button className="btn sm" onClick={atualizarApp}>Atualizar agora</button>
         </div>
       </div>}
-      <div className="nav">
-        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["dash","📈 Meu progresso"]].map(([k,l])=>
+      {tour && !diag && !revisando && !loading && <TourInicial isPro={isPro} trialAtivo={trialAtivo} onFim={()=>setTour(false)}/>}
+      {pesquisa && !tour && !isPro && <PesquisaAdesao gatilho={pesquisa} onEnviar={enviarPesquisa} onAssinar={()=>setShowAssinar(true)} onDepois={()=>pesqDepois(pesquisa)} onFechar={()=>setPesquisa(null)}/>}
+      <div className="nav" id="tour-nav">
+        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["dash","📈 Meu progresso"]].concat(isAdmin?[["admin","📊 Métricas"]]:[]).map(([k,l])=>
           <button key={k} className={tab===k?"on":""} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
 
       {tab==="videos" && <Videoaulas videos={videoaulas}/>}
-      {tab==="trilha" && <Trilha store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={isPro} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
-      {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} metaHoje={metaProg} bloqueadas={isPro?0:bloqueadasFree} isPro={isPro} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
+      {tab==="admin" && isAdmin && <AdminMetricas sb={sb}/>}
+      {tab==="trilha" && <Trilha store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={acesso} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
+      {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} metaHoje={metaProg} bloqueadas={acesso?0:bloqueadasFree} isPro={isPro} acesso={acesso} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
       {tab==="internato" && <Internato pool={questoes} registrar={registrar}/>}
       {tab==="tecm" && <ExameProvas pool={questoes} registrar={registrar} flag="TECM" icone="🏛️" titulo="Título de Especialista em Clínica Médica" subtitulo="TÍTULO DE ESPECIALISTA · SBCM"/>}
       {tab==="revalida" && <ExameProvas pool={questoes} registrar={registrar} flag="REVALIDA" icone="🏥" titulo="Revalida" subtitulo="REVALIDAÇÃO DE DIPLOMA MÉDICO · INEP"/>}
       {tab==="enare" && <ExameProvas pool={questoes} registrar={registrar} flag="ENARE" icone="📋" titulo="ENARE" subtitulo="EXAME NACIONAL DE RESIDÊNCIA"/>}
-      {tab==="flash" && (isPro ? <Flashcards cards={FLASHCARDS} curriculo={CURRICULO} sb={sb} uid={uid}/> : <TravaFree titulo="Flashcards é PRO" texto="Revise todos os assuntos em cartões rápidos, com baralho diário e sequência de dias estudados." onAssinar={()=>setShowAssinar(true)}/>)}
-      {tab==="dash" && (isPro ? <Dash store={store} temasFracos={temasFracos} onRefazer={()=>setDiag("rapido")}/> : <TravaFree titulo="Meu progresso é PRO" texto="Veja seu acerto por área, os temas onde mais erra e o quanto já dominou da trilha." onAssinar={()=>setShowAssinar(true)}/>)}
+      {tab==="flash" && (acesso ? <Flashcards cards={FLASHCARDS} curriculo={CURRICULO} sb={sb} uid={uid}/> : <TravaFree titulo="Flashcards é PRO" texto="Revise todos os assuntos em cartões rápidos, com baralho diário e sequência de dias estudados." onAssinar={()=>setShowAssinar(true)}/>)}
+      {tab==="dash" && (acesso ? <Dash store={store} temasFracos={temasFracos} onRefazer={()=>setDiag("rapido")}/> : <TravaFree titulo="Meu progresso é PRO" texto="Veja seu acerto por área, os temas onde mais erra e o quanto já dominou da trilha." onAssinar={()=>setShowAssinar(true)}/>)}
     </div>}
   </div>;
 }
@@ -3205,9 +3236,15 @@ function CalculadoraTECM(){
   return <div className="card" style={{marginTop:14}}>
     <div className="tag" style={{color:"var(--gold)"}}>ANÁLISE CURRICULAR · até 10 pts</div>
     <div className="muted" style={{fontSize:13,margin:"4px 0 10px"}}>Os pontos entram na soma da 1ª fase. Marque o que você tem (últimos 2 anos para atualização).</div>
-    <label>Formação</label>
-    <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:6}}>
-      {[["residencia","Residência em CM (5 pt)"],["estagio","Estágio credenciado SBCM (3 pt)"],["nenhum","Outra via (0 pt)"]].map(([k,l])=><button key={k} className={"btn "+((c.formacao||"nenhum")===k?"":"ghost")+" sm"} onClick={()=>salvar({...c,formacao:k})}>{l}</button>)}
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10}}>
+      <label style={{margin:0}}>Formação <span className="muted" style={{fontSize:12}}>(toque para escolher)</span></label>
+      <span className="pill" style={{color:"var(--gold)",borderColor:"var(--gold)",fontSize:12}}>{({residencia:"Residência · 5 pt",estagio:"Estágio SBCM · 3 pt"})[c.formacao]||"Outra via · 0 pt"}</span>
+    </div>
+    <div className="row" style={{gap:8,flexWrap:"wrap",margin:"8px 0 6px"}}>
+      {[["residencia","Residência em CM (5 pt)"],["estagio","Estágio credenciado SBCM (3 pt)"],["nenhum","Outra via (0 pt)"]].map(([k,l])=>{
+        const on=(c.formacao||"nenhum")===k;
+        return <button key={k} type="button" className={"btn "+(on?"":"ghost")+" sm"} aria-pressed={on} onClick={e=>{e.preventDefault();salvar({...c,formacao:k});}}>{on?"✓ ":""}{l}</button>;
+      })}
     </div>
     {num("nacional","Congressos Nacionais SBCM",2)}
     {num("regional","Congressos Regionais SBCM",1)}
@@ -3286,6 +3323,211 @@ function NotaEstimada({log}){
       </div>
     </div>
     <div className="muted" style={{fontSize:12,marginTop:8}}>{calibrando?"Calibrando: responda pelo menos 10 questões em 3 áreas para a estimativa valer.":"Baseado nas suas últimas 200 respostas. Cada área conta a partir de 10 questões."}</div>
+  </div>;
+}
+
+/* =================== TOUR INICIAL (balões flutuantes) =================== */
+function TourInicial({isPro,trialAtivo,onFim}){
+  const [passo,setPasso]=useState(0);
+  const passos=[
+    {alvo:"tour-meta",titulo:"Bem-vindo ao Preceptor 👋",txt:"Aqui em cima fica a sua meta de hoje. Escolha quantas questões quer responder por dia (geral, dividida entre as áreas ou com foco em uma). Bater a meta conta um dia perfeito 🏆."},
+    {alvo:"tour-nav",titulo:"As abas",txt:"Estudar: trilha por assunto, com aula, 'como pensar' e prática. Praticar: questões, simulados, OSCE e resolver por foto. Vídeos: revisões públicas por área. Internato, TECM, Revalida e ENARE: provas na íntegra."},
+    {alvo:"tour-diag",titulo:"Comece pelo diagnóstico",txt:"Em 20 questões o app descobre onde você mais erra e a trilha passa a priorizar isso. Dá pra refazer quando quiser — ou treinar direto com a prova oficial do ENAMED."},
+    {alvo:"tour-meta",titulo:"🔥 Sequência e 🏆 dias perfeitos",txt:"Responda 1 questão por dia pra manter a sequência. Bater a meta inteira marca um dia perfeito. A revisão espaçada traz de volta o que você errou, no dia certo."},
+    isPro
+      ? {alvo:"tour-pill",titulo:"Você é PRO ⭐",txt:"IA liberada: tira-dúvida em cada aula, 'explica de outro jeito', OSCE com paciente e examinador simulados, gerar questão inédita e resolver por foto. Bons estudos!"}
+      : (trialAtivo
+        ? {alvo:"tour-pill",titulo:"Teste grátis ativo",txt:"Por 24 horas você tem acesso completo ao conteúdo. A IA (tira-dúvida, OSCE, gerar questão, resolver por foto) é exclusiva do PRO — R$ 49,90 por 6 meses, Pix, sem renovação automática."}
+        : {alvo:"tour-pill",titulo:"Demonstração",txt:"Você vê uma amostra do método. O PRO libera mais de 2.800 questões, provas oficiais, simulados, OSCE e toda a IA — R$ 49,90 por 6 meses."})
+  ];
+  const p=passos[passo];
+  useEffect(()=>{
+    const el=p&&p.alvo?document.getElementById(p.alvo):null;
+    if(el){ el.classList.add("tour-glow"); try{ el.scrollIntoView({block:"center",behavior:"smooth"}); }catch(e){} }
+    return ()=>{ if(el) el.classList.remove("tour-glow"); };
+  },[passo]);
+  const fechar=()=>{ try{localStorage.setItem("preceptor_tour_v1","1");}catch(e){} onFim(); };
+  return <div className="card tour-balao" style={{borderColor:"var(--acc)",padding:"14px 16px"}}>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10}}>
+      <b style={{fontSize:15}}>{p.titulo}</b>
+      <span className="muted" style={{fontSize:12}}>{passo+1}/{passos.length}</span>
+    </div>
+    <div style={{fontSize:13.5,lineHeight:1.55,marginTop:6}}>{p.txt}</div>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center",marginTop:12,gap:10}}>
+      <span className="link" style={{fontSize:13}} onClick={fechar}>Pular</span>
+      <div className="row" style={{gap:6,alignItems:"center"}}>
+        {passos.map((_,i)=><span key={i} style={{width:6,height:6,borderRadius:99,background:i===passo?"var(--acc)":"var(--line)"}}/>)}
+      </div>
+      {passo<passos.length-1
+        ? <button className="btn sm" onClick={()=>setPasso(passo+1)}>Próximo</button>
+        : <button className="btn sm" onClick={fechar}>Começar</button>}
+    </div>
+  </div>;
+}
+
+/* =================== PESQUISA DE ADESÃO (intenção de assinar + motivos) =================== */
+function PesquisaAdesao({gatilho,onEnviar,onAssinar,onDepois,onFechar}){
+  const [etapa,setEtapa]=useState(0);      // 0 intenção · 1 motivos · 2 obrigado
+  const [intencao,setIntencao]=useState(null);
+  const [motivos,setMotivos]=useState([]);
+  const [texto,setTexto]=useState("");
+  const opcoes={
+    talvez:{titulo:"O que te faria decidir?",itens:["Mais tempo pra testar","Ver o gabarito comentado da minha prova","Preço menor ou parcelado","Garantia de reembolso","Falar com alguém antes","Quero ver mais questões da minha área"]},
+    nao:{titulo:"Pode me dizer o motivo? Ajuda a melhorar.",itens:["Preço","Já uso outra plataforma","Não gostei das questões ou dos comentários","Não vou fazer prova agora","Prefiro videoaula ou curso","Não entendi como usar","Pouco conteúdo pra minha prova","Só queria dar uma olhada"]},
+    sim:{titulo:"O que mais te convenceu?",itens:["As questões e os comentários","Provas oficiais na íntegra","A IA (tira-dúvida, OSCE)","O preço","Meta diária e progresso","Indicação de colega"]},
+  };
+  const toggle=m=>setMotivos(ms=>ms.includes(m)?ms.filter(x=>x!==m):[...ms,m]);
+  const enviar=()=>{ onEnviar({gatilho,intencao,motivos,texto:texto.trim()}); setEtapa(2); };
+  return <div className="card tour-balao" style={{borderColor:"var(--gold)",padding:"14px 16px"}}>
+    {etapa===0 && <div>
+      <div className="row" style={{justifyContent:"space-between",alignItems:"center"}}><b style={{fontSize:15}}>Uma pergunta rápida 🙏</b><span className="link" style={{fontSize:12}} onClick={onDepois}>Depois</span></div>
+      <div style={{fontSize:13.5,lineHeight:1.5,marginTop:6}}>Você pretende assinar o Preceptor?</div>
+      <div className="row" style={{gap:8,flexWrap:"wrap",marginTop:10}}>
+        <button className="btn sm" onClick={()=>{setIntencao("sim");setEtapa(1);}}>Sim, vou assinar</button>
+        <button className="btn ghost sm" onClick={()=>{setIntencao("talvez");setEtapa(1);}}>Talvez, ainda decidindo</button>
+        <button className="btn ghost sm" onClick={()=>{setIntencao("nao");setEtapa(1);}}>Não</button>
+      </div>
+    </div>}
+    {etapa===1 && <div>
+      <b style={{fontSize:15}}>{opcoes[intencao].titulo}</b>
+      <div className="row" style={{gap:6,flexWrap:"wrap",marginTop:10}}>
+        {opcoes[intencao].itens.map(m=><button key={m} type="button" className={"btn "+(motivos.includes(m)?"":"ghost")+" sm"} onClick={()=>toggle(m)}>{motivos.includes(m)?"✓ ":""}{m}</button>)}
+      </div>
+      <input placeholder={intencao==="nao"?"Quer detalhar? (ex.: qual plataforma usa)":"Algo mais? (opcional)"} value={texto} onChange={e=>setTexto(e.target.value)} style={{marginTop:10}}/>
+      <div className="row" style={{justifyContent:"space-between",alignItems:"center",marginTop:10}}>
+        <span className="link" style={{fontSize:12}} onClick={onDepois}>Depois</span>
+        <button className="btn sm" onClick={enviar}>Enviar</button>
+      </div>
+    </div>}
+    {etapa===2 && <div>
+      <b style={{fontSize:15}}>Obrigado! 🙌</b>
+      <div style={{fontSize:13.5,lineHeight:1.5,marginTop:6}}>{intencao==="sim"?"Bora então: o Pix libera na hora e não tem renovação automática.":(intencao==="talvez"?"Vou levar isso em conta. Enquanto isso, seu progresso fica guardado.":"Valeu pela sinceridade — é isso que faz o Preceptor melhorar.")}</div>
+      <div className="row" style={{justifyContent:"flex-end",gap:10,marginTop:10}}>
+        {intencao==="sim" && <button className="btn sm" onClick={()=>{onFechar();onAssinar();}}>Assinar agora</button>}
+        <button className={"btn "+(intencao==="sim"?"ghost ":"")+"sm"} onClick={onFechar}>Fechar</button>
+      </div>
+    </div>}
+  </div>;
+}
+
+/* =================== MÉTRICAS DO ADMIN (só para o e-mail do dono) =================== */
+const ADMIN_EMAIL = "janan.almeida@gmail.com";
+function AdminMetricas({sb}){
+  const [m,setM]=useState(null);
+  const [alunos,setAlunos]=useState([]);
+  const [erro,setErro]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [seg,setSeg]=useState("todos");
+  const [busca,setBusca]=useState("");
+  const carregar=async()=>{
+    setBusy(true); setErro("");
+    try{
+      const [a,b]=await Promise.all([sb.rpc("admin_metricas"), sb.rpc("admin_alunos")]);
+      if(a.error) throw new Error(a.error.message); if(b.error) throw new Error(b.error.message);
+      setM(a.data||{}); setAlunos(b.data||[]);
+    }catch(e){ setErro("Não consegui carregar: "+(e.message||e)+". Rodou o admin_metricas.sql no Supabase?"); }
+    setBusy(false);
+  };
+  useEffect(()=>{ carregar(); },[]);
+  const fmt=n=>(n===null||n===undefined)?"—":(typeof n==="number"?n.toLocaleString("pt-BR"):n);
+  const brl=v=>"R$ "+(parseFloat(v)||0).toLocaleString("pt-BR",{minimumFractionDigits:2,maximumFractionDigits:2});
+  const K=({t,v,sub,cor})=><div className="card" style={{padding:"12px 14px"}}><div className="muted" style={{fontSize:11,textTransform:"uppercase",letterSpacing:".05em"}}>{t}</div><div style={{fontSize:26,fontWeight:700,lineHeight:1.1,marginTop:4,color:cor||"inherit"}}>{v}</div>{sub&&<div className="muted" style={{fontSize:12,marginTop:3}}>{sub}</div>}</div>;
+  const segs=[["todos","Todos"],["pagos","Pagos"],["cortesia","Cortesia"],["trial","Em trial"],["free","Free"],["usam_nao_pagam","Usam e não pagaram"],["nunca_usaram","Nunca responderam"],["quer_assinar","Disseram sim/talvez"]];
+  const pagoDe=x=>x.plano&&x.plano!=="free"&&x.plano!=="cortesia";
+  const lista=alunos.filter(x=>{
+    if(busca && !(x.email||"").toLowerCase().includes(busca.toLowerCase())) return false;
+    if(seg==="pagos") return pagoDe(x);
+    if(seg==="cortesia") return x.plano==="cortesia";
+    if(seg==="trial") return !!x.trial_ativa;
+    if(seg==="free") return !pagoDe(x)&&x.plano!=="cortesia"&&!x.trial_ativa;
+    if(seg==="usam_nao_pagam") return !pagoDe(x)&&x.plano!=="cortesia"&&(x.questoes_respondidas||0)>=5;
+    if(seg==="nunca_usaram") return (x.questoes_respondidas||0)===0;
+    if(seg==="quer_assinar") return !pagoDe(x)&&(x.intencao==="sim"||x.intencao==="talvez");
+    return true;
+  });
+  const copiar=()=>{ const t=lista.map(x=>x.email).join(", "); try{ navigator.clipboard.writeText(t); }catch(e){ window.prompt("Copie:",t); } };
+  const dt=s=>s?(""+s).slice(0,10).split("-").reverse().join("/"):"—";
+  if(erro) return <div className="card"><b>Métricas</b><div style={{color:"var(--bad,#ff6b6b)",marginTop:8,fontSize:13}}>{erro}</div><button className="btn sm" style={{marginTop:10}} onClick={carregar}>Tentar de novo</button></div>;
+  if(!m) return <div className="card muted">Carregando métricas…</div>;
+  const f=m.funil_30d||{};
+  const pct=(a,b)=>b?Math.round(100*a/b)+"%":"—";
+  return <div style={{display:"grid",gap:14}}>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center"}}>
+      <div><div className="tag" style={{color:"var(--gold)"}}>📊 MÉTRICAS · SOMENTE VOCÊ</div><div className="muted" style={{fontSize:12}}>Atualizado {m.gerado_em?new Date(m.gerado_em).toLocaleString("pt-BR"):""}</div></div>
+      <button className="btn ghost sm" onClick={carregar} disabled={busy}>{busy?"…":"Atualizar"}</button>
+    </div>
+
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10}}>
+      <K t="Assinantes pagos" v={fmt(m.pagos_ativos)} sub={"+"+fmt(m.pagos_30d)+" nos últimos 30 d"} cor="var(--gold)"/>
+      <K t="Receita (pagos c/ Pix)" v={brl(m.receita_estimada)} sub="R$ 49,90 × pagamentos"/>
+      <K t="Cortesias ativas" v={fmt(m.cortesias_ativas)}/>
+      <K t="Em trial (24 h)" v={fmt(m.trials_ativas)} sub={fmt(m.free_sem_plano)+" free sem plano"}/>
+      <K t="Expiram em 30 d" v={fmt(m.expiram_30d)} sub="renovação a cobrar"/>
+      <K t="Usuários" v={fmt(m.usuarios_total)} sub={"+"+fmt(m.novos_7d)+" em 7 d · +"+fmt(m.novos_30d)+" em 30 d"}/>
+    </div>
+
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10}}>
+      <K t="Ativos hoje" v={fmt(m.ativos_hoje)} sub={fmt(m.respostas_hoje)+" questões"} cor="var(--acc)"/>
+      <K t="Ativos 7 d" v={fmt(m.ativos_7d)} sub={fmt(m.respostas_7d)+" questões"}/>
+      <K t="Ativos 30 d" v={fmt(m.ativos_30d)} sub={fmt(m.respostas_30d)+" questões"}/>
+      <K t="Acurácia 30 d" v={m.acuracia_30d!=null?m.acuracia_30d+"%":"—"}/>
+      <K t="Metas batidas 7 d" v={fmt(m.metas_batidas_7d)} sub="dias perfeitos"/>
+      <K t="Respostas (total)" v={fmt(m.respostas_total)}/>
+    </div>
+
+    <div className="card">
+      <b>Funil · cadastros dos últimos 30 dias</b>
+      <div style={{marginTop:8,display:"grid",gap:6,fontSize:13}}>
+        {[["Cadastraram",f.cadastrados],["Responderam ≥ 1 questão",f.responderam_1],["Responderam ≥ 10",f.responderam_10],["Voltaram no dia 2",f.voltaram_dia2],["Pagaram",f.pagaram]].map(([l,v],i)=><div key={l} className="row" style={{gap:10,alignItems:"center"}}>
+          <span style={{width:190}}>{l}</span>
+          <div style={{flex:1,height:10,background:"var(--line)",borderRadius:99,overflow:"hidden"}}><div style={{width:pct(v||0,f.cadastrados||0),height:"100%",background:i===4?"var(--gold)":"var(--acc)"}}/></div>
+          <span style={{width:90,textAlign:"right",fontFamily:"var(--mono)"}}>{fmt(v||0)} · {pct(v||0,f.cadastrados||0)}</span>
+        </div>)}
+      </div>
+    </div>
+
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(260px,1fr))",gap:14}}>
+      <div className="card"><b>Últimos 14 dias</b>
+        <div style={{marginTop:8,fontSize:12}}>{(m.por_dia_14d||[]).map(x=><div key={x.dia} className="row" style={{gap:8,alignItems:"center",padding:"2px 0"}}><span style={{width:48,fontFamily:"var(--mono)"}} className="muted">{dt(x.dia).slice(0,5)}</span><div style={{flex:1,height:8,background:"var(--line)",borderRadius:99,overflow:"hidden"}}><div style={{width:Math.min(100,(x.respostas||0)/Math.max(1,...(m.por_dia_14d||[]).map(y=>y.respostas||0))*100)+"%",height:"100%",background:"var(--acc)"}}/></div><span style={{width:110,textAlign:"right",fontFamily:"var(--mono)"}}>{x.respostas} q · {x.alunos} al.</span></div>)}</div>
+      </div>
+      <div className="card"><b>Por área · 30 dias</b>
+        <div style={{marginTop:8,fontSize:13}}>{(m.por_area_30d||[]).map(x=><div key={x.area} className="row" style={{justifyContent:"space-between",padding:"3px 0"}}><span>{x.area}</span><span style={{fontFamily:"var(--mono)"}}>{fmt(x.n)} q · {x.acuracia}%</span></div>)}</div>
+        <b style={{display:"block",marginTop:12}}>Questões mais erradas · 90 d</b>
+        <div style={{marginTop:6,fontSize:12}}>{(m.mais_erradas||[]).map(x=><div key={x.questao_id} style={{padding:"3px 0",borderTop:"1px solid var(--line)"}}><span style={{color:"var(--bad,#ff6b6b)",fontFamily:"var(--mono)"}}>{x.erro}% erro</span> <span className="muted">· {x.n} resp.</span> · {x.area} · {x.tema||x.questao_id}</div>)}</div>
+      </div>
+    </div>
+
+    <div className="card"><b>Pesquisa de adesão</b>
+      <div className="row" style={{gap:14,marginTop:8,flexWrap:"wrap"}}>{(m.pesquisa_intencao||[]).map(x=><span key={x.intencao} className="pill">{x.intencao}: <b>{x.n}</b></span>)}{!(m.pesquisa_intencao||[]).length&&<span className="muted" style={{fontSize:13}}>Sem respostas ainda.</span>}</div>
+      <div style={{marginTop:8,fontSize:13}}>{(m.pesquisa_motivos||[]).map((x,i)=><div key={i} className="row" style={{justifyContent:"space-between",padding:"2px 0"}}><span><span className="muted">{x.intencao} ·</span> {x.motivo}</span><b>{x.n}</b></div>)}</div>
+    </div>
+
+    <div className="card">
+      <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <b>Alunos · {lista.length}</b>
+        <div className="row" style={{gap:8,alignItems:"center"}}>
+          <input placeholder="buscar e-mail" value={busca} onChange={e=>setBusca(e.target.value)} style={{width:170,margin:0}}/>
+          <button className="btn ghost sm" onClick={copiar}>Copiar e-mails</button>
+        </div>
+      </div>
+      <div className="row" style={{gap:6,flexWrap:"wrap",margin:"10px 0"}}>{segs.map(([k,l])=><button key={k} className={"btn "+(seg===k?"":"ghost")+" sm"} onClick={()=>setSeg(k)}>{l}</button>)}</div>
+      <div style={{overflowX:"auto"}}>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+          <thead><tr>{["E-mail","Cadastro","Último login","Questões","Última","Plano","Expira","🔥","Pesquisa"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 8px",borderBottom:"1px solid var(--line)",whiteSpace:"nowrap"}} className="muted">{h}</th>)}</tr></thead>
+          <tbody>{lista.map(x=><tr key={x.email}>
+            <td style={{padding:"6px 8px",borderBottom:"1px solid var(--line)"}}>{x.email}</td>
+            <td style={{padding:"6px 8px",borderBottom:"1px solid var(--line)"}}>{dt(x.cadastro)}</td>
+            <td style={{padding:"6px 8px",borderBottom:"1px solid var(--line)"}}>{dt(x.ultimo_login)}</td>
+            <td style={{padding:"6px 8px",borderBottom:"1px solid var(--line)",fontFamily:"var(--mono)"}}>{x.questoes_respondidas}</td>
+            <td style={{padding:"6px 8px",borderBottom:"1px solid var(--line)"}}>{dt(x.ultima_questao)}</td>
+            <td style={{padding:"6px 8px",borderBottom:"1px solid var(--line)",color:pagoDe(x)?"var(--gold)":(x.plano==="cortesia"?"var(--acc)":"inherit")}}>{x.trial_ativa?"trial":x.plano}</td>
+            <td style={{padding:"6px 8px",borderBottom:"1px solid var(--line)"}}>{dt(x.expira)}</td>
+            <td style={{padding:"6px 8px",borderBottom:"1px solid var(--line)"}}>{x.dias_seguidos||"—"}</td>
+            <td style={{padding:"6px 8px",borderBottom:"1px solid var(--line)"}} title={(x.motivos||[]).join(", ")}>{x.intencao||"—"}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>
+    </div>
   </div>;
 }
 
@@ -4023,6 +4265,10 @@ function OSCE({onVoltar}){
   const [caso,setCaso]=useState(null);
   const [areaSel,setAreaSel]=useState("CM");
   if(caso) return <OSCEEstacao caso={caso} onVoltar={()=>setCaso(null)}/>;
+  if(!window.__PRO) return <div>
+    <button className="btn ghost sm" onClick={onVoltar}>← Voltar</button>
+    <div className="lock" style={{marginTop:12,textAlign:"left"}}><b>Estações OSCE com IA são exclusivas do PRO</b><div className="muted" style={{fontSize:13,marginTop:6}}>Paciente simulado que responde ao seu atendimento e examinador que pontua o checklist. R$ 49,90 por 6 meses, Pix, sem renovação automática.</div><button className="btn sm" style={{marginTop:10}} onClick={()=>window.__ABRIR_ASSINAR&&window.__ABRIR_ASSINAR()}>Liberar a IA</button></div>
+  </div>;
   const casosArea = window.OSCE_BANCO[areaSel]||[];
   return <div>
     <button className="btn ghost sm" onClick={onVoltar}>← Voltar</button>
@@ -4221,7 +4467,7 @@ function Praticar(props){
         <div><b style={{fontSize:14}}>Descubra seus pontos fracos</b><div className="muted" style={{fontSize:12,marginTop:2}}>Testes que reorganizam sua trilha pelos erros.</div></div>
         <div className="row" style={{gap:8}}>
           <button className="btn sm" onClick={()=>props.onDiagnostico&&props.onDiagnostico("rapido")}>Diagnóstico rápido (~20)</button>
-          <button className="btn ghost sm" onClick={()=>props.isPro?(props.onDiagnostico&&props.onDiagnostico("completo")):props.onAssinar()}>{props.isPro?"Simulado 100 questões":"🔒 Simulado 100"}</button>
+          <button className="btn ghost sm" onClick={()=>props.acesso?(props.onDiagnostico&&props.onDiagnostico("completo")):props.onAssinar()}>{props.acesso?"Simulado 100 questões":"🔒 Simulado 100"}</button>
         </div>
       </div>
     </div>
@@ -4230,13 +4476,13 @@ function Praticar(props){
       {props.metaHoje && <span title="Meta de hoje" style={{marginLeft:"auto",fontFamily:"var(--mono)",fontSize:13,color:props.metaHoje.batida?"var(--gold,#e6b450)":"var(--acc)"}}>🎯 {Math.min(props.metaHoje.feito,props.metaHoje.alvo)}/{props.metaHoje.alvo}{props.metaHoje.batida?" ✓":""}</span>}
     </div>
     {modo==="treinar" && <Treinar {...props} onNovasQuestoes={props.onNovasQuestoes}/>}
-    {modo==="simulado" && (props.isPro ? <Simulado pool={props.pool} registrar={props.registrar} isPro={props.isPro}/> : <TravaFree titulo="Simulado é PRO" texto="Monte provas no formato oficial (20 por área) com nota e correção comentada." onAssinar={props.onAssinar}/>)}
+    {modo==="simulado" && (props.acesso ? <Simulado pool={props.pool} registrar={props.registrar} isPro={props.acesso}/> : <TravaFree titulo="Simulado é PRO" texto="Monte provas no formato oficial (20 por área) com nota e correção comentada." onAssinar={props.onAssinar}/>)}
     {modo==="enamed" && <SimuladoEnamed pool={props.pool} registrar={props.registrar}/>}
     {modo==="resolver" && <Resolver isPro={props.isPro} onAssinar={props.onAssinar}/>}
   </div>;
 }
 
-function Treinar({pool,store,registrar,bloqueadas,isPro,onAssinar,onNovasQuestoes}){
+function Treinar({pool,store,registrar,bloqueadas,isPro,acesso,onAssinar,onNovasQuestoes}){
   const [area,setArea]=useState("todas");
   const [tema,setTema]=useState("todos");
   const [extra,setExtra]=useState([]);   // questoes geradas na sessao
@@ -4328,7 +4574,7 @@ function Treinar({pool,store,registrar,bloqueadas,isPro,onAssinar,onNovasQuestoe
     </div>
   </div>;
 
-  const ultimaFree = !isPro && i>=fila.length-1;
+  const ultimaFree = !acesso && i>=fila.length-1;
   return <div>
     {filtroUI}
     <div className="bar" style={{marginBottom:14}}><i style={{width:((i+1)/fila.length*100)+"%",background:"var(--acc)"}}/></div>
@@ -4344,7 +4590,7 @@ function Treinar({pool,store,registrar,bloqueadas,isPro,onAssinar,onNovasQuestoe
     </div>
     {msg&&<div className="muted" style={{fontSize:13,marginTop:10,color:"var(--acc2)"}}>{msg}</div>}
 
-    {!isPro && feito && ultimaFree && <div className="lock" style={{marginTop:14,textAlign:"left"}}>
+    {!acesso && feito && ultimaFree && <div className="lock" style={{marginTop:14,textAlign:"left"}}>
       <b>Você terminou a demonstração.</b>
       <div className="muted" style={{fontSize:13,marginTop:6}}>Assine o Combo até o ENAMED para treinar questões ilimitadas — inclusive geradas na hora pela IA.</div>
     </div>}
@@ -4726,6 +4972,7 @@ function AulaAdaptativa({tema,aula,fonte}){
   const [busy,setBusy]=useState("");
   const workerOk=!WORKER_URL.startsWith("COLE_");
   const pedir=async(modo,rotulo)=>{
+    if(!window.__PRO){setExtra("Reexplicar com IA é exclusivo do plano PRO. Assine para liberar."); return;}
     if(!workerOk){setExtra("Este recurso fica ativo quando o app estiver publicado com o Worker.");return;}
     setBusy(rotulo);setExtra(null);
     try{
@@ -4766,6 +5013,7 @@ function TiraDuvida({tema,contexto}){
     setMsgs(m=>[...m,{quem:"voce",txt:pergunta}]);
     setQ("");setBusy(true);
     try{
+      if(!window.__PRO) throw new Error("O tira-dúvida por IA é exclusivo do plano PRO. Toque em \"Liberar a IA\" na tela inicial para assinar.");
       if(!workerOk) throw new Error("O tira-dúvida por IA fica disponível quando o app estiver publicado com o Worker.");
       const r=await wfetch("/tirar-duvida",{tema,contexto,pergunta});
       const d=await r.json();
