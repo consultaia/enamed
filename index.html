@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.12f";
+  window.APP_VERSION="2026.09.12g";
   // Registro do service worker com atualização AUTOMÁTICA.
   // Sempre que você publicar uma versão nova, o app se atualiza sozinho
   // para todos os usuários — sem precisar limpar cache.
@@ -2456,9 +2456,13 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
         <div className="tag" style={{color:"var(--gold)"}}>COMO A SBCM PONTUA</div>
         <div style={{fontSize:13.5,lineHeight:1.6,marginTop:4}}>
           <b>1ª fase (teórica):</b> 120 questões, 5 alternativas. As 100 primeiras valem 0,8 e as 20 últimas 1,0 (máx. 100). Somam-se até 10 pontos de currículo. <b>Corte: 77 de 110</b> (70%).<br/>
-          <b>2ª fase (prática):</b> 2 estações de 10 min, sequenciais — o examinador só libera a etapa seguinte quando você cumpre a ação. Avaliação CHA (conhecimento, habilidade, atitude), 5 pontos por estação, <b>corte 7 de 10</b>. Treine em <b>Praticar › OSCE › Título CM (2ª fase)</b>.<br/>
+          <b>2ª fase (prática):</b> 2 estações de 10 min, sequenciais — o examinador só libera a etapa seguinte quando você cumpre a ação. Avaliação CHA (conhecimento, habilidade, atitude), 5 pontos por estação, <b>corte 7 de 10</b>.<br/>
           <b>Recurso:</b> R$ 200 por questão (devolvido se provido), fundamentado na bibliografia do edital.
         </div>
+      </div>
+      <div className="row" style={{gap:10,marginTop:12,flexWrap:"wrap",alignItems:"center"}}>
+        <button className="btn sm" onClick={()=>{ try{ window.__OSCE_AREA="TECM"; window.__OSCE_ABRIR=true; window.__SET_TAB&&window.__SET_TAB("internato"); window.scrollTo(0,0); }catch(e){} }}>Treinar as estações da 2ª fase →</button>
+        <span className="muted" style={{fontSize:12}}>6 estações de 10 min no formato SBCM, com paciente e examinador de IA (PRO).</span>
       </div>
       <CalculadoraTECM/>
       <ProgramaTECM/>
@@ -2753,7 +2757,7 @@ function Shell({session}){
   const trialRestante = trialAtivo ? Math.max(1, Math.ceil((trialFim - new Date())/3600000)) : 0;
   const acesso = isPro || trialAtivo;
   const isAdmin = !!(session&&session.user&&session.user.email===ADMIN_EMAIL);
-  useEffect(()=>{ try{ window.__PRO=!!isPro; window.__ACESSO=!!acesso; window.__ABRIR_ASSINAR=()=>setShowAssinar(true); }catch(e){} },[isPro,acesso]);
+  useEffect(()=>{ try{ window.__PRO=!!isPro; window.__ACESSO=!!acesso; window.__ABRIR_ASSINAR=()=>setShowAssinar(true); window.__SET_TAB=setTab; }catch(e){} },[isPro,acesso]);
 
   const hojeMeta=dataLocal();
   const metaProg=useMemo(()=>calcMeta(log,meta,hojeMeta),[log,meta,hojeMeta]);
@@ -3667,7 +3671,7 @@ function Internato({pool, registrar}){
   const [half,setHalf]=useState("A");         // metade A ou B
   const [bloco,setBloco]=useState(null);      // {nome, qs}
   const [superrev,setSuperrev]=useState(false);// guia Super Revisão aberto
-  const [osce,setOsce]=useState(false);        // estação OSCE aberta
+  const [osce,setOsce]=useState(()=>{ try{ if(window.__OSCE_ABRIR){ window.__OSCE_ABRIR=false; return true; } }catch(e){} return false; });        // estação OSCE aberta (ou aberta por atalho)
   const [revTopico,setRevTopico]=useState(null); // tópico alvo p/ deep-link na Super Revisão
   const [rodizio,setRodizio]=useState(false);   // modo rodízio (sprint da metade)
 
@@ -4263,7 +4267,7 @@ Object.keys(window.OSCE_BANCO).forEach(k=>{
 
 function OSCE({onVoltar}){
   const [caso,setCaso]=useState(null);
-  const [areaSel,setAreaSel]=useState("CM");
+  const [areaSel,setAreaSel]=useState(()=>{ try{ const a=window.__OSCE_AREA; if(a&&OSCE_TEMAS[a]){ window.__OSCE_AREA=null; return a; } }catch(e){} return "CM"; });
   if(caso) return <OSCEEstacao caso={caso} onVoltar={()=>setCaso(null)}/>;
   if(!window.__PRO) return <div>
     <button className="btn ghost sm" onClick={onVoltar}>← Voltar</button>
