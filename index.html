@@ -21,8 +21,10 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.12j";
+  window.APP_VERSION="2026.09.12l";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
+  // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
+  window.PRECO_CFG={ DATA_FUNDADOR:"2026-12-31T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
   window.__PWA_PROMPT=null;
   window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); window.__PWA_PROMPT=e; });
   window.addEventListener("appinstalled", function(){ window.__PWA_PROMPT=null; try{localStorage.setItem("preceptor_pwa_instalado","1");}catch(x){} });
@@ -2693,6 +2695,8 @@ function Shell({session}){
   const [metaConfig,setMetaConfig]=useState(false);
   const [metaCelebra,setMetaCelebra]=useState(false);
   const [videoaulas,setVideoaulas]=useState([]);
+  const [caderno,setCaderno]=useState([]);
+  const [primeiraPaga,setPrimeiraPaga]=useState(null);
   const [novaVersao,setNovaVersao]=useState(null);
   const [tour,setTour]=useState(()=>{try{return !localStorage.getItem("preceptor_tour_v1")}catch(e){return false}});
   const [pesquisa,setPesquisa]=useState(null); // gatilho ativo: "trial" | "paywall" | null
@@ -2728,7 +2732,7 @@ function Shell({session}){
 
   useEffect(()=>{(async()=>{
     setLoading(true);
-    const [q,r,d,s,a,st,mt,md,va]=await Promise.all([
+    const [q,r,d,s,a,st,mt,md,va,stq,cad,pp]=await Promise.all([
       (async()=>{let all=[],from=0;const step=1000;for(;;){const{data,error}=await sb.from("questoes").select("*").order("id",{ascending:true}).range(from,from+step-1);if(error||!data||!data.length)break;all=all.concat(data);if(data.length<step)break;from+=step;}return{data:all};})(),
       sb.from("respostas").select("*").eq("user_id",uid),
       sb.from("dominio").select("*").eq("user_id",uid),
@@ -2738,6 +2742,9 @@ function Shell({session}){
       sb.from("meta_diaria").select("meta,modo,area_foco").eq("user_id",uid).maybeSingle().then(r=>r,()=>({data:null})),
       sb.from("meta_dias").select("dia").eq("user_id",uid).then(r=>r,()=>({data:[]})),
       sb.from("videoaulas").select("*").eq("ativo",true).order("ordem",{ascending:true}).then(r=>r,()=>({data:[]})),
+      sb.rpc("stats_questoes").then(r=>r,()=>({data:[]})),
+      sb.from("caderno_erros").select("questao_id,area,tema,motivo,criado_em").eq("user_id",uid).order("criado_em",{ascending:false}).limit(400).then(r=>r,()=>({data:[]})),
+      sb.from("assinaturas").select("plano,criado_em").eq("user_id",uid).not("plano","in","(free,cortesia)").order("criado_em",{ascending:true}).limit(1).then(r=>r,()=>({data:[]})),
     ]);
     let qs=(q.data||[]).map(x=>({id:x.id,area:x.area,tema:x.tema,transv:x.transv||[],dif:x.dificuldade,enun:x.enunciado,alts:x.alternativas,correta:x.correta,coment:x.comentario,premium:x.premium,anulada:!(x.correta>=0)}));
     if(qs.length===0){ qs=SEED; }
@@ -2749,6 +2756,9 @@ function Shell({session}){
     setLog((r.data||[]).map(x=>({id:x.questao_id,area:x.area,tema:x.tema,ok:x.acertou,dia:dataLocal(x.criado_em||x.created_at)})));
     if(mt&&mt.data){const m={meta:mt.data.meta||20,modo:mt.data.modo||"geral",area_foco:mt.data.area_foco||"CM"};setMeta(m);try{localStorage.setItem("preceptor_meta",JSON.stringify(m))}catch(e){}}
     if(va&&va.data){setVideoaulas(va.data||[]);try{window.__VIDEOAULAS=va.data||[];}catch(e){}}
+    try{ const m={}; (stq&&stq.data||[]).forEach(x=>{m[x.questao_id]={n:+x.n,ok:+x.acertos};}); window.__STATS=m; }catch(e){}
+    if(cad&&cad.data){setCaderno(cad.data||[]);}
+    if(pp&&pp.data&&pp.data[0]){setPrimeiraPaga(pp.data[0]);}
     if(md&&md.data){const ds=(md.data||[]).map(x=>(x.dia+"").slice(0,10));setMetaDias(ds);try{localStorage.setItem("preceptor_meta_dias",JSON.stringify(ds))}catch(e){}}
     const dm={};(d.data||[]).forEach(x=>dm[x.topico_id]={nivel:x.nivel,last:x.atualizado_em});setDominio(dm);
     const sr={};(s.data||[]).forEach(x=>sr[x.questao_id]={ef:x.ef,intervalo:x.intervalo,reps:x.reps,due:x.due});setSrs(sr);
@@ -2764,8 +2774,20 @@ function Shell({session}){
   const trialAtivo = !isPro && !!trialFim && trialFim > new Date();
   const trialRestante = trialAtivo ? Math.max(1, Math.ceil((trialFim - new Date())/3600000)) : 0;
   const acesso = isPro || trialAtivo;
+  const PC=window.PRECO_CFG||{DATA_FUNDADOR:"2099-01-01",VALOR_INICIAL:49.9,VALOR_NOVO:49.9,MESES:6};
+  const dataCorte=new Date(PC.DATA_FUNDADOR);
+  const antesCorte=new Date()<dataCorte;
+  const fundador=!!(primeiraPaga&&primeiraPaga.criado_em&&new Date(primeiraPaga.criado_em)<dataCorte);
+  const precoValor=(antesCorte||fundador)?PC.VALOR_INICIAL:PC.VALOR_NOVO;
+  const precoTxt="R$ "+precoValor.toFixed(2).replace(".",",");
+  const dataCorteTxt=dataCorte.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"});
+  const valorNovoTxt="R$ "+PC.VALOR_NOVO.toFixed(2).replace(".",",");
+  const diasParaVencer=(isPro&&assinatura&&assinatura.expira_em)?Math.ceil((new Date(assinatura.expira_em)-new Date())/86400000):null;
+  useEffect(()=>{ try{ window.__PRECO={valor:precoValor,txt:precoTxt,fundador,antesCorte,dataCorteTxt,valorNovoTxt,meses:PC.MESES}; }catch(e){} },[precoValor,fundador,antesCorte]);
   const isAdmin = !!(session&&session.user&&session.user.email===ADMIN_EMAIL);
-  useEffect(()=>{ try{ window.__PRO=!!isPro; window.__ACESSO=!!acesso; window.__ABRIR_ASSINAR=()=>setShowAssinar(true); window.__SET_TAB=setTab; }catch(e){} },[isPro,acesso]);
+  useEffect(()=>{ try{ window.__PRO=!!isPro; window.__ACESSO=!!acesso; window.__ABRIR_ASSINAR=()=>setShowAssinar(true); window.__SET_TAB=setTab; window.__SET_DIAG=(m)=>{setDiag(m);setTab("trilha");window.scrollTo(0,0);};
+    window.__REGISTRAR_ERRO=(q,motivo)=>{ const row={user_id:uid,questao_id:q.id,area:q.area,tema:q.tema,motivo,criado_em:new Date().toISOString()}; setCaderno(c=>[row,...c].slice(0,400)); try{ sb.from("caderno_erros").insert(row).then(()=>{},()=>{}); }catch(e){} };
+  }catch(e){} },[isPro,acesso,uid]);
 
   const hojeMeta=dataLocal();
   const metaProg=useMemo(()=>calcMeta(log,meta,hojeMeta),[log,meta,hojeMeta]);
@@ -2808,7 +2830,7 @@ function Shell({session}){
     const o={};AREAS.forEach(a=>o[a.k]=m[a.k].t?m[a.k].ok/m[a.k].t:null);return o;
   },[log]);
 
-  const store={questoes,log,srs,dominio};
+  const store={questoes,log,srs,dominio,caderno};
 
   // ---- Limites do plano FREE (amostra grátis enxuta) ----
   const FREE_TOPICO = "cm-has";   // único assunto liberado na Trilha (alto rendimento)
@@ -2838,12 +2860,22 @@ function Shell({session}){
     {trialAtivo && <div className="card" style={{marginTop:16,borderColor:"var(--acc)"}}>
         <div className="tag" style={{color:"var(--acc)"}}>TESTE GRÁTIS · {trialRestante}h restantes</div>
         <div style={{fontSize:14,lineHeight:1.55,marginTop:4}}>Você tem <b>acesso completo</b> a questões, provas oficiais, simulados, guias, flashcards e progresso até <b>{trialFim.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</b>. A <b>IA</b> — tira-dúvida, reexplicar, OSCE com paciente simulado, gerar questão e resolver por foto — é exclusiva do PRO.</div>
-        <div className="row" style={{gap:10,marginTop:10,flexWrap:"wrap"}}><button className="btn sm" onClick={()=>setShowAssinar(true)}>Liberar a IA · R$ 49,90 / 6 meses</button><span className="muted" style={{fontSize:12,alignSelf:"center"}}>Pix, na hora, sem renovação automática.</span></div>
+        <div className="row" style={{gap:10,marginTop:10,flexWrap:"wrap"}}><button className="btn sm" onClick={()=>setShowAssinar(true)}>Liberar a IA · {precoTxt}</button><span style={{fontSize:12,alignSelf:"center"}}><b style={{color:"var(--gold)"}}>Assine durante o teste e leve 7 meses pelo preço de 6.</b> <span className="muted">Pix, na hora, sem renovação automática.</span></span></div>
+    </div>}
+    {isPro && (fundador || (diasParaVencer!==null && diasParaVencer<=30)) && <div className="card" style={{marginTop:16,borderColor:"var(--gold)"}}>
+      {fundador && <div style={{fontSize:13}}><b style={{color:"var(--gold)"}}>🏅 Membro fundador.</b> Você entrou no começo — seu preço fica em <b>{"R$ "+PC.VALOR_INICIAL.toFixed(2).replace(".",",")}</b> em todas as renovações, mesmo depois do reajuste.</div>}
+      {diasParaVencer!==null && diasParaVencer<=30 && <div style={{fontSize:13,marginTop:fundador?8:0}}>{diasParaVencer>0?<span>Sua assinatura vence em <b>{diasParaVencer} dia{diasParaVencer===1?"":"s"}</b>.</span>:<span><b>Sua assinatura venceu.</b></span>} Renovando agora, os dias que restam são <b>somados</b> aos novos 6 meses.
+        <div style={{marginTop:8}}><button className="btn sm" onClick={()=>setShowAssinar(true)}>Renovar · {precoTxt} / 6 meses</button></div></div>}
+    </div>}
+    {!acesso && trialFim && (new Date()-trialFim)<7*24*3600*1000 && <div className="card" style={{marginTop:16,borderColor:"var(--gold)"}}>
+      <div className="tag" style={{color:"var(--gold)"}}>SEU TESTE TERMINOU</div>
+      <div style={{fontSize:14,lineHeight:1.55,marginTop:4}}>Nestas 24 horas você respondeu <b>{log.length}</b> questões{metaDias.length?<span>, bateu <b>{metaDias.length}</b> meta{metaDias.length>1?"s":""}</span>:null}{calcEstimativa(log)!=null?<span> e sua nota estimada chegou a <b>{calcEstimativa(log)}%</b></span>:null}. <b>Está tudo salvo</b> — sequência, caderno de erros, revisão espaçada e progresso. Assine e continue exatamente de onde parou.</div>
+      <div className="row" style={{gap:10,marginTop:10,flexWrap:"wrap"}}><button className="btn sm" onClick={()=>setShowAssinar(true)}>Continuar · {precoTxt} / 6 meses</button><span className="muted" style={{fontSize:12,alignSelf:"center"}}>Pix, na hora, sem renovação automática.</span></div>
     </div>}
     {!acesso && <div className="lock" style={{marginTop:16,textAlign:"left"}}>
       <b>Você está na versão de demonstração.</b> Ela mostra 1 assunto da Trilha e 2 questões — uma amostra do método.
       <div className="muted" style={{fontSize:13,marginTop:6}}>O Combo até o ENAMED libera: os {CURRICULO.length} assuntos da Trilha, {questoes.length}+ questões, simulados no formato oficial, dashboard de padrões completo e resolver questão por foto.</div>
-      <div style={{marginTop:12}}><button className="btn" onClick={()=>setShowAssinar(true)}>Liberar acesso — R$ 49,90 (6 meses)</button></div>
+      <div style={{marginTop:12}}><button className="btn" onClick={()=>setShowAssinar(true)}>Liberar acesso — {precoTxt} (6 meses)</button>{antesCorte&&!fundador&&<div style={{fontSize:12,marginTop:8}}><b style={{color:"var(--gold)"}}>🏅 Preço fundador:</b> assine até <b>{dataCorteTxt}</b> e renove sempre por {precoTxt}. Depois sobe para {valorNovoTxt} para quem entrar.</div>}</div>
     </div>}
     {showAssinar && <Assinar uid={uid} email={session.user.email} onClose={()=>setShowAssinar(false)} onVerificar={recarregarAssinatura}/>}
 
@@ -3367,8 +3399,8 @@ function TourInicial({isPro,trialAtivo,onFim}){
     isPro
       ? {alvo:"tour-pill",titulo:"Você é PRO ⭐",txt:"IA liberada: tira-dúvida em cada aula, 'explica de outro jeito', OSCE com paciente e examinador simulados, gerar questão inédita e resolver por foto. Bons estudos!"}
       : (trialAtivo
-        ? {alvo:"tour-pill",titulo:"Teste grátis ativo",txt:"Por 24 horas você tem acesso completo ao conteúdo. A IA (tira-dúvida, OSCE, gerar questão, resolver por foto) é exclusiva do PRO — R$ 49,90 por 6 meses, Pix, sem renovação automática."}
-        : {alvo:"tour-pill",titulo:"Demonstração",txt:"Você vê uma amostra do método. O PRO libera mais de 2.800 questões, provas oficiais, simulados, OSCE e toda a IA — R$ 49,90 por 6 meses."})
+        ? {alvo:"tour-pill",titulo:"Teste grátis ativo",txt:"Por 24 horas você tem acesso completo ao conteúdo. A IA (tira-dúvida, OSCE, gerar questão, resolver por foto) é exclusiva do PRO — "+((window.__PRECO||{}).txt||"R$ 49,90")+" por 6 meses, Pix, sem renovação automática."}
+        : {alvo:"tour-pill",titulo:"Demonstração",txt:"Você vê uma amostra do método. O PRO libera mais de 2.800 questões, provas oficiais, simulados, OSCE e toda a IA — "+((window.__PRECO||{}).txt||"R$ 49,90")+" por 6 meses."})
   ].filter(Boolean);
   const p=passos[passo];
   const [podeInstalar,setPodeInstalar]=useState(()=>!!window.__PWA_PROMPT);
@@ -3395,7 +3427,7 @@ function TourInicial({isPro,trialAtivo,onFim}){
       </div>
       {passo<passos.length-1
         ? <button className="btn sm" onClick={()=>setPasso(passo+1)}>Próximo</button>
-        : <button className="btn sm" onClick={fechar}>Começar</button>}
+        : <button className="btn sm" onClick={()=>{fechar();try{window.__SET_DIAG&&window.__SET_DIAG("rapido");}catch(e){}}}>⚡ Fazer meu diagnóstico</button>}
     </div>
   </div>;
 }
@@ -3689,6 +3721,26 @@ function vozAcerto(seed){
 function vozErro(seed){ return voz("erro",seed)+" "; }
 function registrarSeq(ok){ try{ window.__SEQ_ACERTOS = ok ? (window.__SEQ_ACERTOS||0)+1 : 0; }catch(e){} }
 
+function CadernoErros({store}){
+  const cad=store.caderno||[]; if(!cad.length) return null;
+  const nomes={nao_sabia:"Não sabia",li_errado:"Li errado",chutei:"Chutei",confundi:"Confundi conceitos"};
+  const porMotivo={}; cad.forEach(c=>{porMotivo[c.motivo]=(porMotivo[c.motivo]||0)+1;});
+  const porTema={}; cad.forEach(c=>{ const k=(c.area||"")+"||"+(c.tema||""); porTema[k]=porTema[k]||{area:c.area,tema:c.tema,n:0}; porTema[k].n++; });
+  const temas=Object.values(porTema).sort((a,b)=>b.n-a.n).slice(0,8);
+  const ids=Array.from(new Set(cad.map(c=>c.questao_id)));
+  const qs=(store.questoes||[]).filter(q=>ids.includes(q.id));
+  const dica=(()=>{ const top=Object.entries(porMotivo).sort((a,b)=>b[1]-a[1])[0]; if(!top) return ""; return ({nao_sabia:"Seu erro mais comum é conteúdo: vale revisar os temas abaixo antes de fazer mais questões.",li_errado:"Você erra mais por leitura: sublinhe o comando da questão (\"mais provável\", \"contraindicado\") antes das alternativas.",chutei:"Muito chute: quando não souber, elimine 2 alternativas e marque a dúvida no comentário.",confundi:"Você confunde conceitos parecidos: as questões-gêmeas ajudam a fixar a diferença."})[top[0]]; })();
+  return <div className="card" style={{borderColor:"var(--gold)"}}>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+      <div><div className="tag" style={{color:"var(--gold)"}}>📝 CADERNO DE ERROS</div><div className="muted" style={{fontSize:13,marginTop:3}}>{cad.length} erros anotados · {ids.length} questões</div></div>
+      {qs.length>0 && <button className="btn sm" onClick={()=>window.__TREINAR_GEMEAS&&window.__TREINAR_GEMEAS(qs,"Caderno de erros")}>Refazer as {qs.length}</button>}
+    </div>
+    <div className="row" style={{gap:6,flexWrap:"wrap",marginTop:10}}>{Object.entries(porMotivo).sort((a,b)=>b[1]-a[1]).map(([k,n])=><span key={k} className="pill">{nomes[k]||k}: <b>{n}</b></span>)}</div>
+    {dica && <div style={{fontSize:13,marginTop:10,lineHeight:1.5}}>💡 {dica}</div>}
+    <div style={{marginTop:10,fontSize:13}}>{temas.map(t=><div key={t.area+t.tema} className="row" style={{justifyContent:"space-between",padding:"4px 0",borderTop:"1px solid var(--line)"}}><span>{t.tema} <span className="muted">· {t.area}</span></span><b>{t.n}</b></div>)}</div>
+  </div>;
+}
+
 function Dash({store,temasFracos,onRefazer}){
   const s=useMemo(()=>{
     const byArea={};AREAS.forEach(a=>byArea[a.k]={t:0,ok:0,q:0});
@@ -3710,6 +3762,7 @@ function Dash({store,temasFracos,onRefazer}){
 
   return <div style={{display:"grid",gap:14}}>
     <NotaEstimada log={store.log}/>
+    <CadernoErros store={store}/>
     {/* BLOCO 1 — resumo simples */}
     <div className="card">
       <div className="row" style={{justifyContent:"space-between",marginBottom:14}}>
@@ -3768,7 +3821,46 @@ function QuestionCard({q,onResp,indice,total}){
     {q.alts.map((a,i)=>{let c="alt";if(sel!==null){if(q.anulada)c+=" dim";else if(i===q.correta)c+=" correct";else if(i===sel)c+=" wrong";else c+=" dim";}
       return <button key={i} className={c} disabled={sel!==null} onClick={()=>{const ok=q.anulada?true:(i===q.correta);registrarSeq(ok);setSel(i);onResp(q,ok);}}><b style={{opacity:.7,marginRight:8}}>{L[i]}</b>{a}</button>;})}
     {sel!==null&&<div className="comment"><b style={{color:q.anulada?"var(--warn)":(sel===q.correta?"var(--acc)":"var(--bad)")}}>{q.anulada?"Questão anulada. ":(sel===q.correta?vozAcerto(q.id+":"+sel):vozErro(q.id+":"+sel))}</b>{q.coment}</div>}
+    {sel!==null&&<StatsQuestao q={q}/>}
+    {sel!==null&&!q.anulada&&sel!==q.correta&&<MotivoErro q={q}/>}
+    {sel!==null&&<IAnaQuestao q={q} sel={sel}/>}
     {sel!==null&&<QuestoesGemeas q={q}/>}
+  </div>;
+}
+function StatsQuestao({q}){
+  const s=(window.__STATS||{})[q.id]; if(!s||!s.n) return null;
+  const pct=Math.round(s.ok/s.n*100);
+  const cor=pct>=70?"var(--acc)":(pct>=45?"var(--gold)":"var(--bad,#ff6b6b)");
+  return <div className="row" style={{gap:8,alignItems:"center",marginTop:8,fontSize:12}}>
+    <div style={{flex:1,height:6,background:"var(--line)",borderRadius:99,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:cor}}/></div>
+    <span><b style={{color:cor}}>{pct}%</b> <span className="muted">dos alunos acertaram · {s.n} respostas{pct<45?" · uma das mais difíceis":""}</span></span>
+  </div>;
+}
+function MotivoErro({q}){
+  const [m,setM]=useState(null);
+  const ops=[["nao_sabia","Não sabia"],["li_errado","Li errado"],["chutei","Chutei"],["confundi","Confundi conceitos"]];
+  if(m) return <div className="muted" style={{fontSize:12,marginTop:8}}>📝 Anotado no seu caderno de erros ({ops.find(o=>o[0]===m)[1].toLowerCase()}). Ela volta na revisão espaçada.</div>;
+  return <div style={{marginTop:8}}>
+    <div className="muted" style={{fontSize:12,marginBottom:6}}>📝 Por que errou? (vai pro seu caderno de erros)</div>
+    <div className="row" style={{gap:6,flexWrap:"wrap"}}>{ops.map(([k,l])=><button key={k} type="button" className="btn ghost sm" onClick={()=>{setM(k);window.__REGISTRAR_ERRO&&window.__REGISTRAR_ERRO(q,k);}}>{l}</button>)}</div>
+  </div>;
+}
+function IAnaQuestao({q,sel}){
+  const [aberto,setAberto]=useState(false);
+  const errou=!q.anulada&&sel!==q.correta;
+  if(!window.__PRO){
+    if(!errou) return null;
+    return <div className="row" style={{gap:10,alignItems:"center",marginTop:10,padding:"8px 10px",border:"1px dashed var(--line)",borderRadius:10,fontSize:12.5}}>
+      <span>🤖 Não entendeu? A IA explica esta questão de outro jeito — <b>exclusivo do PRO</b>.</span>
+      <button className="btn sm" style={{marginLeft:"auto"}} onClick={()=>window.__ABRIR_ASSINAR&&window.__ABRIR_ASSINAR()}>Liberar</button>
+    </div>;
+  }
+  const L=["A","B","C","D","E"];
+  const contexto="QUESTÃO: "+q.enun+"\nALTERNATIVAS: "+(q.alts||[]).map((a,i)=>L[i]+") "+a).join(" | ")+"\nGABARITO: "+L[q.correta]+"\nCOMENTÁRIO: "+(q.coment||"")+"\nO ALUNO MARCOU: "+L[sel]+(errou?" (errou)":" (acertou)");
+  return <div style={{marginTop:10}}>
+    {!aberto
+      ? <span className="link" style={{fontSize:13}} onClick={()=>setAberto(true)}>🤖 Perguntar sobre esta questão</span>
+      : <TiraDuvida tema={"Questão · "+(q.tema||"")} contexto={contexto}/>}
   </div>;
 }
 /* =================== INTERNATO (aba com módulos) =================== */
@@ -4426,7 +4518,7 @@ function OSCE({onVoltar}){
   if(caso) return <OSCEEstacao caso={caso} onVoltar={()=>setCaso(null)}/>;
   if(!window.__PRO) return <div>
     <button className="btn ghost sm" onClick={onVoltar}>← Voltar</button>
-    <div className="lock" style={{marginTop:12,textAlign:"left"}}><b>Estações OSCE com IA são exclusivas do PRO</b><div className="muted" style={{fontSize:13,marginTop:6}}>Paciente simulado que responde ao seu atendimento e examinador que pontua o checklist. R$ 49,90 por 6 meses, Pix, sem renovação automática.</div><button className="btn sm" style={{marginTop:10}} onClick={()=>window.__ABRIR_ASSINAR&&window.__ABRIR_ASSINAR()}>Liberar a IA</button></div>
+    <div className="lock" style={{marginTop:12,textAlign:"left"}}><b>Estações OSCE com IA são exclusivas do PRO</b><div className="muted" style={{fontSize:13,marginTop:6}}>Paciente simulado que responde ao seu atendimento e examinador que pontua o checklist. {((window.__PRECO||{}).txt||"R$ 49,90")} por 6 meses, Pix, sem renovação automática.</div><button className="btn sm" style={{marginTop:10}} onClick={()=>window.__ABRIR_ASSINAR&&window.__ABRIR_ASSINAR()}>Liberar a IA</button></div>
   </div>;
   const casosArea = window.OSCE_BANCO[areaSel]||[];
   return <div>
@@ -5545,7 +5637,7 @@ function Assinar({uid,email,onClose,onVerificar}){
 
         <div className="card" style={{background:"linear-gradient(135deg,#123528,#16302b)",border:"1px solid var(--gold)",marginBottom:12,position:"relative"}}>
           <b style={{fontSize:16}}>Acesso completo — 6 meses</b>
-          <div style={{fontSize:28,fontWeight:800,letterSpacing:"-.02em",margin:"4px 0 0"}}>R$ 49,90<span style={{fontSize:13,fontWeight:600,color:"var(--muted)"}}> pagamento único</span></div>
+          <div style={{fontSize:28,fontWeight:800,letterSpacing:"-.02em",margin:"4px 0 0"}}>{((window.__PRECO||{}).txt||"R$ 49,90")}<span style={{fontSize:13,fontWeight:600,color:"var(--muted)"}}> pagamento único</span></div>
           <div className="muted" style={{fontSize:13,margin:"2px 0 6px"}}>Tudo liberado por 6 meses: 64 assuntos, 258 questões, simulados, aula adaptativa e correção por IA. Sem mensalidade, sem renovação automática.</div>
           <div style={{fontSize:12,color:"var(--acc)",marginBottom:12}}>Menos de R$ 9 por mês para organizar sua reta final.</div>
           <div style={{marginBottom:10}}>
@@ -5555,7 +5647,7 @@ function Assinar({uid,email,onClose,onVerificar}){
             {cpf && cpfLimpo.length!==11 && <div style={{fontSize:11.5,color:"var(--bad,#ff6b6b)",marginTop:4}}>O CPF deve ter 11 dígitos.</div>}
           </div>
           {msg && etapa==="plano" && <div style={{fontSize:12.5,color:"var(--bad,#ff6b6b)",marginBottom:8}}>{msg}</div>}
-          <button className="btn" style={{width:"100%",opacity:cpfLimpo.length===11?1:.6}} onClick={()=>criar("semestral")}>Pagar R$ 49,90 no Pix</button>
+          <button className="btn" style={{width:"100%",opacity:cpfLimpo.length===11?1:.6}} onClick={()=>criar("semestral")}>Pagar {((window.__PRECO||{}).txt||"R$ 49,90")} no Pix</button>
         </div>
       </div>}
 
