@@ -20,6 +20,8 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
+  // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
+  window.APP_VERSION="2026.09.12";
   // Registro do service worker com atualização AUTOMÁTICA.
   // Sempre que você publicar uma versão nova, o app se atualiza sozinho
   // para todos os usuários — sem precisar limpar cache.
@@ -2664,6 +2666,19 @@ function Shell({session}){
   const [metaDias,setMetaDias]=useState(()=>{try{return JSON.parse(localStorage.getItem("preceptor_meta_dias")||"[]")}catch(e){return []}});
   const [metaConfig,setMetaConfig]=useState(false);
   const [metaCelebra,setMetaCelebra]=useState(false);
+  const [videoaulas,setVideoaulas]=useState([]);
+  const [novaVersao,setNovaVersao]=useState(null);
+  useEffect(()=>{
+    let vivo=true;
+    const checar=async()=>{ try{
+      const r=await fetch((location.pathname.endsWith("/")?location.pathname+"index.html":location.pathname)+"?_v="+Date.now(),{cache:"no-store",headers:{Range:"bytes=0-4095"}});
+      const t=await r.text(); const m=t.match(/APP_VERSION\s*=\s*"([^"]+)"/);
+      if(vivo&&m&&m[1]&&m[1]!==window.APP_VERSION) setNovaVersao(m[1]);
+    }catch(e){} };
+    checar(); const onFocus=()=>checar(); window.addEventListener("focus",onFocus); const iv=setInterval(checar,10*60*1000);
+    return ()=>{vivo=false;window.removeEventListener("focus",onFocus);clearInterval(iv);};
+  },[]);
+  const atualizarApp=async()=>{ try{ if("serviceWorker" in navigator){ const rs=await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r=>r.unregister())); } if(window.caches){ const ks=await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); } }catch(e){} location.href=location.pathname+"?v="+Date.now(); };
 
   const recarregarAssinatura=async()=>{
     const {data}=await sb.from("assinaturas").select("*").eq("user_id",uid).order("criado_em",{ascending:false}).limit(1);
@@ -2674,7 +2689,7 @@ function Shell({session}){
 
   useEffect(()=>{(async()=>{
     setLoading(true);
-    const [q,r,d,s,a,st,mt,md]=await Promise.all([
+    const [q,r,d,s,a,st,mt,md,va]=await Promise.all([
       (async()=>{let all=[],from=0;const step=1000;for(;;){const{data,error}=await sb.from("questoes").select("*").order("id",{ascending:true}).range(from,from+step-1);if(error||!data||!data.length)break;all=all.concat(data);if(data.length<step)break;from+=step;}return{data:all};})(),
       sb.from("respostas").select("*").eq("user_id",uid),
       sb.from("dominio").select("*").eq("user_id",uid),
@@ -2683,6 +2698,7 @@ function Shell({session}){
       sb.from("streak").select("dias_seguidos,ultimo_dia").eq("user_id",uid).maybeSingle().then(r=>r,()=>({data:null})),
       sb.from("meta_diaria").select("meta,modo,area_foco").eq("user_id",uid).maybeSingle().then(r=>r,()=>({data:null})),
       sb.from("meta_dias").select("dia").eq("user_id",uid).then(r=>r,()=>({data:[]})),
+      sb.from("videoaulas").select("*").eq("ativo",true).order("ordem",{ascending:true}).then(r=>r,()=>({data:[]})),
     ]);
     let qs=(q.data||[]).map(x=>({id:x.id,area:x.area,tema:x.tema,transv:x.transv||[],dif:x.dificuldade,enun:x.enunciado,alts:x.alternativas,correta:x.correta,coment:x.comentario,premium:x.premium,anulada:!(x.correta>=0)}));
     if(qs.length===0){ qs=SEED; }
@@ -2693,6 +2709,7 @@ function Shell({session}){
     try{window.__ALLQ=qs;}catch(_e){} setQuestoes(qs);
     setLog((r.data||[]).map(x=>({id:x.questao_id,area:x.area,tema:x.tema,ok:x.acertou,dia:dataLocal(x.criado_em||x.created_at)})));
     if(mt&&mt.data){const m={meta:mt.data.meta||20,modo:mt.data.modo||"geral",area_foco:mt.data.area_foco||"CM"};setMeta(m);try{localStorage.setItem("preceptor_meta",JSON.stringify(m))}catch(e){}}
+    if(va&&va.data){setVideoaulas(va.data||[]);try{window.__VIDEOAULAS=va.data||[];}catch(e){}}
     if(md&&md.data){const ds=(md.data||[]).map(x=>(x.dia+"").slice(0,10));setMetaDias(ds);try{localStorage.setItem("preceptor_meta_dias",JSON.stringify(ds))}catch(e){}}
     const dm={};(d.data||[]).forEach(x=>dm[x.topico_id]={nivel:x.nivel,last:x.atualizado_em});setDominio(dm);
     const sr={};(s.data||[]).forEach(x=>sr[x.questao_id]={ef:x.ef,intervalo:x.intervalo,reps:x.reps,due:x.due});setSrs(sr);
@@ -2759,7 +2776,7 @@ function Shell({session}){
   return <div>
     <div className="row" style={{justifyContent:"space-between",alignItems:"flex-start"}}>
       <div>
-        <div className="tag" style={{color:"var(--acc)"}}>PRECEPTOR</div>
+        <div className="tag" style={{color:"var(--acc)"}}>PRECEPTOR <span title="Versão da plataforma" style={{opacity:.5,fontWeight:400,letterSpacing:0,fontSize:11}}>v{window.APP_VERSION}</span></div>
         <h1 style={{fontSize:28,marginTop:6}}>Olá{session.user.user_metadata&&session.user.user_metadata.nome?", "+session.user.user_metadata.nome:""}</h1>
       </div>
       <div style={{textAlign:"right"}}>
@@ -2827,11 +2844,18 @@ function Shell({session}){
         </div>
       </div>
 
+      {novaVersao && <div className="card" style={{marginBottom:12,borderColor:"var(--gold)",padding:"10px 14px"}}>
+        <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+          <div style={{fontSize:13}}><b>Nova versão disponível</b> <span className="muted">(v{novaVersao} · você está na v{window.APP_VERSION})</span></div>
+          <button className="btn sm" onClick={atualizarApp}>Atualizar agora</button>
+        </div>
+      </div>}
       <div className="nav">
-        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["flash","🃏 Flashcards"],["dash","📈 Meu progresso"]].map(([k,l])=>
+        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["dash","📈 Meu progresso"]].map(([k,l])=>
           <button key={k} className={tab===k?"on":""} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
 
+      {tab==="videos" && <Videoaulas videos={videoaulas}/>}
       {tab==="trilha" && <Trilha store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={isPro} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
       {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} metaHoje={metaProg} bloqueadas={isPro?0:bloqueadasFree} isPro={isPro} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
       {tab==="internato" && <Internato pool={questoes} registrar={registrar}/>}
@@ -3071,6 +3095,81 @@ function MetaConfig({meta,onSalvar,onFechar}){
     {m.modo==="dividida" && <div className="muted" style={{fontSize:12,marginTop:8}}>{cada} questões em cada uma das {AREAS.length} áreas ({cada*AREAS.length} no total).</div>}
     {m.modo==="geral" && <div className="muted" style={{fontSize:12,marginTop:8}}>Qualquer área conta.</div>}
     <div style={{marginTop:14}}><button className="btn" onClick={()=>onSalvar({meta:Math.max(1,parseInt(m.meta)||20),modo:m.modo,area_foco:m.area_foco||"CM"})}>Salvar meta</button></div>
+  </div>;
+}
+
+/* =================== VIDEOAULAS (links públicos do YouTube) =================== */
+function _norm(s){ return (""+(s||"")).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
+function _fmtT(t){ t=Math.max(0,parseInt(t)||0); const h=Math.floor(t/3600),m=Math.floor(t%3600/60),s=t%60; return (h?h+":"+String(m).padStart(2,"0"):m)+":"+String(s).padStart(2,"0"); }
+function _capituloDoTema(v,tema){
+  const caps=Array.isArray(v.capitulos)?v.capitulos:[]; if(!caps.length||!tema) return null;
+  const tw=_norm(tema).split(/[^a-z0-9]+/).filter(w=>w.length>3);
+  let best=null,score=0;
+  caps.forEach(c=>{ const ct=_norm(c.tema); const sc=tw.filter(w=>ct.indexOf(w)>=0).length; if(sc>score){score=sc;best=c;} });
+  return score>0?best:null;
+}
+function VideoaulasDoTema({area,tema,videos}){
+  const vs=(videos||[]).filter(v=>v.ativo!==false && v.area===area);
+  if(!vs.length) return null;
+  const itens=vs.map(v=>{ const c=_capituloDoTema(v,tema); return {v,c}; })
+    .sort((a,b)=>(b.c?1:0)-(a.c?1:0)).slice(0,4);
+  const temCap=itens.some(x=>x.c);
+  return <div className="card" style={{marginTop:14,borderColor:"var(--line)"}}>
+    <div className="tag" style={{color:"var(--acc)"}}>▶ VIDEOAULAS {temCap?"SOBRE ESTE TEMA":"DESTA ÁREA"}</div>
+    <div className="muted" style={{fontSize:12,margin:"4px 0 8px"}}>Aulas públicas no YouTube, pra quem prefere ver em vídeo.{temCap?" Os links já abrem no minuto do tema.":""}</div>
+    {itens.map(({v,c})=>{
+      const href=c?(v.url+"&t="+(parseInt(c.t)||0)+"s"):v.url;
+      return <a key={v.id} href={href} target="_blank" rel="noopener noreferrer" className="row" style={{gap:10,alignItems:"center",padding:"8px 0",borderTop:"1px solid var(--line)",textDecoration:"none",color:"inherit"}}>
+        <img src={"https://img.youtube.com/vi/"+v.video_id+"/default.jpg"} alt="" style={{width:64,height:48,objectFit:"cover",borderRadius:6,flex:"none"}} loading="lazy"/>
+        <div style={{minWidth:0,flex:1}}>
+          <div style={{fontSize:13,fontWeight:600,lineHeight:1.3}}>{v.titulo}</div>
+          <div className="muted" style={{fontSize:12}}>{v.curso}{c?(" · "+_fmtT(c.t)+" — "+c.tema):(v.duracao?" · "+v.duracao:"")}</div>
+        </div>
+        <span style={{color:"var(--acc)",fontSize:18}}>▶</span>
+      </a>;
+    })}
+  </div>;
+}
+function Videoaulas({videos}){
+  const [area,setArea]=useState("todos");
+  const [q,setQ]=useState("");
+  const [aberto,setAberto]=useState(null);
+  const chips=[["todos","Todos"],["CM","Clínica Médica"],["CIR","Cirurgia"],["GO","GO"],["PED","Pediatria"],["MFC","Preventiva"],["geral","Reta final / geral"]];
+  const lista=(videos||[]).filter(v=>v.ativo!==false)
+    .filter(v=>area==="todos"?true:area==="geral"?!v.area:v.area===area)
+    .filter(v=>{ if(!q) return true; const n=_norm(q); return _norm(v.titulo).indexOf(n)>=0||_norm(v.curso).indexOf(n)>=0||(v.temas||[]).some(t=>_norm(t).indexOf(n)>=0)||(Array.isArray(v.capitulos)?v.capitulos:[]).some(c=>_norm(c.tema).indexOf(n)>=0); });
+  return <div>
+    <div className="card" style={{marginBottom:14}}>
+      <b style={{fontSize:16}}>▶️ Videoaulas</b>
+      <div className="muted" style={{fontSize:13,margin:"6px 0 10px"}}>Revisões públicas no YouTube, organizadas por área. Dentro de cada assunto da trilha você também encontra os vídeos daquela área.</div>
+      <input placeholder="Buscar por tema, curso ou capítulo…" value={q} onChange={e=>setQ(e.target.value)} style={{marginBottom:10}}/>
+      <div className="row" style={{gap:6,flexWrap:"wrap"}}>
+        {chips.map(([k,l])=><button key={k} className={"btn "+(area===k?"":"ghost")+" sm"} onClick={()=>setArea(k)}>{l}</button>)}
+      </div>
+    </div>
+    {lista.length===0 && <div className="card muted">Nenhum vídeo encontrado.</div>}
+    {lista.map(v=>{
+      const caps=Array.isArray(v.capitulos)?v.capitulos:[];
+      return <div key={v.id} className="card" style={{marginBottom:10}}>
+        <div className="row" style={{gap:12,alignItems:"flex-start"}}>
+          <a href={v.url} target="_blank" rel="noopener noreferrer" style={{flex:"none"}}>
+            <img src={"https://img.youtube.com/vi/"+v.video_id+"/mqdefault.jpg"} alt="" style={{width:128,height:72,objectFit:"cover",borderRadius:8,display:"block"}} loading="lazy"/>
+          </a>
+          <div style={{minWidth:0,flex:1}}>
+            <div style={{fontWeight:600,lineHeight:1.3}}>{v.titulo}</div>
+            <div className="muted" style={{fontSize:12,marginTop:3}}>{v.curso}{v.duracao?" · "+v.duracao:""}{v.publicado?" · "+(""+v.publicado).slice(0,10).split("-").reverse().join("/"):""}{v.area?" · "+v.area:" · Reta final"}</div>
+            <div className="row" style={{gap:10,marginTop:8,flexWrap:"wrap"}}>
+              <a className="btn sm" href={v.url} target="_blank" rel="noopener noreferrer" style={{textDecoration:"none"}}>Assistir no YouTube</a>
+              {caps.length>0 && <span className="link" style={{fontSize:13}} onClick={()=>setAberto(aberto===v.id?null:v.id)}>{aberto===v.id?"Ocultar capítulos":caps.length+" capítulos"}</span>}
+            </div>
+            {aberto===v.id && caps.length>0 && <div style={{marginTop:8}}>
+              {caps.map((c,i)=><a key={i} href={v.url+"&t="+(parseInt(c.t)||0)+"s"} target="_blank" rel="noopener noreferrer" className="row" style={{gap:8,fontSize:13,padding:"4px 0",textDecoration:"none",color:"inherit"}}>
+                <span style={{fontFamily:"var(--mono)",color:"var(--acc)"}}>{_fmtT(c.t)}</span><span>{c.tema}</span></a>)}
+            </div>}
+          </div>
+        </div>
+      </div>;
+    })}
   </div>;
 }
 
@@ -4440,6 +4539,7 @@ function EstudarAssunto({t,store,avaliarDominio,registrar,irTreinar,isPro,onAssi
             <ul style={{margin:"0 0 0 18px",padding:0,fontSize:14.5,lineHeight:1.7}}>{t.nucleo.map((n,i)=><li key={i} style={{marginBottom:6}}>{n}</li>)}</ul>
           </div>}
       <TiraDuvida tema={t.nome} contexto={(t.aula||t.nucleo||[]).join(" ")}/>
+      <VideoaulasDoTema area={t.area} tema={t.nome} videos={window.__VIDEOAULAS||[]}/>
     </div>}
 
     {/* ETAPA 1 — COMO PENSAR */}
