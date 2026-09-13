@@ -21,10 +21,10 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.12l";
+  window.APP_VERSION="2026.09.13";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
-  window.PRECO_CFG={ DATA_FUNDADOR:"2026-12-31T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
+  window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
   window.__PWA_PROMPT=null;
   window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); window.__PWA_PROMPT=e; });
   window.addEventListener("appinstalled", function(){ window.__PWA_PROMPT=null; try{localStorage.setItem("preceptor_pwa_instalado","1");}catch(x){} });
