@@ -21,7 +21,11 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.12i";
+  window.APP_VERSION="2026.09.12j";
+  // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
+  window.__PWA_PROMPT=null;
+  window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); window.__PWA_PROMPT=e; });
+  window.addEventListener("appinstalled", function(){ window.__PWA_PROMPT=null; try{localStorage.setItem("preceptor_pwa_instalado","1");}catch(x){} });
   // Registro do service worker com atualização AUTOMÁTICA.
   // Sempre que você publicar uma versão nova, o app se atualiza sozinho
   // para todos os usuários — sem precisar limpar cache.
@@ -3348,13 +3352,28 @@ function TourInicial({isPro,trialAtivo,onFim}){
     {alvo:"tour-nav",titulo:"As abas",txt:"Estudar: trilha por assunto, com aula, 'como pensar' e prática. Praticar: questões, simulados, OSCE e resolver por foto. Vídeos: revisões públicas por área. Internato, TECM, Revalida e ENARE: provas na íntegra."},
     {alvo:"tour-diag",titulo:"Comece pelo diagnóstico",txt:"Em 20 questões o app descobre onde você mais erra e a trilha passa a priorizar isso. Dá pra refazer quando quiser — ou treinar direto com a prova oficial do ENAMED."},
     {alvo:"tour-meta",titulo:"🔥 Sequência e 🏆 dias perfeitos",txt:"Responda 1 questão por dia pra manter a sequência. Bater a meta inteira marca um dia perfeito. A revisão espaçada traz de volta o que você errou, no dia certo."},
+    (function(){
+      const instalado=(function(){try{return window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true||localStorage.getItem("preceptor_pwa_instalado")==="1";}catch(e){return false;}})();
+      if(instalado) return null;
+      const ua=navigator.userAgent||"";
+      const ios=/iPhone|iPad|iPod/i.test(ua); const android=/Android/i.test(ua); const pc=!ios&&!android;
+      const txt=ios
+        ? "No iPhone/iPad: toque no botão Compartilhar do Safari (o quadrado com a seta pra cima), role e escolha \"Adicionar à Tela de Início\". Vira um ícone, abre em tela cheia e funciona offline."
+        : (android
+          ? "No Android: toque nos três pontinhos do Chrome (⋮) e em \"Instalar app\" (ou \"Adicionar à tela inicial\"). Vira um ícone, abre em tela cheia e funciona offline."
+          : "No computador: no Chrome ou Edge, clique no ícone de instalar no fim da barra de endereço (ou menu ⋮ → \"Instalar Preceptor\"). Abre numa janela própria, sem abas.");
+      return {alvo:null,titulo:"📲 Salve como app",txt:txt,instalar:true,plataforma:ios?"ios":(android?"android":"pc")};
+    })(),
     isPro
       ? {alvo:"tour-pill",titulo:"Você é PRO ⭐",txt:"IA liberada: tira-dúvida em cada aula, 'explica de outro jeito', OSCE com paciente e examinador simulados, gerar questão inédita e resolver por foto. Bons estudos!"}
       : (trialAtivo
         ? {alvo:"tour-pill",titulo:"Teste grátis ativo",txt:"Por 24 horas você tem acesso completo ao conteúdo. A IA (tira-dúvida, OSCE, gerar questão, resolver por foto) é exclusiva do PRO — R$ 49,90 por 6 meses, Pix, sem renovação automática."}
         : {alvo:"tour-pill",titulo:"Demonstração",txt:"Você vê uma amostra do método. O PRO libera mais de 2.800 questões, provas oficiais, simulados, OSCE e toda a IA — R$ 49,90 por 6 meses."})
-  ];
+  ].filter(Boolean);
   const p=passos[passo];
+  const [podeInstalar,setPodeInstalar]=useState(()=>!!window.__PWA_PROMPT);
+  useEffect(()=>{ const t=setInterval(()=>setPodeInstalar(!!window.__PWA_PROMPT),800); return ()=>clearInterval(t); },[]);
+  const instalarAgora=async()=>{ try{ const ev=window.__PWA_PROMPT; if(!ev) return; ev.prompt(); const r=await ev.userChoice; if(r&&r.outcome==="accepted"){ window.__PWA_PROMPT=null; setPodeInstalar(false); } }catch(e){} };
   useEffect(()=>{
     const el=p&&p.alvo?document.getElementById(p.alvo):null;
     if(el){ el.classList.add("tour-glow"); try{ el.scrollIntoView({block:"center",behavior:"smooth"}); }catch(e){} }
@@ -3367,6 +3386,8 @@ function TourInicial({isPro,trialAtivo,onFim}){
       <span className="muted" style={{fontSize:12}}>{passo+1}/{passos.length}</span>
     </div>
     <div style={{fontSize:13.5,lineHeight:1.55,marginTop:6}}>{p.txt}</div>
+    {p.instalar && podeInstalar && <button className="btn sm" style={{marginTop:10}} onClick={instalarAgora}>📲 Instalar agora</button>}
+    {p.instalar && !podeInstalar && p.plataforma!=="ios" && <div className="muted" style={{fontSize:12,marginTop:8}}>Se o botão de instalar não aparecer, o app já pode estar instalado ou o navegador não é o Chrome/Edge.</div>}
     <div className="row" style={{justifyContent:"space-between",alignItems:"center",marginTop:12,gap:10}}>
       <span className="link" style={{fontSize:13}} onClick={fechar}>Pular</span>
       <div className="row" style={{gap:6,alignItems:"center"}}>
