@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.12g";
+  window.APP_VERSION="2026.09.12i";
   // Registro do service worker com atualização AUTOMÁTICA.
   // Sempre que você publicar uma versão nova, o app se atualiza sozinho
   // para todos os usuários — sem precisar limpar cache.
@@ -154,6 +154,8 @@
   }
 </style>
 <style id="tour-css">
+@keyframes confete-cai{0%{transform:translateY(-10vh) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+.confete{position:fixed;top:0;width:9px;height:14px;border-radius:2px;z-index:99999;pointer-events:none;animation:confete-cai 2.6s ease-in forwards}
 .tour-glow{outline:2px solid var(--acc);outline-offset:3px;border-radius:14px;box-shadow:0 0 0 8px color-mix(in srgb,var(--acc) 22%,transparent);transition:box-shadow .25s}
 .tour-balao{position:fixed;left:12px;right:12px;bottom:14px;z-index:9999;max-width:560px;margin:0 auto;box-shadow:0 18px 50px rgba(0,0,0,.45)}
 </style>
@@ -2690,6 +2692,8 @@ function Shell({session}){
   const [novaVersao,setNovaVersao]=useState(null);
   const [tour,setTour]=useState(()=>{try{return !localStorage.getItem("preceptor_tour_v1")}catch(e){return false}});
   const [pesquisa,setPesquisa]=useState(null); // gatilho ativo: "trial" | "paywall" | null
+  const [sprintGemeas,setSprintGemeas]=useState(null); // {qs,label} — treino aberto pelas gêmeas / raio-x
+  useEffect(()=>{ try{ window.__TREINAR_GEMEAS=(qs,label)=>{ if(!acesso){ setShowAssinar(true); return; } setSprintGemeas({qs:(qs||[]).slice(0,60),label:label||"Gêmeas"}); setTab("gemeas"); window.scrollTo(0,0); }; }catch(e){} },[acesso]);
   const pesqOk=k=>{ try{ const v=localStorage.getItem("preceptor_pesquisa_"+k); if(!v) return true; if(v==="respondida") return false; return Date.now()>parseInt(v); }catch(e){ return false; } };
   const pesqDepois=k=>{ try{localStorage.setItem("preceptor_pesquisa_"+k, String(Date.now()+24*3600*1000));}catch(e){} setPesquisa(null); };
   const pesqRespondida=k=>{ try{localStorage.setItem("preceptor_pesquisa_"+k,"respondida");}catch(e){} };
@@ -2764,7 +2768,7 @@ function Shell({session}){
   useEffect(()=>{
     if(loading||!metaProg.batida||metaDias.includes(hojeMeta)) return;
     const ds=[...metaDias,hojeMeta]; setMetaDias(ds); try{localStorage.setItem("preceptor_meta_dias",JSON.stringify(ds))}catch(e){}
-    setMetaCelebra(true); setTimeout(()=>setMetaCelebra(false),6000);
+    setMetaCelebra(true); confete(); setTimeout(()=>setMetaCelebra(false),6000);
     try{ sb.from("meta_dias").upsert({user_id:uid,dia:hojeMeta,meta:metaProg.alvo,modo:metaProg.modo}).then(()=>{},()=>{}); }catch(e){}
   },[metaProg.batida,loading]);
   const salvarMeta=async(m)=>{
@@ -2853,7 +2857,7 @@ function Shell({session}){
       </div>
     : revisando ? <RevisaoHoje qs={questoesVencidas(poolVisivel,srs)} registrar={registrar} onVoltar={()=>setRevisando(false)}/>
     : <div>
-      {metaConfig ? <MetaConfig meta={meta} onSalvar={salvarMeta} onFechar={()=>setMetaConfig(false)}/> : <div id="tour-meta"><MetaDiariaCard prog={metaProg} meta={meta} diasPerfeitos={metaDias.length} celebra={metaCelebra} onConfig={()=>setMetaConfig(true)} onPraticar={()=>setTab("praticar")}/></div>}
+      {metaConfig ? <MetaConfig meta={meta} onSalvar={salvarMeta} onFechar={()=>setMetaConfig(false)}/> : <div id="tour-meta"><MetaDiariaCard prog={metaProg} meta={meta} diasPerfeitos={metaDias.length} celebra={metaCelebra} estimativa={calcEstimativa(log)} onConfig={()=>setMetaConfig(true)} onPraticar={()=>setTab("praticar")}/></div>}
       {(()=>{
         const venc=questoesVencidas(poolVisivel,srs); const n=venc.length;
         const prox=proximaRevisao(srs);
@@ -2903,6 +2907,7 @@ function Shell({session}){
 
       {tab==="videos" && <Videoaulas videos={videoaulas}/>}
       {tab==="admin" && isAdmin && <AdminMetricas sb={sb}/>}
+      {tab==="gemeas" && sprintGemeas && <div><button className="btn ghost sm" style={{marginBottom:10}} onClick={()=>{setSprintGemeas(null);setTab("praticar");}}>← Voltar</button><RodizioSprint qs={sprintGemeas.qs} label={sprintGemeas.label} registrar={registrar} onVoltar={()=>{setSprintGemeas(null);setTab("praticar");}}/></div>}
       {tab==="trilha" && <Trilha store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={acesso} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
       {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} metaHoje={metaProg} bloqueadas={acesso?0:bloqueadasFree} isPro={isPro} acesso={acesso} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
       {tab==="internato" && <Internato pool={questoes} registrar={registrar}/>}
@@ -3090,18 +3095,22 @@ function calcMeta(log,meta,hoje){
   }
   return {modo:"geral",feito:hojeLog.length,alvo,batida:hojeLog.length>=alvo,porArea:null};
 }
-function MetaDiariaCard({prog,meta,diasPerfeitos,celebra,onConfig,onPraticar}){
+function MetaDiariaCard({prog,meta,diasPerfeitos,celebra,onConfig,onPraticar,estimativa}){
   const pct=Math.min(100,Math.round(prog.feito/prog.alvo*100));
   const nomeArea=k=>(AREAS.find(a=>a.k===k)||{}).nome||k;
   const sub=prog.modo==="foco"?"Foco em "+nomeArea(meta.area_foco):prog.modo==="dividida"?"Dividida entre as áreas · "+prog.cada+" em cada":"Geral · qualquer área";
   const cor=prog.batida?"var(--gold)":"var(--acc)";
-  const titulo=prog.batida?"Dia perfeito! Meta batida.":(prog.feito===0?"Sua meta de hoje: "+prog.alvo+" questões — bora?":prog.feito+" de "+prog.alvo+" questões");
+  const titulo=prog.batida?"Dia perfeito! Meta batida.":(prog.feito===0?"Sua meta de hoje: "+prog.alvo+" questões":prog.feito+" de "+prog.alvo+" questões");
+  const seedDia=(function(){try{return dataLocal()}catch(e){return ""}})();
+  const restam=Math.max(0,prog.alvo-prog.feito);
+  const falaMeta=prog.batida?"":(prog.feito===0?voz("metaZero",seedDia+"z",{n:prog.alvo}):(restam<=3?voz("metaFim",seedDia+"f"+restam,{r:restam}):(prog.feito/prog.alvo<0.5?voz("metaInicio",seedDia+"i"):voz("metaMeio",seedDia+"m"))));
   return <div className="card" style={{marginBottom:16,borderColor:cor}}>
     <div className="row" style={{justifyContent:"space-between",alignItems:"flex-start",gap:12,flexWrap:"wrap"}}>
       <div style={{minWidth:0,flex:1}}>
         <div className="tag" style={{color:cor}}>🎯 META DE HOJE</div>
         <b style={{fontSize:17,display:"block",marginTop:4}}>{titulo}</b>
         <div className="muted" style={{fontSize:13,marginTop:4}}>{sub}</div>
+        {falaMeta && <div style={{fontSize:13,marginTop:6,color:"var(--ink)",fontStyle:"italic"}}>{falaMeta}</div>}
         {prog.modo!=="dividida" && <div style={{height:8,background:"var(--line)",borderRadius:99,marginTop:10,overflow:"hidden"}}><div style={{width:pct+"%",height:"100%",background:cor,transition:"width .3s"}}/></div>}
         {prog.modo==="dividida" && <div style={{marginTop:10,display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(105px,1fr))",gap:8}}>
           {prog.porArea.map(a=><div key={a.k}>
@@ -3109,10 +3118,11 @@ function MetaDiariaCard({prog,meta,diasPerfeitos,celebra,onConfig,onPraticar}){
             <div style={{height:6,background:"var(--line)",borderRadius:99,overflow:"hidden",marginTop:3}}><div style={{width:Math.min(100,Math.round(a.feito/a.alvo*100))+"%",height:"100%",background:a.feito>=a.alvo?"var(--gold)":"var(--acc)",transition:"width .3s"}}/></div>
           </div>)}
         </div>}
-        {celebra && <div style={{marginTop:10,fontSize:13,color:"var(--gold)",fontWeight:600}}>🏆 Dia perfeito registrado. Amanhã tem mais.</div>}
+        {celebra && <div style={{marginTop:10,fontSize:13,color:"var(--gold)",fontWeight:600}}>{voz("metaBatida",seedDia+"b")}</div>}
       </div>
       <div style={{textAlign:"right",flex:"none"}}>
         <div style={{fontSize:22,fontWeight:700,lineHeight:1}} title="Dias em que você bateu a meta">🏆 {diasPerfeitos}<span className="muted" style={{fontSize:12,fontWeight:400}}> {diasPerfeitos===1?"dia perfeito":"dias perfeitos"}</span></div>
+        <div style={{fontSize:12,marginTop:6}} title="Acurácia recente ponderada pelas 5 áreas"><span className="muted">Se a prova fosse hoje:</span> <b style={{color:estimativa==null?"var(--muted)":(estimativa>=70?"var(--acc)":"var(--gold)")}}>{estimativa==null?"calibrando…":estimativa+"%"}</b></div>
         <div className="row" style={{justifyContent:"flex-end",gap:10,marginTop:8}}>
           <span className="link" style={{fontSize:13}} onClick={onConfig}>Ajustar</span>
           {!prog.batida && <button className="btn sm" onClick={onPraticar}>Praticar</button>}
@@ -3535,6 +3545,129 @@ function AdminMetricas({sb}){
   </div>;
 }
 
+/* =================== BANCA: origem, gêmeas, raio-x =================== */
+function fonteDaQuestao(q){
+  const id=""+(q.id||""), tema=""+(q.tema||""), tv=(q.transv||[]).map(String);
+  const ed=tv.find(t=>/^(REVALIDA|ENARE|SUSBA|TECM|ABAEM)_/.test(t));
+  if(ed){
+    const p=ed.split("_"); const b=p[0];
+    const nome={REVALIDA:"Revalida",ENARE:"ENARE",SUSBA:"SUS-BA",TECM:"TECM",ABAEM:"SUS-BA"}[b]||b;
+    return {tipo:"oficial",nome:nome+" "+p.slice(1).join("/")};
+  }
+  if(tv.includes("TECM")) return {tipo:"oficial",nome:"TECM"};
+  if(/^enamed_\d{4}_\d/.test(id)){ const m=/^enamed_(\d{4})_(\d)/.exec(id); return {tipo:"oficial",nome:"ENAMED "+m[1]+"."+m[2]}; }
+  if(/^enamed_s\d+/.test(id)||/^ENAMED — Simulado/.test(tema)){ const m=/Simulado (\d+)/.exec(tema)||/^enamed_s(\d+)/.exec(id); return {tipo:"simulado",nome:"Simulado ENAMED "+(m?m[1]:"")}; }
+  if(/^Internato/.test(tema)) return {tipo:"internato",nome:"N2 Internato"};
+  return {tipo:"banco",nome:"Banco"};
+}
+function temaChave(t){ let s=""+(t||""); if(/^ENAMED\s*—\s*Simulado/i.test(s)) return ""; if(/^Internato/i.test(s)){ const p=s.split("·"); s=p.length>1?p.slice(1).join("·"):s.replace(/^Internato\s*—\s*/,""); } return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s*·\s*parte.*$/,"").replace(/[^a-z0-9]+/g," ").trim(); }
+function gemeasDe(q){
+  const all=window.__ALLQ||[]; const k=temaChave(q.tema); if(!k||k.length<4) return [];
+  return all.filter(x=>x&&x.id!==q.id&&x.area===q.area&&temaChave(x.tema)===k);
+}
+function QuestoesGemeas({q}){
+  const g=useMemo(()=>gemeasDe(q),[q.id]);
+  if(!g.length) return null;
+  const porFonte={}; g.forEach(x=>{ const f=fonteDaQuestao(x); porFonte[f.nome]=porFonte[f.nome]||{n:0,tipo:f.tipo}; porFonte[f.nome].n++; });
+  const fontes=Object.entries(porFonte).sort((a,b)=>(a[1].tipo==="oficial"?0:1)-(b[1].tipo==="oficial"?0:1)||b[1].n-a[1].n);
+  const oficiais=g.filter(x=>fonteDaQuestao(x).tipo==="oficial").length;
+  return <div style={{marginTop:10,padding:"10px 12px",border:"1px solid var(--line)",borderRadius:12,background:"var(--panel2)"}}>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+      <div style={{fontSize:13}}><b>🔁 A banca já cobrou este tema {oficiais>0?oficiais+"× em prova oficial":"em outras questões"}</b>
+        <div className="row" style={{gap:6,flexWrap:"wrap",marginTop:6}}>{fontes.map(([n,v])=><span key={n} className="pill" style={{fontSize:11,color:v.tipo==="oficial"?"var(--gold)":"var(--muted)",borderColor:v.tipo==="oficial"?"var(--gold)":"var(--line)"}}>{n}{v.n>1?" ×"+v.n:""}</span>)}</div>
+      </div>
+      <button className="btn sm" onClick={()=>window.__TREINAR_GEMEAS&&window.__TREINAR_GEMEAS(g,"Gêmeas · "+(q.tema||""))}>Treinar as {g.length} →</button>
+    </div>
+  </div>;
+}
+function RaioXBanca({pool}){
+  const [areaSel,setAreaSel]=useState("todas");
+  const dados=useMemo(()=>{
+    const all=(pool&&pool.length?pool:(window.__ALLQ||[])).filter(q=>q&&fonteDaQuestao(q).tipo==="oficial");
+    const porTema={};
+    all.forEach(q=>{ const k=q.area+"||"+temaChave(q.tema); const t=porTema[k]=porTema[k]||{area:q.area,tema:(""+q.tema).replace(/\s*·\s*Parte.*$/,""),n:0,fontes:{},qs:[]}; t.n++; t.qs.push(q); const f=fonteDaQuestao(q).nome; t.fontes[f]=(t.fontes[f]||0)+1; });
+    const lista=Object.values(porTema).sort((a,b)=>b.n-a.n);
+    const totalOficial=all.length;
+    const porArea={}; all.forEach(q=>{porArea[q.area]=(porArea[q.area]||0)+1;});
+    return {lista,totalOficial,porArea};
+  },[pool]);
+  const vis=dados.lista.filter(t=>areaSel==="todas"||t.area===areaSel).slice(0,30);
+  const max=vis.length?vis[0].n:1;
+  return <div>
+    <div className="card" style={{marginBottom:14}}>
+      <div className="tag" style={{color:"var(--gold)"}}>🔎 RAIO-X DA BANCA</div>
+      <div style={{fontSize:14,marginTop:4}}><b>{dados.totalOficial.toLocaleString("pt-BR")} questões de provas oficiais</b> (ENAMED, Revalida, ENARE, SUS-BA, TECM) contadas tema a tema. O que mais cai, com prova por prova.</div>
+      <div className="row" style={{gap:6,flexWrap:"wrap",marginTop:10}}>
+        <button className={"btn "+(areaSel==="todas"?"":"ghost")+" sm"} onClick={()=>setAreaSel("todas")}>Todas</button>
+        {AREAS.map(a=><button key={a.k} className={"btn "+(areaSel===a.k?"":"ghost")+" sm"} onClick={()=>setAreaSel(a.k)}>{a.k} · {dados.porArea[a.k]||0}</button>)}
+      </div>
+    </div>
+    {vis.map((t,i)=><div key={t.area+t.tema} className="card" style={{marginBottom:8,padding:"10px 14px"}}>
+      <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+        <div style={{minWidth:0,flex:1}}>
+          <div className="row" style={{gap:8,alignItems:"baseline"}}><span className="muted" style={{fontFamily:"var(--mono)",fontSize:12,width:22}}>{i+1}.</span><b style={{fontSize:14}}>{t.tema}</b><span className="pill" style={{fontSize:11}}>{t.area}</span></div>
+          <div style={{height:6,background:"var(--line)",borderRadius:99,overflow:"hidden",margin:"6px 0 6px 30px"}}><div style={{width:Math.round(t.n/max*100)+"%",height:"100%",background:"var(--gold)"}}/></div>
+          <div className="row" style={{gap:6,flexWrap:"wrap",marginLeft:30}}>{Object.entries(t.fontes).sort((a,b)=>b[1]-a[1]).map(([f,n])=><span key={f} className="muted" style={{fontSize:11}}>{f}{n>1?" ×"+n:""}</span>)}</div>
+        </div>
+        <div style={{textAlign:"right",flex:"none"}}>
+          <div style={{fontSize:22,fontWeight:700,color:"var(--gold)",lineHeight:1}}>{t.n}</div>
+          <button className="btn sm" style={{marginTop:6}} onClick={()=>window.__TREINAR_GEMEAS&&window.__TREINAR_GEMEAS(t.qs,"Raio-X · "+t.tema)}>Treinar</button>
+        </div>
+      </div>
+    </div>)}
+  </div>;
+}
+function confete(){
+  try{
+    const cores=["#3ddc97","#e6b450","#7cc7ff","#ff8fb1","#c7a3ff","#ffffff"];
+    for(let i=0;i<48;i++){ const el=document.createElement("div"); el.className="confete"; el.style.left=(Math.random()*100)+"vw"; el.style.background=cores[i%cores.length]; el.style.animationDelay=(Math.random()*0.6)+"s"; el.style.animationDuration=(2.2+Math.random()*1.2)+"s"; document.body.appendChild(el); setTimeout(()=>{try{el.remove();}catch(e){}},4000); }
+  }catch(e){}
+}
+function calcEstimativa(log){
+  const rec=(log||[]).slice(-200); const por={}; AREAS.forEach(a=>por[a.k]={t:0,ok:0});
+  rec.forEach(l=>{ if(por[l.area]){por[l.area].t++; if(l.ok)por[l.area].ok++;} });
+  const validas=AREAS.map(a=>por[a.k]).filter(x=>x.t>=10);
+  if(validas.length<3) return null;
+  return Math.round(validas.reduce((s,x)=>s+x.ok/x.t*100,0)/validas.length);
+}
+
+/* =================== A VOZ DO PRECEPTOR (bom humor, sem zombar) =================== */
+const VOZ = {
+  acerto: [
+    "Mandou bem, Doc!","Isso aí, Doc. Conduta de quem já passou.","Gabaritou. A banca chorou.","Certinho — e sem chutar, né?","Essa você leva pra prova.",
+    "Diagnóstico fechado, Doc.","Acertou na veia.","Precisão cirúrgica.","Tá afiado hoje, hein.","Nível residente.","Bonito de ver, Doc.",
+    "É assim que se passa.","Resposta de preceptor.","Anota aí: você sabe isso.","A banca tentou e não te pegou.","Exame físico completo: acertou.",
+    "Conduta impecável.","Você já estudou isso — e mostrou.","Mais uma pro gabarito.","Doc, isso foi limpo."
+  ],
+  acertoSeq: {3:"3 seguidas! Tá em série, Doc.",5:"5 seguidas — isso é rodízio de acertos.",7:"7 seguidas. Semana perfeita em miniatura.",10:"10 seguidas. Doc, para de humilhar a banca.",15:"15 seguidas. Quem tá corrigindo quem?",20:"20 seguidas. Manda print pro grupo, você merece."},
+  erro: [
+    "Quase lá, Doc. Não desista — lê o comentário que essa não te pega de novo.","Errar aqui é de graça. Na prova custa. Bora entender:","Essa a banca adora. Agora ela é sua:",
+    "Respira. Foi o distrator fazendo o trabalho dele:","Doc, todo mundo erra essa uma vez. Só uma:","Faz parte. O comentário abaixo é a parte que vale:",
+    "Não foi dessa vez — mas olha o raciocínio:","Quase, Doc. O detalhe que faltou tá aqui:","A banca ganhou essa rodada. A próxima é sua:",
+    "Tudo bem. Ninguém nasce sabendo conduta:","Errou estudando = acertou na prova. Segue:","Anota o porquê, que é o que muda:",
+    "Calma, Doc. Erro em simulado é vacina:","Foi pego pela pegadinha clássica. Agora não mais:","Sem drama. É pra isso que a gente treina:"
+  ],
+  metaZero: ["Bora, Doc? {n} questões e o dia tá ganho.","{n} questões separam você de um dia perfeito.","Plantão aberto: {n} questões na fila.","Hoje a meta é {n}. Começa com uma.","Café tomado? Então {n} questões, Doc."],
+  metaInicio: ["Aquecendo. Continua, Doc.","Começou bem — não para agora.","Primeiras já foram. O resto é inércia.","Tá indo. Uma de cada vez.","Motor ligado, Doc."],
+  metaMeio: ["Metade pra lá! O resto é inércia.","Tá quase, Doc. Não desista.","Passou do meio. A banca já tá preocupada.","Ritmo bom. Mantém.","Mais da metade — agora é orgulho."],
+  metaFim: ["Faltam {r}. Termina isso, Doc.","Só mais {r} — dá pra fazer no intervalo.","{r} pra fechar o dia perfeito. Vai.","Última milha, Doc. {r} e acabou.","{r} questões e você dorme em paz."],
+  metaBatida: ["🏆 Dia perfeito! O plantão pode dormir tranquilo.","🏆 Meta batida, Doc. Hoje a banca perdeu.","🏆 Fechou com chave de ouro. Amanhã tem mais.","🏆 Isso é constância. É assim que se passa.","🏆 Meta batida — quem fez a meta agora foi você.","🏆 Dia perfeito registrado. Pode se orgulhar.","🏆 Bateu a meta. Hoje o preceptor sou eu que aprendo com você."]
+};
+function vozHash(s){ s=""+s; let h=2166136261; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return Math.abs(h>>>0); }
+function voz(pool, seed, vars){
+  const arr=VOZ[pool]||[]; if(!arr.length) return "";
+  let t=arr[vozHash(seed)%arr.length];
+  Object.keys(vars||{}).forEach(k=>{ t=t.split("{"+k+"}").join(vars[k]); });
+  return t;
+}
+function vozAcerto(seed){
+  let seq=0; try{ seq=(window.__SEQ_ACERTOS||0); }catch(e){}
+  if(VOZ.acertoSeq[seq]) return VOZ.acertoSeq[seq]+" ";
+  return voz("acerto",seed)+" ";
+}
+function vozErro(seed){ return voz("erro",seed)+" "; }
+function registrarSeq(ok){ try{ window.__SEQ_ACERTOS = ok ? (window.__SEQ_ACERTOS||0)+1 : 0; }catch(e){} }
+
 function Dash({store,temasFracos,onRefazer}){
   const s=useMemo(()=>{
     const byArea={};AREAS.forEach(a=>byArea[a.k]={t:0,ok:0,q:0});
@@ -3612,8 +3745,9 @@ function QuestionCard({q,onResp,indice,total}){
     <div style={{fontSize:15.5,lineHeight:1.6,marginBottom:6}}>{q.enun}</div>
     {q.anulada&&<div style={{display:"inline-block",fontSize:12,fontWeight:600,color:"var(--warn)",border:"1px solid var(--warn)",borderRadius:6,padding:"2px 8px",marginBottom:8}}>⚠️ ANULADA pelo INEP — não pontua</div>}
     {q.alts.map((a,i)=>{let c="alt";if(sel!==null){if(q.anulada)c+=" dim";else if(i===q.correta)c+=" correct";else if(i===sel)c+=" wrong";else c+=" dim";}
-      return <button key={i} className={c} disabled={sel!==null} onClick={()=>{setSel(i);onResp(q,q.anulada?true:(i===q.correta));}}><b style={{opacity:.7,marginRight:8}}>{L[i]}</b>{a}</button>;})}
-    {sel!==null&&<div className="comment"><b style={{color:q.anulada?"var(--warn)":(sel===q.correta?"var(--acc)":"var(--bad)")}}>{q.anulada?"Questão anulada. ":(sel===q.correta?"Correto. ":"Incorreto. ")}</b>{q.coment}</div>}
+      return <button key={i} className={c} disabled={sel!==null} onClick={()=>{const ok=q.anulada?true:(i===q.correta);registrarSeq(ok);setSel(i);onResp(q,ok);}}><b style={{opacity:.7,marginRight:8}}>{L[i]}</b>{a}</button>;})}
+    {sel!==null&&<div className="comment"><b style={{color:q.anulada?"var(--warn)":(sel===q.correta?"var(--acc)":"var(--bad)")}}>{q.anulada?"Questão anulada. ":(sel===q.correta?vozAcerto(q.id+":"+sel):vozErro(q.id+":"+sel))}</b>{q.coment}</div>}
+    {sel!==null&&<QuestoesGemeas q={q}/>}
   </div>;
 }
 /* =================== INTERNATO (aba com módulos) =================== */
@@ -4464,7 +4598,7 @@ function OSCEEstacao({caso, onVoltar}){
 /* =================== PRATICAR (hub: treinar + simulado + foto) =================== */
 function Praticar(props){
   const [modo,setModo]=useState("treinar");
-  const sub=[["treinar","Questões"],["simulado","Simulado"],["enamed","Simulado ENAMED"],["resolver","Resolver por foto"]];
+  const sub=[["treinar","Questões"],["simulado","Simulado"],["enamed","Simulado ENAMED"],["raiox","🔎 Raio-X da banca"],["resolver","Resolver por foto"]];
   return <div>
     <div className="card" style={{marginBottom:14,background:"var(--panel2)"}}>
       <div className="row" style={{justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
@@ -4482,6 +4616,7 @@ function Praticar(props){
     {modo==="treinar" && <Treinar {...props} onNovasQuestoes={props.onNovasQuestoes}/>}
     {modo==="simulado" && (props.acesso ? <Simulado pool={props.pool} registrar={props.registrar} isPro={props.acesso}/> : <TravaFree titulo="Simulado é PRO" texto="Monte provas no formato oficial (20 por área) com nota e correção comentada." onAssinar={props.onAssinar}/>)}
     {modo==="enamed" && <SimuladoEnamed pool={props.pool} registrar={props.registrar}/>}
+    {modo==="raiox" && <RaioXBanca pool={props.acesso?(window.__ALLQ||props.pool):props.pool}/>}
     {modo==="resolver" && <Resolver isPro={props.isPro} onAssinar={props.onAssinar}/>}
   </div>;
 }
