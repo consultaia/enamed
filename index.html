@@ -21,10 +21,11 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.13";
+  window.APP_VERSION="2026.09.14d";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
+  window.SUPORTE_WHATSAPP="55XXXXXXXXXXX"; // ⚠️ troque pelo seu WhatsApp: DDI+DDD+número, só dígitos (ex.: "5571999999999")
   window.__PWA_PROMPT=null;
   window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); window.__PWA_PROMPT=e; });
   window.addEventListener("appinstalled", function(){ window.__PWA_PROMPT=null; try{localStorage.setItem("preceptor_pwa_instalado","1");}catch(x){} });
@@ -2701,7 +2702,12 @@ function Shell({session}){
   const [tour,setTour]=useState(()=>{try{return !localStorage.getItem("preceptor_tour_v1")}catch(e){return false}});
   const [pesquisa,setPesquisa]=useState(null); // gatilho ativo: "trial" | "paywall" | null
   const [sprintGemeas,setSprintGemeas]=useState(null); // {qs,label} — treino aberto pelas gêmeas / raio-x
-  useEffect(()=>{ try{ window.__TREINAR_GEMEAS=(qs,label)=>{ if(!acesso){ setShowAssinar(true); return; } setSprintGemeas({qs:(qs||[]).slice(0,60),label:label||"Gêmeas"}); setTab("gemeas"); window.scrollTo(0,0); }; }catch(e){} },[acesso]);
+  useEffect(()=>{ try{ window.__TREINAR_GEMEAS=async(qs,label)=>{
+    let ok=acesso;
+    if(!ok){ try{ ok = (await recarregarAssinatura()) || trialAtivo; }catch(e){} } // acesso pode estar "desatualizado" por sessão longa — reconfere ao vivo antes de bloquear
+    if(!ok){ setShowAssinar(true); return; }
+    setSprintGemeas({qs:(qs||[]).slice(0,60),label:label||"Gêmeas"}); setTab("gemeas"); window.scrollTo(0,0);
+  }; }catch(e){} },[acesso,trialAtivo]);
   const pesqOk=k=>{ try{ const v=localStorage.getItem("preceptor_pesquisa_"+k); if(!v) return true; if(v==="respondida") return false; return Date.now()>parseInt(v); }catch(e){ return false; } };
   const pesqDepois=k=>{ try{localStorage.setItem("preceptor_pesquisa_"+k, String(Date.now()+24*3600*1000));}catch(e){} setPesquisa(null); };
   const pesqRespondida=k=>{ try{localStorage.setItem("preceptor_pesquisa_"+k,"respondida");}catch(e){} };
@@ -2786,6 +2792,8 @@ function Shell({session}){
   useEffect(()=>{ try{ window.__PRECO={valor:precoValor,txt:precoTxt,fundador,antesCorte,dataCorteTxt,valorNovoTxt,meses:PC.MESES}; }catch(e){} },[precoValor,fundador,antesCorte]);
   const isAdmin = !!(session&&session.user&&session.user.email===ADMIN_EMAIL);
   useEffect(()=>{ try{ window.__PRO=!!isPro; window.__ACESSO=!!acesso; window.__ABRIR_ASSINAR=()=>setShowAssinar(true); window.__SET_TAB=setTab; window.__SET_DIAG=(m)=>{setDiag(m);setTab("trilha");window.scrollTo(0,0);};
+    window.__RECONFERIR_ACESSO=async()=>{ let ok=false; try{ ok=(await recarregarAssinatura())||trialAtivo; }catch(e){} return ok; };
+    window.__REINICIAR_APP=atualizarApp;
     window.__REGISTRAR_ERRO=(q,motivo)=>{ const row={user_id:uid,questao_id:q.id,area:q.area,tema:q.tema,motivo,criado_em:new Date().toISOString()}; setCaderno(c=>[row,...c].slice(0,400)); try{ sb.from("caderno_erros").insert(row).then(()=>{},()=>{}); }catch(e){} };
   }catch(e){} },[isPro,acesso,uid]);
 
@@ -2877,7 +2885,7 @@ function Shell({session}){
       <div className="muted" style={{fontSize:13,marginTop:6}}>O Combo até o ENAMED libera: os {CURRICULO.length} assuntos da Trilha, {questoes.length}+ questões, simulados no formato oficial, dashboard de padrões completo e resolver questão por foto.</div>
       <div style={{marginTop:12}}><button className="btn" onClick={()=>setShowAssinar(true)}>Liberar acesso — {precoTxt} (6 meses)</button>{antesCorte&&!fundador&&<div style={{fontSize:12,marginTop:8}}><b style={{color:"var(--gold)"}}>🏅 Preço fundador:</b> assine até <b>{dataCorteTxt}</b> e renove sempre por {precoTxt}. Depois sobe para {valorNovoTxt} para quem entrar.</div>}</div>
     </div>}
-    {showAssinar && <Assinar uid={uid} email={session.user.email} onClose={()=>setShowAssinar(false)} onVerificar={recarregarAssinatura}/>}
+    {showAssinar && <Assinar uid={uid} email={session.user.email} venceu={!!primeiraPaga&&!isPro} onClose={()=>setShowAssinar(false)} onVerificar={recarregarAssinatura}/>}
 
     {diag ? <div>
         <button className="btn ghost sm" onClick={()=>setDiag(null)}>← Sair do teste</button>
@@ -2937,12 +2945,13 @@ function Shell({session}){
       {tour && !diag && !revisando && !loading && <TourInicial isPro={isPro} trialAtivo={trialAtivo} onFim={()=>setTour(false)}/>}
       {pesquisa && !tour && !isPro && <PesquisaAdesao gatilho={pesquisa} onEnviar={enviarPesquisa} onAssinar={()=>setShowAssinar(true)} onDepois={()=>pesqDepois(pesquisa)} onFechar={()=>setPesquisa(null)}/>}
       <div className="nav" id="tour-nav">
-        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["dash","📈 Meu progresso"]].concat(isAdmin?[["admin","📊 Métricas"]]:[]).map(([k,l])=>
+        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Fale comigo"],["dash","📈 Meu progresso"]].concat(isAdmin?[["admin","📊 Métricas"]]:[]).map(([k,l])=>
           <button key={k} className={tab===k?"on":""} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
 
       {tab==="videos" && <Videoaulas videos={videoaulas}/>}
-      {tab==="admin" && isAdmin && <AdminMetricas sb={sb}/>}
+      {tab==="admin" && isAdmin && <div style={{display:"grid",gap:14}}><AdminMetricas sb={sb}/><AdminSuporte/></div>}
+      {tab==="suporte" && <Suporte uid={uid}/>}
       {tab==="gemeas" && sprintGemeas && <div><button className="btn ghost sm" style={{marginBottom:10}} onClick={()=>{setSprintGemeas(null);setTab("praticar");}}>← Voltar</button><RodizioSprint qs={sprintGemeas.qs} label={sprintGemeas.label} registrar={registrar} onVoltar={()=>{setSprintGemeas(null);setTab("praticar");}}/></div>}
       {tab==="trilha" && <Trilha store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={acesso} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
       {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} metaHoje={metaProg} bloqueadas={acesso?0:bloqueadasFree} isPro={isPro} acesso={acesso} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
@@ -3526,7 +3535,7 @@ function AdminMetricas({sb}){
 
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10}}>
       <K t="Assinantes pagos" v={fmt(m.pagos_ativos)} sub={"+"+fmt(m.pagos_30d)+" nos últimos 30 d"} cor="var(--gold)"/>
-      <K t="Receita (pagos c/ Pix)" v={brl(m.receita_estimada)} sub="R$ 49,90 × pagamentos"/>
+      <K t="Receita total (Pix)" v={brl(m.receita_total)} sub={fmt(m.pagamentos_total)+" pagamento"+(m.pagamentos_total===1?"":"s")+" · histórico"}/>
       <K t="Cortesias ativas" v={fmt(m.cortesias_ativas)}/>
       <K t="Em trial (24 h)" v={fmt(m.trials_ativas)} sub={fmt(m.free_sem_plano)+" free sem plano"}/>
       <K t="Expiram em 30 d" v={fmt(m.expiram_30d)} sub="renovação a cobrar"/>
@@ -3741,6 +3750,113 @@ function CadernoErros({store}){
   </div>;
 }
 
+/* =================== SUPORTE (aluno fala direto com você) =================== */
+const SUPORTE_CATS = {bug:"Bug técnico",cobranca:"Cobrança/assinatura",duvida:"Dúvida sobre conteúdo",sugestao:"Sugestão",outro:"Outro"};
+function Suporte({uid}){
+  const [categoria,setCategoria]=useState("bug");
+  const [msg,setMsg]=useState("");
+  const [enviando,setEnviando]=useState(false);
+  const [enviado,setEnviado]=useState(false);
+  const [meus,setMeus]=useState([]);
+  const [checando,setChecando]=useState(false);
+  const [checkMsg,setCheckMsg]=useState("");
+  const carregar=async()=>{ try{ const {data}=await sb.from("suporte").select("*").eq("user_id",uid).order("criado_em",{ascending:false}).limit(20); setMeus(data||[]); }catch(e){} };
+  useEffect(()=>{ carregar(); },[]);
+  const contexto=()=>({ versao:window.APP_VERSION||"", plano:(window.__PRO?"PRO":(window.__ACESSO?"trial":"free")), pagina:location.href, userAgent:navigator.userAgent, hora:new Date().toISOString() });
+  const enviar=async()=>{
+    if(!msg.trim()) return;
+    setEnviando(true);
+    try{ await sb.from("suporte").insert({user_id:uid,categoria,mensagem:msg.trim(),contexto:contexto()}); setMsg(""); setEnviado(true); carregar(); setTimeout(()=>setEnviado(false),5000); }catch(e){}
+    setEnviando(false);
+  };
+  const reconferir=async()=>{
+    setChecando(true); setCheckMsg("");
+    try{ const ok=window.__RECONFERIR_ACESSO?await window.__RECONFERIR_ACESSO():false; setCheckMsg(ok?"✓ Acesso confirmado — está tudo certo, pode continuar estudando.":"Não encontrei assinatura ativa agora. Se você já pagou, me manda a mensagem abaixo que eu resolvo."); }
+    catch(e){ setCheckMsg("Não consegui checar agora — tenta de novo em instantes."); }
+    setChecando(false);
+  };
+  const reiniciar=()=>{ try{ window.__REINICIAR_APP&&window.__REINICIAR_APP(); }catch(e){} };
+  const waNum=(window.SUPORTE_WHATSAPP||"").replace(/\D/g,"");
+  const waLink=(waNum&&waNum.indexOf("X")<0)?("https://wa.me/"+waNum+"?text="+encodeURIComponent("Oi! Preciso de ajuda no Preceptor.\n\nCategoria: "+SUPORTE_CATS[categoria]+"\nMensagem: "+msg+"\n\n(v"+(window.APP_VERSION||"")+")")):null;
+  return <div style={{display:"grid",gap:14}}>
+    <div className="card">
+      <b style={{fontSize:16}}>💬 Fale comigo</b>
+      <div className="muted" style={{fontSize:13,margin:"6px 0 14px"}}>Achou um bug, algo não abriu do jeito certo, ou sua assinatura não bateu? Me conta aqui — eu mesmo leio e respondo.</div>
+      <div className="row" style={{gap:8,flexWrap:"wrap"}}>
+        <button className="btn ghost sm" onClick={reconferir} disabled={checando}>{checando?"Conferindo…":"🔓 Reconferir meu acesso"}</button>
+        <button className="btn ghost sm" onClick={reiniciar}>🔄 Reiniciar o app</button>
+      </div>
+      {checkMsg && <div style={{fontSize:13,marginTop:8,color:checkMsg.startsWith("✓")?"var(--acc)":"var(--gold)"}}>{checkMsg}</div>}
+    </div>
+    <div className="card">
+      <label>Categoria</label>
+      <div className="row" style={{gap:6,flexWrap:"wrap",marginBottom:10}}>
+        {Object.entries(SUPORTE_CATS).map(([k,l])=><button key={k} type="button" className={"btn "+(categoria===k?"":"ghost")+" sm"} onClick={()=>setCategoria(k)}>{l}</button>)}
+      </div>
+      <label>Sua mensagem</label>
+      <textarea rows="4" placeholder="Descreva o que aconteceu…" value={msg} onChange={e=>setMsg(e.target.value)} style={{width:"100%",resize:"vertical",fontFamily:"inherit"}}/>
+      <div className="muted" style={{fontSize:11,marginTop:6}}>Envio junto, automaticamente: versão do app, seu plano e o navegador — pra eu entender mais rápido, sem te perguntar de novo.</div>
+      <div className="row" style={{gap:10,marginTop:12,flexWrap:"wrap"}}>
+        <button className="btn sm" onClick={enviar} disabled={enviando||!msg.trim()}>{enviando?"Enviando…":"Enviar mensagem"}</button>
+        {waLink && <a className="btn ghost sm" href={waLink} target="_blank" rel="noopener noreferrer" style={{textDecoration:"none"}}>Chamar no WhatsApp</a>}
+      </div>
+      {enviado && <div style={{fontSize:13,marginTop:10,color:"var(--acc)"}}>✓ Recebi sua mensagem. Costumo responder rápido — a resposta aparece aqui embaixo, nesta mesma aba.</div>}
+    </div>
+    {meus.length>0 && <div className="card">
+      <b style={{fontSize:15}}>Suas mensagens</b>
+      <div style={{marginTop:10}}>{meus.map(t=><div key={t.id} style={{padding:"10px 0",borderTop:"1px solid var(--line)"}}>
+        <div className="row" style={{justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+          <span className="pill" style={{fontSize:11}}>{SUPORTE_CATS[t.categoria]||t.categoria}</span>
+          <span className="muted" style={{fontSize:11}}>{new Date(t.criado_em).toLocaleString("pt-BR")} · {t.status==="aberto"?"aguardando resposta":"respondido"}</span>
+        </div>
+        <div style={{fontSize:13.5,marginTop:6}}>{t.mensagem}</div>
+        {t.resposta && <div style={{fontSize:13.5,marginTop:8,padding:"8px 10px",background:"var(--panel2)",borderRadius:10,borderLeft:"3px solid var(--acc)"}}><b style={{color:"var(--acc)"}}>Resposta:</b> {t.resposta}</div>}
+      </div>)}</div>
+    </div>}
+  </div>;
+}
+function AdminSuporte(){
+  const [tickets,setTickets]=useState(null);
+  const [rascunho,setRascunho]=useState({});
+  const [enviando,setEnviando]=useState({});
+  const [erro,setErro]=useState("");
+  const carregar=async()=>{ try{ const r=await sb.rpc("admin_suporte_listar"); if(r.error) throw new Error(r.error.message); setTickets(r.data||[]); }catch(e){ setErro("Não consegui carregar o suporte: "+(e.message||e)); } };
+  useEffect(()=>{ carregar(); },[]);
+  const responder=async(id,status)=>{
+    const texto=(rascunho[id]||"").trim(); if(!texto) return;
+    setEnviando(en=>({...en,[id]:true}));
+    try{ await sb.rpc("admin_suporte_responder",{p_id:id,p_resposta:texto,p_status:status}); setRascunho(r=>({...r,[id]:""})); carregar(); }catch(e){}
+    setEnviando(en=>({...en,[id]:false}));
+  };
+  const SUPORTE_CATS_L={bug:"Bug técnico",cobranca:"Cobrança/assinatura",duvida:"Dúvida sobre conteúdo",sugestao:"Sugestão",outro:"Outro"};
+  if(erro) return <div className="card"><b>Suporte</b><div style={{color:"var(--bad,#ff6b6b)",marginTop:8,fontSize:13}}>{erro}</div><button className="btn sm" style={{marginTop:10}} onClick={carregar}>Tentar de novo</button></div>;
+  if(!tickets) return <div className="card muted">Carregando suporte…</div>;
+  const abertos=tickets.filter(t=>t.status==="aberto");
+  return <div className="card">
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center"}}>
+      <b>💬 Suporte · {abertos.length} aberto{abertos.length===1?"":"s"}</b>
+      <button className="btn ghost sm" onClick={carregar}>Atualizar</button>
+    </div>
+    {tickets.length===0 && <div className="muted" style={{fontSize:13,marginTop:10}}>Nenhuma mensagem ainda.</div>}
+    <div style={{marginTop:10}}>{tickets.map(t=><div key={t.id} style={{padding:"12px 0",borderTop:"1px solid var(--line)"}}>
+      <div className="row" style={{justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+        <div><b style={{fontSize:13.5}}>{t.email}</b> <span className="pill" style={{fontSize:11,marginLeft:6}}>{SUPORTE_CATS_L[t.categoria]||t.categoria}</span></div>
+        <span className="muted" style={{fontSize:11}}>{new Date(t.criado_em).toLocaleString("pt-BR")} · {t.status==="aberto"?"aberto":t.status}</span>
+      </div>
+      <div style={{fontSize:13.5,marginTop:6}}>{t.mensagem}</div>
+      <div className="muted" style={{fontSize:11,marginTop:4}}>v{t.contexto&&t.contexto.versao} · {t.contexto&&t.contexto.plano}</div>
+      {t.resposta && <div style={{fontSize:13,marginTop:8,padding:"8px 10px",background:"var(--panel2)",borderRadius:10,borderLeft:"3px solid var(--acc)"}}><b style={{color:"var(--acc)"}}>Sua resposta:</b> {t.resposta}</div>}
+      {t.status!=="fechado" && <div style={{marginTop:8}}>
+        <textarea rows="2" placeholder="Responder…" value={rascunho[t.id]||""} onChange={e=>setRascunho(r=>({...r,[t.id]:e.target.value}))} style={{width:"100%",resize:"vertical",fontFamily:"inherit"}}/>
+        <div className="row" style={{gap:8,marginTop:6}}>
+          <button className="btn sm" disabled={enviando[t.id]} onClick={()=>responder(t.id,"respondido")}>Responder</button>
+          <button className="btn ghost sm" disabled={enviando[t.id]} onClick={()=>responder(t.id,"fechado")}>Responder e fechar</button>
+        </div>
+      </div>}
+    </div>)}</div>
+  </div>;
+}
+
 function Dash({store,temasFracos,onRefazer}){
   const s=useMemo(()=>{
     const byArea={};AREAS.forEach(a=>byArea[a.k]={t:0,ok:0,q:0});
@@ -3847,12 +3963,19 @@ function MotivoErro({q}){
 }
 function IAnaQuestao({q,sel}){
   const [aberto,setAberto]=useState(false);
+  const [checando,setChecando]=useState(false);
   const errou=!q.anulada&&sel!==q.correta;
+  const tentarLiberar=async()=>{
+    setChecando(true);
+    try{ if(window.__RECONFERIR_ACESSO){ const ok=await window.__RECONFERIR_ACESSO(); if(ok){ setChecando(false); return; } } }catch(e){}
+    setChecando(false);
+    window.__ABRIR_ASSINAR&&window.__ABRIR_ASSINAR();
+  };
   if(!window.__PRO){
     if(!errou) return null;
     return <div className="row" style={{gap:10,alignItems:"center",marginTop:10,padding:"8px 10px",border:"1px dashed var(--line)",borderRadius:10,fontSize:12.5}}>
       <span>🤖 Não entendeu? A IA explica esta questão de outro jeito — <b>exclusivo do PRO</b>.</span>
-      <button className="btn sm" style={{marginLeft:"auto"}} onClick={()=>window.__ABRIR_ASSINAR&&window.__ABRIR_ASSINAR()}>Liberar</button>
+      <button className="btn sm" style={{marginLeft:"auto"}} disabled={checando} onClick={tentarLiberar}>{checando?"Conferindo…":"Liberar"}</button>
     </div>;
   }
   const L=["A","B","C","D","E"];
@@ -4518,7 +4641,7 @@ function OSCE({onVoltar}){
   if(caso) return <OSCEEstacao caso={caso} onVoltar={()=>setCaso(null)}/>;
   if(!window.__PRO) return <div>
     <button className="btn ghost sm" onClick={onVoltar}>← Voltar</button>
-    <div className="lock" style={{marginTop:12,textAlign:"left"}}><b>Estações OSCE com IA são exclusivas do PRO</b><div className="muted" style={{fontSize:13,marginTop:6}}>Paciente simulado que responde ao seu atendimento e examinador que pontua o checklist. {((window.__PRECO||{}).txt||"R$ 49,90")} por 6 meses, Pix, sem renovação automática.</div><button className="btn sm" style={{marginTop:10}} onClick={()=>window.__ABRIR_ASSINAR&&window.__ABRIR_ASSINAR()}>Liberar a IA</button></div>
+    <div className="lock" style={{marginTop:12,textAlign:"left"}}><b>Estações OSCE com IA são exclusivas do PRO</b><div className="muted" style={{fontSize:13,marginTop:6}}>Paciente simulado que responde ao seu atendimento e examinador que pontua o checklist. {((window.__PRECO||{}).txt||"R$ 49,90")} por 6 meses, Pix, sem renovação automática.</div><button className="btn sm" style={{marginTop:10}} onClick={async()=>{ const ok=window.__RECONFERIR_ACESSO?await window.__RECONFERIR_ACESSO():false; if(!ok) window.__ABRIR_ASSINAR&&window.__ABRIR_ASSINAR(); }}>Liberar a IA</button></div>
   </div>;
   const casosArea = window.OSCE_BANCO[areaSel]||[];
   return <div>
@@ -5598,7 +5721,7 @@ function Resolver({isPro,onAssinar}){
 }
 
 /* =================== ASSINAR (checkout Pix) =================== */
-function Assinar({uid,email,onClose,onVerificar}){
+function Assinar({uid,email,onClose,onVerificar,venceu}){
   const [etapa,setEtapa]=useState("plano"); // plano | carregando | pix | sucesso | erro
   const [pix,setPix]=useState(null);
   const [cpf,setCpf]=useState("");
@@ -5633,6 +5756,7 @@ function Assinar({uid,email,onClose,onVerificar}){
       </div>
 
       {etapa==="plano" && <div>
+        {venceu && <div className="card" style={{marginBottom:12,borderColor:"var(--gold)",background:"rgba(230,180,80,.08)"}}><b style={{color:"var(--gold)"}}>Sua assinatura venceu.</b> Isto é uma renovação, não uma cobrança nova — seu histórico e progresso continuam salvos.</div>}
         <div className="muted" style={{fontSize:14,marginBottom:14}}>Pagamento único por Pix. Acesso liberado na hora após a confirmação.</div>
 
         <div className="card" style={{background:"linear-gradient(135deg,#123528,#16302b)",border:"1px solid var(--gold)",marginBottom:12,position:"relative"}}>
