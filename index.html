@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.14g";
+  window.APP_VERSION="2026.09.14h";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2945,7 +2945,7 @@ function Shell({session}){
       {tour && !diag && !revisando && !loading && <TourInicial isPro={isPro} trialAtivo={trialAtivo} onFim={()=>setTour(false)}/>}
       {pesquisa && !tour && !isPro && <PesquisaAdesao gatilho={pesquisa} onEnviar={enviarPesquisa} onAssinar={()=>setShowAssinar(true)} onDepois={()=>pesqDepois(pesquisa)} onFechar={()=>setPesquisa(null)}/>}
       <div className="nav" id="tour-nav">
-        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["tpi","🎓 TPI"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Fale com o Preceptor"],["dash","📈 Meu progresso"]].concat(isAdmin?[["admin","📊 Métricas"]]:[]).map(([k,l])=>
+        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["tpi","🎓 TPI"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Fale com o Suporte"],["dash","📈 Meu progresso"]].concat(isAdmin?[["admin","📊 Métricas"]]:[]).map(([k,l])=>
           <button key={k} className={tab===k?"on":""} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
 
@@ -3781,7 +3781,7 @@ function Suporte({uid}){
   const waLink=(waNum&&waNum.indexOf("X")<0)?("https://wa.me/"+waNum+"?text="+encodeURIComponent("Oi! Preciso de ajuda no Preceptor.\n\nCategoria: "+SUPORTE_CATS[categoria]+"\nMensagem: "+msg+"\n\n(v"+(window.APP_VERSION||"")+")")):null;
   return <div style={{display:"grid",gap:14}}>
     <div className="card">
-      <b style={{fontSize:16}}>💬 Fale com o Preceptor</b>
+      <b style={{fontSize:16}}>💬 Fale com o Suporte</b>
       <div className="muted" style={{fontSize:13,margin:"6px 0 14px"}}>Achou um bug, algo não abriu do jeito certo, ou sua assinatura não bateu? Me conta aqui — eu mesmo leio e respondo.</div>
       <div className="row" style={{gap:8,flexWrap:"wrap"}}>
         <button className="btn ghost sm" onClick={reconferir} disabled={checando}>{checando?"Conferindo…":"🔓 Reconferir meu acesso"}</button>
