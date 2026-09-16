@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.14d";
+  window.APP_VERSION="2026.09.14f";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2439,7 +2439,7 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
     const num=q=>{const m=/_q(\d+)$/.exec(q.id||"");return m?+m[1]:9999;};
     return Object.keys(grupos).map(function(ed){
       const qs=grupos[ed].slice().sort((a,b)=>num(a)-num(b));
-      let nome=({"ENARE_2024_2025":"ENARE 2024/2025 · Acesso Direto","REVALIDA_2024_1":"Revalida 2024/1","REVALIDA_2025_1":"Revalida 2025/1"})[ed] || ((qs[0]&&qs[0].tema)?qs[0].tema:ed).replace(/\s·\sParte\s.*$/,"").trim();
+      let nome=({"ENARE_2024_2025":"ENARE 2024/2025 · Acesso Direto","REVALIDA_2024_1":"Revalida 2024/1","REVALIDA_2025_1":"Revalida 2025/1","TPI_2026_1":"TPI 2026.1 · Afya"})[ed] || ((qs[0]&&qs[0].tema)?qs[0].tema:ed).replace(/\s·\sParte\s.*$/,"").trim();
       return {ed:ed, nome:nome, qs:qs};
     }).sort((a,b)=>a.nome<b.nome?1:(a.nome>b.nome?-1:0));
   },[pool,flag]);
@@ -2945,7 +2945,7 @@ function Shell({session}){
       {tour && !diag && !revisando && !loading && <TourInicial isPro={isPro} trialAtivo={trialAtivo} onFim={()=>setTour(false)}/>}
       {pesquisa && !tour && !isPro && <PesquisaAdesao gatilho={pesquisa} onEnviar={enviarPesquisa} onAssinar={()=>setShowAssinar(true)} onDepois={()=>pesqDepois(pesquisa)} onFechar={()=>setPesquisa(null)}/>}
       <div className="nav" id="tour-nav">
-        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Fale comigo"],["dash","📈 Meu progresso"]].concat(isAdmin?[["admin","📊 Métricas"]]:[]).map(([k,l])=>
+        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["tpi","🎓 TPI"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Fale comigo"],["dash","📈 Meu progresso"]].concat(isAdmin?[["admin","📊 Métricas"]]:[]).map(([k,l])=>
           <button key={k} className={tab===k?"on":""} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
 
@@ -2956,6 +2956,7 @@ function Shell({session}){
       {tab==="trilha" && <Trilha store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={acesso} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
       {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} metaHoje={metaProg} bloqueadas={acesso?0:bloqueadasFree} isPro={isPro} acesso={acesso} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
       {tab==="internato" && <Internato pool={questoes} registrar={registrar}/>}
+      {tab==="tpi" && <ExameProvas pool={questoes} registrar={registrar} flag="TPI" icone="🎓" titulo="TPI — Teste de Progresso Institucional" subtitulo="TPI · AFYA · 2026.1"/>}
       {tab==="tecm" && <ExameProvas pool={questoes} registrar={registrar} flag="TECM" icone="🏛️" titulo="Título de Especialista em Clínica Médica" subtitulo="TÍTULO DE ESPECIALISTA · SBCM"/>}
       {tab==="revalida" && <ExameProvas pool={questoes} registrar={registrar} flag="REVALIDA" icone="🏥" titulo="Revalida" subtitulo="REVALIDAÇÃO DE DIPLOMA MÉDICO · INEP"/>}
       {tab==="enare" && <ExameProvas pool={questoes} registrar={registrar} flag="ENARE" icone="📋" titulo="ENARE" subtitulo="EXAME NACIONAL DE RESIDÊNCIA"/>}
@@ -3535,7 +3536,7 @@ function AdminMetricas({sb}){
 
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10}}>
       <K t="Assinantes pagos" v={fmt(m.pagos_ativos)} sub={"+"+fmt(m.pagos_30d)+" nos últimos 30 d"} cor="var(--gold)"/>
-      <K t="Receita total (Pix)" v={brl(m.receita_total)} sub={fmt(m.pagamentos_total)+" pagamento"+(m.pagamentos_total===1?"":"s")+" · histórico"}/>
+      <K t="Receita (assinantes atuais)" v={brl(m.receita_ativa)} sub={fmt(m.pagos_fundador)+" a R$ 49,90 · "+fmt(m.pagos_novo_preco)+" a R$ 79,90"} cor="var(--gold)"/>
       <K t="Cortesias ativas" v={fmt(m.cortesias_ativas)}/>
       <K t="Em trial (24 h)" v={fmt(m.trials_ativas)} sub={fmt(m.free_sem_plano)+" free sem plano"}/>
       <K t="Expiram em 30 d" v={fmt(m.expiram_30d)} sub="renovação a cobrar"/>
