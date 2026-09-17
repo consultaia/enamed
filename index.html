@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.14h";
+  window.APP_VERSION="2026.09.14i";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2555,12 +2555,14 @@ function App(){
   useEffect(()=>{
     if(!CONFIGURADO){setBooting(false);return;}
     sb.auth.getSession().then(({data})=>{AUTH_TOKEN=(data.session&&data.session.access_token)||"";setSession(data.session);setBooting(false);});
-    const {data:sub}=sb.auth.onAuthStateChange((_e,s)=>{AUTH_TOKEN=(s&&s.access_token)||"";setSession(s);});
+    const {data:sub}=sb.auth.onAuthStateChange((_e,s)=>{AUTH_TOKEN=(s&&s.access_token)||"";setSession(s);if(_e==="PASSWORD_RECOVERY")setRecuperando(true);});
     return ()=>sub.subscription.unsubscribe();
   },[]);
+  const [recuperando,setRecuperando]=useState(false);
   if(!CONFIGURADO) return <SetupAviso/>;
   if(booting) return <div className="center"><div className="muted">Carregando...</div></div>;
   if(!session) return <Auth/>;
+  if(recuperando) return <NovaSenha onOk={()=>setRecuperando(false)}/>;
   return <React.Fragment><Shell session={session}/><GlobalSearch/></React.Fragment>;
 }
 
@@ -2577,17 +2579,22 @@ function SetupAviso(){
 
 /* =================== AUTH =================== */
 function Auth(){
-  const [modo,setModo]=useState("entrar");
+  const [modo,setModo]=useState("entrar"); // entrar | criar | recuperar
   const [nome,setNome]=useState(""),[email,setEmail]=useState(""),[senha,setSenha]=useState("");
-  const [msg,setMsg]=useState(""),[busy,setBusy]=useState(false);
+  const [msg,setMsg]=useState(""),[busy,setBusy]=useState(false),[msgOk,setMsgOk]=useState(false);
   const submit=async()=>{
-    setBusy(true);setMsg("");
+    setBusy(true);setMsg("");setMsgOk(false);
     try{
       if(modo==="criar"){
         const {error}=await sb.auth.signUp({email,password:senha,options:{data:{nome}}});
         if(error)throw error;
         setMsg("Conta criada. Se a confirmação por e-mail estiver ativa, confirme no seu e-mail e depois entre.");
         setModo("entrar");
+      }else if(modo==="recuperar"){
+        const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+        if(error)throw error;
+        setMsg("Se esse e-mail tiver uma conta, mandamos um link de recuperação. Confira sua caixa de entrada (e o spam).");
+        setMsgOk(true);
       }else{
         const {error}=await sb.auth.signInWithPassword({email,password:senha});
         if(error)throw error;
@@ -2597,18 +2604,49 @@ function Auth(){
   };
   return <div className="center"><div className="auth">
     <div className="tag" style={{color:"var(--acc)"}}>PRECEPTOR</div>
-    <h1 style={{fontSize:26,margin:"6px 0 4px"}}>{modo==="criar"?"Criar conta":"Entrar"}</h1>
+    <h1 style={{fontSize:26,margin:"6px 0 4px"}}>{modo==="criar"?"Criar conta":(modo==="recuperar"?"Recuperar senha":"Entrar")}</h1>
     <div className="muted" style={{fontSize:13,marginBottom:16}}>Seu progresso fica salvo e sincroniza entre aparelhos.</div>
     <div className="card">
       {modo==="criar" && <><label>Nome</label><input value={nome} onChange={e=>setNome(e.target.value)}/></>}
       <label>E-mail</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)}/>
-      <label>Senha</label><input type="password" value={senha} onChange={e=>setSenha(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()}/>
-      {msg && <div className="muted" style={{fontSize:13,marginTop:12,color:"var(--acc2)"}}>{msg}</div>}
-      <div style={{marginTop:16}}><button className="btn" style={{width:"100%"}} disabled={busy} onClick={submit}>{busy?"...":(modo==="criar"?"Criar conta":"Entrar")}</button></div>
+      {modo!=="recuperar" && <><label>Senha</label><input type="password" value={senha} onChange={e=>setSenha(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()}/></>}
+      {modo==="entrar" && <div style={{marginTop:8,textAlign:"right"}}><span className="link" style={{fontSize:13}} onClick={()=>{setModo("recuperar");setMsg("");setMsgOk(false);}}>Esqueci minha senha</span></div>}
+      {msg && <div className="muted" style={{fontSize:13,marginTop:12,color:msgOk?"var(--acc)":"var(--acc2)"}}>{msg}</div>}
+      <div style={{marginTop:16}}><button className="btn" style={{width:"100%"}} disabled={busy||(modo==="recuperar"&&!email)} onClick={submit}>{busy?"...":(modo==="criar"?"Criar conta":(modo==="recuperar"?"Enviar link de recuperação":"Entrar"))}</button></div>
     </div>
     <div style={{marginTop:14,fontSize:14}} className="muted">
-      {modo==="criar"?"Já tem conta? ":"Ainda não tem conta? "}
-      <span className="link" onClick={()=>{setModo(modo==="criar"?"entrar":"criar");setMsg("");}}>{modo==="criar"?"Entrar":"Criar agora"}</span>
+      {modo==="recuperar"
+        ? <span className="link" onClick={()=>{setModo("entrar");setMsg("");setMsgOk(false);}}>← Voltar para entrar</span>
+        : <>{modo==="criar"?"Já tem conta? ":"Ainda não tem conta? "}
+      <span className="link" onClick={()=>{setModo(modo==="criar"?"entrar":"criar");setMsg("");setMsgOk(false);}}>{modo==="criar"?"Entrar":"Criar agora"}</span></>}
+    </div>
+  </div></div>;
+}
+
+function NovaSenha({onOk}){
+  const [senha,setSenha]=useState(""),[senha2,setSenha2]=useState("");
+  const [msg,setMsg]=useState(""),[busy,setBusy]=useState(false);
+  const submit=async()=>{
+    setMsg("");
+    if(senha.length<6){setMsg("A senha precisa ter pelo menos 6 caracteres.");return;}
+    if(senha!==senha2){setMsg("As senhas não são iguais.");return;}
+    setBusy(true);
+    try{
+      const {error}=await sb.auth.updateUser({password:senha});
+      if(error)throw error;
+      onOk&&onOk();
+    }catch(e){setMsg(e.message||"Não consegui trocar a senha.");}
+    setBusy(false);
+  };
+  return <div className="center"><div className="auth">
+    <div className="tag" style={{color:"var(--acc)"}}>PRECEPTOR</div>
+    <h1 style={{fontSize:26,margin:"6px 0 4px"}}>Escolha uma nova senha</h1>
+    <div className="muted" style={{fontSize:13,marginBottom:16}}>Você veio pelo link de recuperação. Defina a nova senha da sua conta.</div>
+    <div className="card">
+      <label>Nova senha</label><input type="password" value={senha} onChange={e=>setSenha(e.target.value)}/>
+      <label>Confirmar nova senha</label><input type="password" value={senha2} onChange={e=>setSenha2(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()}/>
+      {msg && <div className="muted" style={{fontSize:13,marginTop:12,color:"var(--acc2)"}}>{msg}</div>}
+      <div style={{marginTop:16}}><button className="btn" style={{width:"100%"}} disabled={busy} onClick={submit}>{busy?"...":"Salvar nova senha"}</button></div>
     </div>
   </div></div>;
 }
