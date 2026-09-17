@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.14i";
+  window.APP_VERSION="2026.09.17";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2439,7 +2439,7 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
     const num=q=>{const m=/_q(\d+)$/.exec(q.id||"");return m?+m[1]:9999;};
     return Object.keys(grupos).map(function(ed){
       const qs=grupos[ed].slice().sort((a,b)=>num(a)-num(b));
-      let nome=({"ENARE_2024_2025":"ENARE 2024/2025 · Acesso Direto","REVALIDA_2024_1":"Revalida 2024/1","REVALIDA_2025_1":"Revalida 2025/1","TPI_2026_1":"TPI 2026.1 · Afya"})[ed] || ((qs[0]&&qs[0].tema)?qs[0].tema:ed).replace(/\s·\sParte\s.*$/,"").trim();
+      let nome=({"ENARE_2024_2025":"ENARE 2024/2025 · Acesso Direto","REVALIDA_2024_1":"Revalida 2024/1","REVALIDA_2025_1":"Revalida 2025/1","TPI_2026_1":"TPI 2026.1 · Afya","TPI_2025_1":"TPI 2025.1 · Afya"})[ed] || ((qs[0]&&qs[0].tema)?qs[0].tema:ed).replace(/\s·\sParte\s.*$/,"").trim();
       return {ed:ed, nome:nome, qs:qs};
     }).sort((a,b)=>a.nome<b.nome?1:(a.nome>b.nome?-1:0));
   },[pool,flag]);
@@ -3661,7 +3661,7 @@ function fonteDaQuestao(q){
   if(/^Internato/.test(tema)) return {tipo:"internato",nome:"N2 Internato"};
   return {tipo:"banco",nome:"Banco"};
 }
-function temaChave(t){ let s=""+(t||""); if(/^ENAMED\s*—\s*Simulado/i.test(s)) return ""; if(/^Internato/i.test(s)){ const p=s.split("·"); s=p.length>1?p.slice(1).join("·"):s.replace(/^Internato\s*—\s*/,""); } return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s*·\s*parte.*$/,"").replace(/[^a-z0-9]+/g," ").trim(); }
+function temaChave(t){ let s=""+(t||""); if(/^ENAMED\s*—\s*Simulado/i.test(s)) return ""; if(/^TPI\b/i.test(s)) return ""; if(/^Internato/i.test(s)){ const p=s.split("·"); s=p.length>1?p.slice(1).join("·"):s.replace(/^Internato\s*—\s*/,""); } return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s*·\s*parte.*$/,"").replace(/[^a-z0-9]+/g," ").trim(); }
 function gemeasDe(q){
   const all=window.__ALLQ||[]; const k=temaChave(q.tema); if(!k||k.length<4) return [];
   return all.filter(x=>x&&x.id!==q.id&&x.area===q.area&&temaChave(x.tema)===k);
