@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.17d";
+  window.APP_VERSION="2026.09.20";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2427,8 +2427,12 @@ function GlobalSearch(){
   </React.Fragment>;
 }
 
+function progressoProva(chave){ try{ const v=JSON.parse(localStorage.getItem("preceptor_prova_"+chave)||"null"); if(v&&v.resp) return {n:Object.keys(v.resp).length,i:v.i||0}; }catch(e){} return null; }
 function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
-  const [prova,setProva]=useState(null);
+  const lsAberta="preceptor_prova_aberta_"+flag;
+  const [provaEd,setProvaEd]=useState(()=>{try{return localStorage.getItem(lsAberta)||null}catch(e){return null}});
+  const abrir=(p)=>{ setProvaEd(p.ed); try{localStorage.setItem(lsAberta,p.ed)}catch(e){} window.scrollTo(0,0); };
+  const fechar=()=>{ setProvaEd(null); try{localStorage.removeItem(lsAberta)}catch(e){} };
   const provas=useMemo(()=>{
     const arr=(pool||[]).filter(q=>q&&q.transv&&q.transv.indexOf&&q.transv.indexOf(flag)>=0);
     const grupos={};
@@ -2443,10 +2447,11 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
       return {ed:ed, nome:nome, qs:qs};
     }).sort((a,b)=>a.nome<b.nome?1:(a.nome>b.nome?-1:0));
   },[pool,flag]);
+  const prova=provaEd? (provas.filter(p=>p.ed===provaEd)[0]||null) : null;
   if(prova) return <div>
-    <button className="btn ghost sm" style={{marginBottom:10}} onClick={()=>setProva(null)}>← Voltar às provas</button>
+    <button className="btn ghost sm" style={{marginBottom:10}} onClick={fechar}>← Voltar às provas</button>
     <div className="muted" style={{fontSize:12,marginBottom:8,textTransform:"uppercase",letterSpacing:".05em"}}>{icone} {prova.nome}</div>
-    <Diagnostico pool={pool} registrar={registrar} modo="completo" questoesFixas={prova.qs} onFim={()=>{}} flag={flag}/>
+    <Diagnostico pool={pool} registrar={registrar} modo="completo" questoesFixas={prova.qs} onFim={fechar} flag={flag} chave={flag+":"+prova.ed}/>
   </div>;
   return <div className="card" style={{padding:22}}>
     <div className="tag" style={{color:"var(--acc)"}}>{subtitulo}</div>
@@ -2454,9 +2459,9 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
     {!provas.length
       ? <p className="muted" style={{marginTop:10}}>Nenhuma prova disponível ainda. Assim que a edição for carregada no banco (SQL) e você recarregar o app, ela aparece aqui.</p>
       : <div style={{marginTop:14,display:"grid",gap:10}}>
-          {provas.map(function(p){ return <button key={p.ed} className="alt" style={{textAlign:"left",display:"block",width:"100%"}} onClick={()=>{setProva(p);window.scrollTo(0,0);}}>
+          {provas.map(function(p){ const pg=progressoProva(flag+":"+p.ed); return <button key={p.ed} className="alt" style={{textAlign:"left",display:"block",width:"100%",borderColor:pg?"var(--acc)":undefined}} onClick={()=>abrir(p)}>
             <div style={{fontWeight:700}}>{p.nome}</div>
-            <div className="muted" style={{fontSize:13,marginTop:3}}>{p.qs.length} questões</div>
+            <div className="muted" style={{fontSize:13,marginTop:3}}>{p.qs.length} questões{pg?<span style={{color:"var(--acc)",fontWeight:600}}> · em andamento — {pg.n} respondida{pg.n===1?"":"s"} · continuar da questão {Math.min(pg.i+1,p.qs.length)}</span>:null}</div>
           </button>; })}
         </div>}
     <p className="muted" style={{fontSize:12,marginTop:14}}>Dá pra refazer quando quiser.</p>
@@ -2714,7 +2719,9 @@ function RevisaoHoje({qs, registrar, onVoltar}){
 
 function Shell({session}){
   const uid=session.user.id;
-  const [tab,setTab]=useState("trilha");
+  const TABS_OK=["trilha","praticar","internato","enamed","tpi","tecm","revalida","enare","strix","flash","videos","suporte","dash"];
+  const [tab,setTab]=useState(()=>{try{const t=localStorage.getItem("preceptor_tab");return (t&&TABS_OK.indexOf(t)>=0)?t:"trilha"}catch(e){return "trilha"}});
+  useEffect(()=>{try{localStorage.setItem("preceptor_tab",tab)}catch(e){}},[tab]);
   const [tema,setTema]=useState(()=>{try{return localStorage.getItem("enamed_tema")||"escuro"}catch(e){return "escuro"}});
   useEffect(()=>{document.documentElement.setAttribute("data-tema",tema);try{localStorage.setItem("enamed_tema",tema)}catch(e){}},[tema]);
   const [loading,setLoading]=useState(true);
@@ -2790,7 +2797,7 @@ function Shell({session}){
       sb.from("caderno_erros").select("questao_id,area,tema,motivo,criado_em").eq("user_id",uid).order("criado_em",{ascending:false}).limit(400).then(r=>r,()=>({data:[]})),
       sb.from("assinaturas").select("plano,criado_em").eq("user_id",uid).not("plano","in","(free,cortesia)").order("criado_em",{ascending:true}).limit(1).then(r=>r,()=>({data:[]})),
     ]);
-    let qs=(q.data||[]).map(x=>({id:x.id,area:x.area,tema:x.tema,transv:x.transv||[],dif:x.dificuldade,enun:x.enunciado,alts:x.alternativas,correta:x.correta,coment:x.comentario,premium:x.premium,anulada:!(x.correta>=0)}));
+    let qs=(q.data||[]).map(x=>({id:x.id,area:x.area,tema:x.tema,transv:x.transv||[],dif:x.dificuldade,enun:x.enunciado,alts:x.alternativas,correta:x.correta,coment:x.comentario,premium:x.premium,imagem:x.imagem||null,anulada:!(x.correta>=0)}));
     if(qs.length===0){ qs=SEED; }
     else { // garante que as questoes-de-assunto do SEED existam (mescla sem duplicar)
       const ids=new Set(qs.map(x=>x.id));
@@ -3968,16 +3975,22 @@ function Dash({store,temasFracos,onRefazer}){
 }
 
 /* =================== TREINAR =================== */
-function QuestionCard({q,onResp,indice,total}){
-  const [sel,setSel]=useState(null);useEffect(()=>setSel(null),[q.id]);const L=["A","B","C","D","E"];
+function ImgQuestao({src}){
+  if(!src) return null;
+  return <div style={{margin:"8px 0 10px"}}><img src={src} alt="Imagem da questão" loading="lazy" style={{maxWidth:"100%",maxHeight:520,borderRadius:10,border:"1px solid var(--line)",display:"block",background:"#fff"}}/></div>;
+}
+function QuestionCard({q,onResp,indice,total,selInicial}){
+  const ini=(selInicial==null)?null:selInicial;
+  const [sel,setSel]=useState(ini);useEffect(()=>setSel((selInicial==null)?null:selInicial),[q.id,selInicial]);const L=["A","B","C","D","E"];
   return <div className="card">
     <div className="row" style={{justifyContent:"space-between",marginBottom:10}}>
       <div className="row" style={{gap:8}}><span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(q.area)}</span><span className="pill">{q.tema}</span>{(q.transv||[]).map(t=><span key={t} className="pill" style={{color:"var(--acc2)"}}>{t}</span>)}</div>
       {total>1&&<span className="muted" style={{fontSize:13}}>{indice+1}/{total}</span>}</div>
     <div style={{fontSize:15.5,lineHeight:1.6,marginBottom:6}}>{q.enun}</div>
+    <ImgQuestao src={q.imagem}/>
     {q.anulada&&<div style={{display:"inline-block",fontSize:12,fontWeight:600,color:"var(--warn)",border:"1px solid var(--warn)",borderRadius:6,padding:"2px 8px",marginBottom:8}}>⚠️ ANULADA pelo INEP — não pontua</div>}
     {q.alts.map((a,i)=>{let c="alt";if(sel!==null){if(q.anulada)c+=" dim";else if(i===q.correta)c+=" correct";else if(i===sel)c+=" wrong";else c+=" dim";}
-      return <button key={i} className={c} disabled={sel!==null} onClick={()=>{const ok=q.anulada?true:(i===q.correta);registrarSeq(ok);setSel(i);onResp(q,ok);}}><b style={{opacity:.7,marginRight:8}}>{L[i]}</b>{a}</button>;})}
+      return <button key={i} className={c} disabled={sel!==null} onClick={()=>{const ok=q.anulada?true:(i===q.correta);registrarSeq(ok);setSel(i);onResp(q,ok,i);}}><b style={{opacity:.7,marginRight:8}}>{L[i]}</b>{a}</button>;})}
     {sel!==null&&<div className="comment"><b style={{color:q.anulada?"var(--warn)":(sel===q.correta?"var(--acc)":"var(--bad)")}}>{q.anulada?"Questão anulada. ":(sel===q.correta?vozAcerto(q.id+":"+sel):vozErro(q.id+":"+sel))}</b>{q.coment}</div>}
     {sel!==null&&<StatsQuestao q={q}/>}
     {sel!==null&&!q.anulada&&sel!==q.correta&&<MotivoErro q={q}/>}
@@ -5015,7 +5028,7 @@ function Treinar({pool,store,registrar,bloqueadas,isPro,acesso,onAssinar,onNovas
 }
 
 /* =================== DIAGNÓSTICO (teste inicial + simuladão) =================== */
-function Diagnostico({pool,registrar,onFim,modo,questoesFixas,flag}){
+function Diagnostico({pool,registrar,onFim,modo,questoesFixas,flag,chave}){
   // modo: "rapido" (~20) ou "completo" (100)
   const alvo = modo==="completo" ? 100 : 20;
   const prova=useMemo(()=>{
@@ -5029,11 +5042,17 @@ function Diagnostico({pool,registrar,onFim,modo,questoesFixas,flag}){
     areas.forEach(a=>{ sel=sel.concat(porArea[a].slice().sort(()=>Math.random()-0.5).slice(0,porCada)); });
     return sel.sort(()=>Math.random()-0.5).slice(0,Math.min(alvo,sel.length));
   },[modo]);
-  const [i,setI]=useState(0);
-  const [resp,setResp]=useState({}); // qid -> {ok, area, tema}
+  const chaveLS = chave? "preceptor_prova_"+chave : null;
+  const salvo = useMemo(()=>{ if(!chaveLS) return null; try{ return JSON.parse(localStorage.getItem(chaveLS)||"null"); }catch(e){ return null; } },[chaveLS]);
+  const [i,setI]=useState(()=>{ if(salvo&&typeof salvo.i==="number") return Math.max(0,Math.min(salvo.i,prova.length-1)); return 0; });
+  const [resp,setResp]=useState(()=>(salvo&&salvo.resp&&typeof salvo.resp==="object")?salvo.resp:{}); // qid -> {ok, area, tema, sel}
   const [sel,setSel]=useState(null);
   const [fim,setFim]=useState(false);
+  const [nav,setNav]=useState(false);
   const q=prova[i];
+  useEffect(()=>{ if(!chaveLS) return; try{ if(fim) localStorage.removeItem(chaveLS); else localStorage.setItem(chaveLS,JSON.stringify({i:i,resp:resp,t:Date.now()})); }catch(e){} },[chaveLS,i,resp,fim]);
+  const reiniciar=()=>{ if(!confirm("Recomeçar esta prova do zero? As respostas salvas serão apagadas.")) return; setResp({}); setI(0); setSel(null); setNav(false); try{ chaveLS&&localStorage.removeItem(chaveLS); }catch(e){} };
+  const irPara=(n)=>{ setI(n); setSel(null); setNav(false); window.scrollTo(0,0); };
 
   if(prova.length===0) return <div className="card">Ainda não há questões suficientes no banco para o diagnóstico. Gere questões na aba Praticar.</div>;
 
@@ -5076,16 +5095,29 @@ function Diagnostico({pool,registrar,onFim,modo,questoesFixas,flag}){
   return <div>
     <div className="row" style={{justifyContent:"space-between",marginBottom:10}}>
       <b style={{fontSize:15}}>{modo==="completo"?"Simulado completo":modo==="enamed"?"🏛️ Prova Oficial ENAMED 2025.2":"Diagnóstico rápido"}</b>
-      <span className="muted" style={{fontSize:13}}>{i+1} de {prova.length}</span>
+      <span className="row" style={{gap:8,alignItems:"center"}}>
+        {chave&&<button className="btn ghost sm" style={{padding:"3px 9px",fontSize:12}} onClick={()=>setNav(v=>!v)} title="Escolher a questão">🔢 Ir para</button>}
+        {chave&&Object.keys(resp).length>0&&<button className="btn ghost sm" style={{padding:"3px 9px",fontSize:12}} onClick={reiniciar} title="Recomeçar do zero">↺</button>}
+        <span className="muted" style={{fontSize:13}}>{i+1} de {prova.length}</span>
+      </span>
     </div>
+    {chave&&nav&&<div className="card" style={{padding:12,marginBottom:12}}>
+      <div className="muted" style={{fontSize:12,marginBottom:8}}>Toque no número para ir direto à questão. <span style={{color:"var(--acc)"}}>■</span> acertou · <span style={{color:"var(--bad)"}}>■</span> errou · progresso salvo neste aparelho.</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(40px,1fr))",gap:6}}>
+        {prova.map((qq,n)=>{ const r=resp[qq.id]; const atual=n===i;
+          const st={padding:"7px 0",fontSize:13,fontWeight:600,borderRadius:8,cursor:"pointer",border:"1px solid var(--line)",background:atual?"var(--acc)":"transparent",color:atual?"#fff":"inherit"};
+          if(r&&!atual){ st.borderColor=r.ok?"var(--acc)":"var(--bad)"; st.color=r.ok?"var(--acc)":"var(--bad)"; }
+          return <button key={qq.id} style={st} onClick={()=>irPara(n)}>{n+1}</button>; })}
+      </div>
+    </div>}
     <div className="bar" style={{marginBottom:14}}><i style={{width:((i+1)/prova.length*100)+"%",background:"var(--acc)"}}/></div>
-    <QuestionCard q={q} indice={i} total={prova.length} onResp={(qq,ok)=>{
-      setResp(r=>({...r,[qq.id]:{ok,area:qq.area,tema:qq.tema}}));
+    <QuestionCard q={q} indice={i} total={prova.length} selInicial={resp[q.id]&&typeof resp[q.id].sel==="number"?resp[q.id].sel:null} onResp={(qq,ok,escolha)=>{
+      setResp(r=>({...r,[qq.id]:{ok,area:qq.area,tema:qq.tema,sel:(typeof escolha==="number"?escolha:undefined)}}));
       registrar&&registrar(qq,ok); setSel(ok);
     }}/>
     <div className="row" style={{justifyContent:"space-between",marginTop:14}}>
       <span className="muted" style={{fontSize:12}}>{modo==="completo"?"Sem pressa: responda como numa prova.":"Responda no seu chute honesto — é só um mapa."}</span>
-      <button className="btn sm" disabled={sel===null} onClick={()=>{
+      <button className="btn sm" disabled={!resp[q.id]} onClick={()=>{
         setSel(null);
         if(i<prova.length-1) setI(i+1); else setFim(true);
       }}>{i<prova.length-1?"Próxima":"Ver resultado"}</button>
@@ -5107,6 +5139,7 @@ function Simulado({pool,registrar,isPro}){
     {prova.map((q,idx)=><div key={q.id} className="card" style={{marginBottom:14}}>
       <div className="row" style={{gap:8,marginBottom:8}}><span className="muted" style={{fontSize:13}}>{idx+1}.</span><span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(q.area)}</span></div>
       <div style={{fontSize:15,lineHeight:1.55,marginBottom:4}}>{q.enun}</div>
+      <ImgQuestao src={q.imagem}/>
       {q.alts.map((a,i)=>{let c="alt";if(fim){if(i===q.correta)c+=" correct";else if(resp[q.id]===i)c+=" wrong";else c+=" dim";}else if(resp[q.id]===i)c+=" correct";
         return <button key={i} className={c} disabled={fim} onClick={()=>setResp(r=>({...r,[q.id]:i}))}><b style={{opacity:.7,marginRight:8}}>{L[i]}</b>{a}</button>;})}
       {fim&&<div className="comment">{q.coment}</div>}</div>)}
@@ -5243,6 +5276,7 @@ function RunnerEnamed({prova, gabModo, registrar, onVoltar}){
           <span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(q.area)}</span>
         </div>
         <div style={{fontSize:15,lineHeight:1.55,marginBottom:4}}>{q.enun}</div>
+        <ImgQuestao src={q.imagem}/>
         {q.alts.map((a,i)=>{
           let c="alt";
           if(mostrarGab){ if(i===q.correta)c+=" correct"; else if(resp[q.id]===i)c+=" wrong"; else c+=" dim"; }
