@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.17c";
+  window.APP_VERSION="2026.09.17d";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2439,7 +2439,7 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
     const num=q=>{const m=/_q(\d+)$/.exec(q.id||"");return m?+m[1]:9999;};
     return Object.keys(grupos).map(function(ed){
       const qs=grupos[ed].slice().sort((a,b)=>num(a)-num(b));
-      let nome=({"ENARE_2024_2025":"ENARE 2024/2025 · Acesso Direto","REVALIDA_2024_1":"Revalida 2024/1","REVALIDA_2025_1":"Revalida 2025/1","TPI_2026_1":"TPI 2026.1 · Afya","TPI_2025_1":"TPI 2025.1 · Afya","ENAMED_2025_2":"ENAMED 2025.2 · INEP","ENAMED_2026":"ENAMED 2026 · INEP (gabarito preliminar)"})[ed] || ((qs[0]&&qs[0].tema)?qs[0].tema:ed).replace(/\s·\sParte\s.*$/,"").trim();
+      let nome=({"STRIX_BA":"ABAEM 2026 · Acesso Direto (BA)","STRIX_AL":"ALAEM 2026 · Acesso Direto (AL)","ENARE_2024_2025":"ENARE 2024/2025 · Acesso Direto","REVALIDA_2024_1":"Revalida 2024/1","REVALIDA_2025_1":"Revalida 2025/1","TPI_2026_1":"TPI 2026.1 · Afya","TPI_2025_1":"TPI 2025.1 · Afya","ENAMED_2025_2":"ENAMED 2025.2 · INEP","ENAMED_2026":"ENAMED 2026 · INEP (gabarito preliminar)"})[ed] || ((qs[0]&&qs[0].tema)?qs[0].tema:ed).replace(/\s·\sParte\s.*$/,"").trim();
       return {ed:ed, nome:nome, qs:qs};
     }).sort((a,b)=>a.nome<b.nome?1:(a.nome>b.nome?-1:0));
   },[pool,flag]);
@@ -2983,7 +2983,7 @@ function Shell({session}){
       {tour && !diag && !revisando && !loading && <TourInicial isPro={isPro} trialAtivo={trialAtivo} onFim={()=>setTour(false)}/>}
       {pesquisa && !tour && !isPro && <PesquisaAdesao gatilho={pesquisa} onEnviar={enviarPesquisa} onAssinar={()=>setShowAssinar(true)} onDepois={()=>pesqDepois(pesquisa)} onFechar={()=>setPesquisa(null)}/>}
       <div className="nav" id="tour-nav">
-        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["enamed","📝 ENAMED"],["tpi","🎓 TPI"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Fale com o Suporte"],["dash","📈 Meu progresso"]].concat(isAdmin?[["admin","📊 Métricas"]]:[]).map(([k,l])=>
+        {[["trilha","📚 Estudar"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["enamed","📝 ENAMED"],["tpi","🎓 TPI"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["strix","🦉 Strix (SUS/BA e AL)"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Fale com o Suporte"],["dash","📈 Meu progresso"]].concat(isAdmin?[["admin","📊 Métricas"]]:[]).map(([k,l])=>
           <button key={k} className={tab===k?"on":""} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
 
@@ -2999,6 +2999,7 @@ function Shell({session}){
       {tab==="tecm" && <ExameProvas pool={questoes} registrar={registrar} flag="TECM" icone="🏛️" titulo="Título de Especialista em Clínica Médica" subtitulo="TÍTULO DE ESPECIALISTA · SBCM"/>}
       {tab==="revalida" && <ExameProvas pool={questoes} registrar={registrar} flag="REVALIDA" icone="🏥" titulo="Revalida" subtitulo="REVALIDAÇÃO DE DIPLOMA MÉDICO · INEP"/>}
       {tab==="enare" && <ExameProvas pool={questoes} registrar={registrar} flag="ENARE" icone="📋" titulo="ENARE" subtitulo="EXAME NACIONAL DE RESIDÊNCIA"/>}
+      {tab==="strix" && <ExameProvas pool={questoes} registrar={registrar} flag="STRIX" icone="🦉" titulo="Strix — SUS/BA e AL" subtitulo="STRIX · SUS/BA · AL"/>}
       {tab==="flash" && (acesso ? <Flashcards cards={FLASHCARDS} curriculo={CURRICULO} sb={sb} uid={uid}/> : <TravaFree titulo="Flashcards é PRO" texto="Revise todos os assuntos em cartões rápidos, com baralho diário e sequência de dias estudados." onAssinar={()=>setShowAssinar(true)}/>)}
       {tab==="dash" && (acesso ? <Dash store={store} temasFracos={temasFracos} onRefazer={()=>setDiag("rapido")}/> : <TravaFree titulo="Meu progresso é PRO" texto="Veja seu acerto por área, os temas onde mais erra e o quanto já dominou da trilha." onAssinar={()=>setShowAssinar(true)}/>)}
     </div>}
