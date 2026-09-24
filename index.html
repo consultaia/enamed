@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.25b";
+  window.APP_VERSION="2026.09.26";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2781,6 +2781,7 @@ function Shell({session}){
   const [streak,setStreak]=useState(()=>{try{return JSON.parse(localStorage.getItem("enamed_streak")||"null")}catch(e){return null}});
   const [revisando,setRevisando]=useState(false);
   const [pendentes,setPendentes]=useState(()=>obLer(uid).length);
+  const [marco,setMarco]=useState(null);
   const [meta,setMeta]=useState(()=>{try{return {...META_PADRAO,...JSON.parse(localStorage.getItem("preceptor_meta")||"{}")}}catch(e){return META_PADRAO}});
   const [metaDias,setMetaDias]=useState(()=>{try{return JSON.parse(localStorage.getItem("preceptor_meta_dias")||"[]")}catch(e){return []}});
   const [metaConfig,setMetaConfig]=useState(false);
@@ -2904,6 +2905,11 @@ function Shell({session}){
     return ()=>{ window.removeEventListener("online",tentar); document.removeEventListener("visibilitychange",vis); clearInterval(t); };
   },[uid]);
 
+  useEffect(()=>{ if(loading) return;
+    const novos=detectarMarcos(uid,{dominio:dominio,log:log,streak:streak});
+    if(novos.length && !marco) setMarco(novos[0]);
+  },[loading,dominio,log,streak]);
+
   const hojeMeta=dataLocal();
   const metaProg=useMemo(()=>calcMeta(log,meta,hojeMeta),[log,meta,hojeMeta]);
   useEffect(()=>{
@@ -2963,6 +2969,7 @@ function Shell({session}){
   if(loading) return <div className="center"><div className="muted">Sincronizando seu progresso...</div></div>;
 
   return <div>
+    {marco && <CelebraMarco marco={marco} uid={uid} onFechar={()=>setMarco(null)}/>}
     {pendentes>0 && <div className="card" style={{padding:"9px 13px",marginBottom:10,borderColor:"var(--warn)",display:"flex",alignItems:"center",gap:9}}>
       <span style={{fontSize:15}}>📡</span>
       <div style={{fontSize:13,lineHeight:1.4}}>
@@ -3079,6 +3086,7 @@ function Shell({session}){
         irAssunto={(t)=>{ try{window.__ABRIR_ASSUNTO&&window.__ABRIR_ASSUNTO(t.id);}catch(e){} }}
         irPraticar={()=>setTab("praticar")}
         irTodas={()=>{ try{document.getElementById("tour-diag")&&document.getElementById("tour-diag").scrollIntoView({behavior:"smooth",block:"center"});}catch(e){} }}/>}
+      {tab==="trilha" && <MensagemDoDia uid={uid}/>}
       {tab==="trilha" && <Trilha uid={uid} store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={acesso} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
       {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} metaHoje={metaProg} bloqueadas={acesso?0:bloqueadasFree} isPro={isPro} acesso={acesso} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
       {tab==="internato" && <Internato pool={questoes} registrar={registrar}/>}
@@ -4207,6 +4215,48 @@ function hMin(ms){ const m=Math.round((Date.now()-ms)/60000);
   const h=Math.round(m/60); if(h<24) return "há "+h+(h===1?" hora":" horas");
   const d=Math.round(h/24); return d===1?"ontem":("há "+d+" dias"); }
 
+/* ---- Marcos: reconhecer conquista, não só cobrar meta ------------------- */
+function marcosKey(uid){ return "preceptor_marcos_"+(uid||"anon"); }
+function marcosVistos(uid){ try{ const v=JSON.parse(PLS.get(marcosKey(uid))||"[]"); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
+function marcarMarco(uid,k){ try{ const v=marcosVistos(uid); if(v.indexOf(k)<0){ v.push(k); PLS.set(marcosKey(uid),JSON.stringify(v)); } }catch(e){} }
+function ordinalAssunto(n){
+  if(n===1) return {t:"Seu primeiro assunto concluído!",s:"Começar é a parte mais difícil — e você já passou dela."};
+  if(n===5) return {t:"5 assuntos concluídos",s:"Isso já é hábito, não sorte. Continue assim."};
+  if(n===10) return {t:"10 assuntos concluídos",s:"Você está construindo uma base sólida. Dá pra sentir a diferença nas questões."};
+  if(n===25) return {t:"25 assuntos concluídos",s:"Metade do caminho de muita gente que passa. Orgulho de acompanhar isso."};
+  if(n===50) return {t:"50 assuntos concluídos",s:"Isso é consistência de quem vai longe."};
+  return null;
+}
+function detectarMarcos(uid,dados){
+  const dominio=dados.dominio||{}, log=dados.log||[], streak=dados.streak;
+  const vistos=marcosVistos(uid), novos=[];
+  const push=(k,t,s,emoji)=>{ if(vistos.indexOf(k)<0) novos.push({k:k,t:t,s:s,emoji:emoji}); };
+  const feitos=Object.keys(dominio).length;
+  const o=ordinalAssunto(feitos); if(o) push("assuntos"+feitos,o.t,o.s,"\uD83C\uDF93");
+  (AREAS||[]).forEach(function(a){
+    const lista=CURRICULO.filter(function(x){return x.area===a.k;});
+    if(lista.length && lista.every(function(x){return !!dominio[x.id];}))
+      push("area"+a.k,"Você dominou "+areaNome(a.k)+" inteira!","Todos os assuntos da área concluídos. Poucos chegam aqui.","\uD83C\uDFC6");
+  });
+  const n=log.length;
+  [50,100,250,500,1000,2000].forEach(function(m){ if(n>=m) push("q"+m,m+" questões respondidas","Cada uma dessas deixou uma marca na sua memória.","\u270D\uFE0F"); });
+  const d=(streak&&streak.dias_seguidos)||0;
+  [7,14,30,60,100].forEach(function(m){ if(d>=m) push("streak"+m,m+" dias seguidos estudando",
+    m>=30?"Constância assim é o que separa quem passa de quem quase passa.":"Uma semana inteira sem quebrar o ritmo. Isso é disciplina.","\uD83D\uDD25"); });
+  return novos;
+}
+function CelebraMarco({marco,uid,onFechar}){
+  useEffect(()=>{ try{confete();}catch(e){} marcarMarco(uid,marco.k); },[marco.k]);
+  return <div style={{position:"fixed",inset:0,zIndex:9998,background:"rgba(0,0,0,.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:18}} onClick={onFechar}>
+    <div className="card" style={{maxWidth:400,textAlign:"center",padding:"30px 24px",borderColor:"var(--acc)"}} onClick={e=>e.stopPropagation()}>
+      <div style={{fontSize:48,lineHeight:1}}>{marco.emoji}</div>
+      <h2 style={{fontSize:21,margin:"12px 0 6px",lineHeight:1.25}}>{marco.t}</h2>
+      <div className="muted" style={{fontSize:14.5,lineHeight:1.5}}>{marco.s}</div>
+      <button className="btn" style={{marginTop:18}} onClick={onFechar}>Continuar →</button>
+    </div>
+  </div>;
+}
+
 function apelidoKey(uid){ return "preceptor_apelido_"+(uid||"anon"); }
 function lerApelido(uid){ try{ return PLS.get(apelidoKey(uid))||""; }catch(e){ return ""; } }
 function ultimaVisitaKey(uid){ return "preceptor_ultima_visita_"+(uid||"anon"); }
@@ -4332,6 +4382,83 @@ function ProximoPasso({session,uid,store,srs,poolVisivel,temasFracos,metaProg,ac
       <span className="link" style={{fontSize:13}} onClick={irTodas}>Hoje eu quero outra coisa →</span>
       <span className="link muted" style={{fontSize:12}} onClick={()=>setPerguntar(true)}>mudar como me chama</span>
     </div>
+  </div>;
+}
+
+const MSGS=[{"k":"B","t":"Uma coisa de cada vez","c":"“Basta a cada dia o seu mal.” (Mateus 6,34)","r":"Jesus não disse para não planejar. Disse para não carregar hoje o peso de amanhã. Você não precisa dar conta das 2.800 questões hoje — precisa dar conta das de hoje. Feche o app sabendo que a parte de amanhã não é sua ainda."},{"k":"B","t":"A força que não é sua","c":"“Tudo posso naquele que me fortalece.” (Filipenses 4,13)","r":"Paulo escreveu isso preso, não vitorioso. O versículo não promete que tudo vai dar certo: promete companhia na falta. Nos dias em que você abrir o material e não render nada, ele continua valendo."},{"k":"B","t":"Para quem está exausto","c":"“Vinde a mim, todos os que estais cansados.” (Mateus 11,28)","r":"O convite é dirigido justamente a quem não está dando conta. Descanso não é prêmio por produtividade — é necessidade. Dormir mal para estudar mais costuma custar mais do que rende."},{"k":"B","t":"Sobre ter medo","c":"“Não temas, porque eu sou contigo.” (Isaías 41,10)","r":"A promessa não é ausência de medo, é presença na travessia. Você vai sentir medo antes da prova, no primeiro plantão, na primeira intercorrência. Sentir medo e seguir mesmo assim é o que se chama coragem."},{"k":"B","t":"O pouco que se tem","c":"Davi enfrentou Golias com cinco pedras e um estilingue, recusando a armadura de Saul (1 Samuel 17).","r":"Ele venceu com o que sabia usar, não com o equipamento dos outros. Não espere ter o cursinho caro, o tempo ideal ou a rotina perfeita. Comece com as suas cinco pedras."},{"k":"B","t":"Sobre recomeçar","c":"“Sete vezes cai o justo, e se levanta.” (Provérbios 24,16)","r":"Repare: o justo CAI. A marca do justo não é nunca errar, é levantar. Reprovar numa prova, errar num diagnóstico, perder um mês — nada disso te define. O que define é o que vem depois."},{"k":"B","t":"O trabalho feito com capricho","c":"“Tudo quanto fizerdes, fazei-o de todo o coração.” (Colossenses 3,23)","r":"Vale para a anamnese que ninguém vai conferir, para o prontuário do paciente que não reclama, para a questão que você poderia só chutar. A qualidade que você entrega quando ninguém vê é a que vira o seu padrão."},{"k":"B","t":"Constância vale mais que intensidade","c":"“O que semeia com abundância, com abundância colherá.” (2 Coríntios 9,6)","r":"Colheita não é imediata — essa é a parte difícil. Você estuda hoje e o resultado aparece meses depois. Quem desiste, quase sempre desiste no intervalo entre a semeadura e a colheita."},{"k":"B","t":"Quando o resultado demora","c":"“Os que esperam no Senhor renovarão as suas forças.” (Isaías 40,31)","r":"Esperar aqui não é ficar parado: no original, a palavra carrega a ideia de se entrelaçar, de se apoiar. É seguir apoiado em algo maior que a própria disposição do dia."},{"k":"B","t":"Sobre comparar-se","c":"“Cada um examine a sua própria obra.” (Gálatas 6,4)","r":"O colega que passou primeiro tinha outra história, outra rotina, outro ponto de partida. Comparar trajetórias diferentes só produz desânimo. Compare-se com quem você era há seis meses."},{"k":"B","t":"A lâmpada para o caminho","c":"“Lâmpada para os meus pés é a tua palavra.” (Salmo 119,105)","r":"Lâmpada de pé ilumina o próximo passo, não a estrada inteira. Talvez você não veja como vai ser a residência, a especialização, os próximos cinco anos. Você só precisa enxergar o suficiente para o passo de hoje."},{"k":"B","t":"Quando ninguém reconhece","c":"“O teu Pai, que vê o que está oculto, te recompensará.” (Mateus 6,4)","r":"As horas que você passou estudando de madrugada ninguém viu. O paciente que você examinou com cuidado extra não soube. Nada disso se perde — mesmo quando não vira elogio nem nota."},{"k":"B","t":"Sobre a pressa","c":"“Tudo tem o seu tempo determinado.” (Eclesiastes 3,1)","r":"Há tempo de aprender e tempo de aplicar, tempo de errar muito e tempo de acertar. Estar no internato significa estar no tempo de errar sob supervisão — aproveite, porque depois o erro custa mais caro."},{"k":"B","t":"O peso que se divide","c":"“Levai as cargas uns dos outros.” (Gálatas 6,2)","r":"Estudar sozinho parece mais rápido, mas é mais frágil. Explicar um assunto para um colega é o melhor teste de que você realmente entendeu — e o colega que te explica o que você não sabe economiza suas semanas."},{"k":"B","t":"Sobre servir","c":"“Não veio para ser servido, mas para servir.” (Mateus 20,28)","r":"Você escolheu uma profissão em que a competência técnica existe para servir alguém vulnerável. Nos dias em que o estudo parecer abstrato demais, lembre que do outro lado da prova existe gente."},{"k":"H","t":"José e os anos de espera","c":"José foi vendido pelos irmãos, escravizado, acusado injustamente e esquecido na prisão por anos antes de qualquer coisa fazer sentido (Gênesis 37–50).","r":"A parte que ninguém conta é que ele passou mais de uma década em situações que pareciam puro desperdício de tempo. Anos de estudo que hoje parecem inúteis podem ser exatamente o que vai sustentar você depois."},{"k":"H","t":"Moisés e o 'eu não sou capaz'","c":"Chamado para liderar, Moisés alegou que não sabia falar e pediu que Deus mandasse outro (Êxodo 3–4).","r":"O homem considerado o maior líder do Antigo Testamento começou dizendo que não servia. Aquela sua sensação de estar despreparado diante do paciente não é sinal de que você escolheu errado — é o começo de quase todo mundo que fez algo difícil."},{"k":"H","t":"Elias debaixo da árvore","c":"Depois da maior vitória da sua vida, Elias fugiu, sentou debaixo de um arbusto e pediu para morrer. A resposta que recebeu foi comida e sono, antes de qualquer palavra (1 Reis 19).","r":"O texto trata o colapso dele com uma delicadeza impressionante: primeiro o corpo, depois a alma. Se você está no limite, talvez o problema não seja falta de fé nem de disciplina. Talvez seja falta de comida e de sono."},{"k":"H","t":"Neemias e o muro","c":"Neemias reconstruiu a muralha de Jerusalém em 52 dias, dividindo a obra: cada família cuidava do trecho em frente à própria casa (Neemias 3).","r":"Ninguém construiu o muro inteiro. Cada um fez o seu pedaço, e o pedaço era o que estava logo à frente. O edital inteiro é intimidante; o assunto de hoje, não."},{"k":"H","t":"Gideão e os trezentos","c":"Gideão tinha 32 mil homens e terminou com 300, e ainda assim venceu (Juízes 7).","r":"Menos recurso, mais foco. Você não precisa de todos os livros, de todos os cursinhos, de todos os aplicativos. Precisa de um material bom e de constância nele."},{"k":"H","t":"Rute, a estrangeira","c":"Rute era viúva, estrangeira e pobre, e começou catando sobras de trigo no campo alheio (Rute 2).","r":"Ela começou do lugar mais baixo possível e terminou na genealogia de Davi. De onde você começa importa muito menos do que se costuma dizer."},{"k":"H","t":"Naamã e a cura simples","c":"Naamã, general poderoso, se ofendeu quando a cura prescrita foi apenas mergulhar sete vezes no rio — esperava algo grandioso (2 Reis 5).","r":"Quase desistiu porque a solução era simples demais. Revisão espaçada, questões comentadas e sono regular também parecem simples demais. É por isso que tanta gente ignora."},{"k":"H","t":"O talento enterrado","c":"Na parábola dos talentos, o servo repreendido não foi o que perdeu dinheiro, mas o que enterrou o seu por medo (Mateus 25).","r":"O medo de errar produz paralisia, e paralisia é o único resultado garantidamente ruim. Responder a questão e errar ensina; não responder, não."},{"k":"H","t":"A viúva e as duas moedas","c":"Ela deu duas moedinhas, e Jesus disse que tinha dado mais que todos os ricos, porque deu do que lhe fazia falta (Marcos 12,41-44).","r":"Trinta minutos de estudo num dia de plantão pesado valem mais que três horas num domingo tranquilo. O valor não está no tamanho, está no custo."},{"k":"D","t":"O efeito do espaçamento","c":"Ebbinghaus mostrou, ainda no século XIX, que esquecemos a maior parte do que aprendemos em poucos dias — a menos que revisemos em intervalos crescentes.","r":"Reler o resumo dá sensação de domínio e produz pouca retenção. Tentar lembrar SEM olhar dá sensação de fracasso e produz muita. Confie no processo desconfortável, não na sensação boa."},{"k":"D","t":"Fracasso não é identidade","c":"Carol Dweck distingue mentalidade fixa (\"eu não sou bom nisso\") de mentalidade de crescimento (\"eu ainda não sou bom nisso\").","r":"A palavra que muda tudo é AINDA. Errar 70% de uma área não significa que você é ruim naquilo; significa que aquilo ainda não foi estudado direito. Uma é sentença, a outra é diagnóstico."},{"k":"D","t":"Persistência vale mais que talento","c":"Angela Duckworth acompanhou cadetes, professores e estudantes e encontrou o mesmo padrão: a constância ao longo do tempo previu sucesso melhor que talento ou QI.","r":"A boa notícia é que constância se constrói e talento não. O aluno mediano que estuda todo dia passa o brilhante que estuda por impulso."},{"k":"D","t":"Comece menor do que você acha que deve","c":"O maior inimigo do hábito não é a preguiça, é a meta grande demais. Quem promete 4 horas e não consegue, não faz nada.","r":"Prometa 20 minutos. Vinte minutos cumpridos por 30 dias viram um hábito; quatro horas prometidas e não cumpridas viram culpa — e culpa afasta do app."},{"k":"D","t":"O poder de não quebrar a corrente","c":"Marcar no calendário cada dia em que você estudou cria um efeito curioso: a vontade de não interromper a sequência passa a sustentar o hábito.","r":"E a regra que salva: nunca falhe dois dias seguidos. Um dia perdido é acidente, dois é o começo de outra rotina."},{"k":"D","t":"A prática deliberada é desconfortável","c":"Ericsson mostrou que o que distingue os melhores não é o tempo praticado, mas praticar exatamente aquilo em que se é ruim, com correção imediata.","r":"Traduzindo para o seu dia: fuja da tentação de revisar o que você já sabe porque dá prazer acertar. Vá para a área onde seu acerto é 40%."},{"k":"D","t":"Autocompaixão rende mais que autocobrança","c":"Kristin Neff demonstrou que tratar o próprio erro com a gentileza que você usaria com um amigo aumenta — e não diminui — a chance de voltar a tentar.","r":"A voz que te xinga depois de uma prova ruim não está te disciplinando. Está aumentando a chance de você evitar o material amanhã."},{"k":"D","t":"O esforço de recordar","c":"Testar-se é mais eficiente que reler: o esforço de puxar a informação da memória é o que fortalece o traço.","r":"Por isso questão comentada vale mais que resumo bonito, e flashcard vale mais que grifar. Se o estudo está confortável demais, provavelmente está rendendo pouco."},{"k":"D","t":"Sono não é tempo perdido","c":"É durante o sono que a memória do dia se consolida. Noite maldormida apaga boa parte do que foi estudado no dia anterior.","r":"Trocar sono por mais duas horas de estudo costuma ser prejuízo líquido. Não é preguiça dormir — é método."},{"k":"D","t":"O primeiro passo vence a procrastinação","c":"A procrastinação raramente é preguiça: costuma ser fuga de uma emoção ruim ligada à tarefa — medo de não dar conta, tédio, perfeccionismo.","r":"O truque é diminuir a tarefa até ela ficar fácil demais para ter medo. Não \"estudar cardiologia\": abrir o app e responder UMA questão."},{"k":"D","t":"Progresso invisível também é progresso","c":"Em habilidades complexas, o avanço acontece em platôs: você estuda semanas sem ver melhora e então salta de uma vez.","r":"Se você está no platô, a conclusão errada é \"não estou aprendendo\". A conclusão certa é \"a consolidação ainda não apareceu no resultado\"."},{"k":"D","t":"Ambiente pesa mais que força de vontade","c":"Quem deixa o celular em outro cômodo estuda mais do que quem promete não olhar o celular.","r":"Não dispute com a própria força de vontade: ela acaba. Mude o ambiente uma vez e ele trabalha por você todos os dias."},{"k":"D","t":"Você não precisa estar motivado","c":"A motivação é consequência da ação com muito mais frequência do que causa. Quem espera vontade chegar, espera muito.","r":"Sente-se, abra o material e faça cinco minutos ruins. Na maioria das vezes, a vontade aparece depois do começo — não antes."},{"k":"D","t":"Sobre a síndrome do impostor","c":"A sensação de estar enganando todo mundo e de que a qualquer momento vão descobrir é quase universal entre estudantes de medicina.","r":"Ela costuma acompanhar quem tem padrão alto, não quem é incompetente. Quem realmente não sabe, em geral, não desconfia de si."},{"k":"D","t":"Reduza o que você acompanha","c":"Acompanhar dez fontes, três cursinhos e cinco cronogramas gera a ilusão de estar fazendo muito e a realidade de não terminar nada.","r":"Escolha um material principal e trate os outros como consulta. Profundidade em um caminho rende mais que superfície em cinco."},{"k":"D","t":"O dia ruim faz parte do plano","c":"Todo plano de estudo realista precisa prever dias em que nada vai render — plantão, doença, cansaço, vida.","r":"Quem planeja 100% de execução quebra na primeira semana. Planeje 70% e trate o resto como bônus."}];
+
+/* ---- Mensagem do dia (opcional) -----------------------------------------
+   Três trilhas à escolha do aluno, ou desligada. Nunca aparece sem que ele
+   tenha escolhido, e desligar é um toque.                                  */
+const MSG_TRILHAS=[
+  {k:"B",nome:"Versículo e reflexão",desc:"Uma passagem curta da Bíblia com uma reflexão aplicada ao estudo."},
+  {k:"H",nome:"Histórias bíblicas",desc:"Personagens e episódios bíblicos lidos pela lente de quem estuda."},
+  {k:"D",nome:"Desenvolvimento pessoal",desc:"Hábito, memória, motivação e mentalidade, sem conteúdo religioso."}
+];
+function msgPrefKey(uid){ return "preceptor_msg_pref_"+(uid||"anon"); }
+function lerMsgPref(uid){ try{ return JSON.parse(PLS.get(msgPrefKey(uid))||"null"); }catch(e){ return null; } }
+function salvarMsgPref(uid,p){ try{ PLS.set(msgPrefKey(uid),JSON.stringify(p)); }catch(e){} }
+
+function MensagemDoDia({uid}){
+  const [pref,setPref]=useState(()=>lerMsgPref(uid));
+  const [config,setConfig]=useState(false);
+  const [oculta,setOculta]=useState(false);
+  const definir=(p)=>{ salvarMsgPref(uid,p); setPref(p); setConfig(false); };
+
+  /* nunca aparece sem escolha: o convite é discreto e se dispensa num toque */
+  if(!pref&&!config){
+    if(oculta) return null;
+    return <div className="card" style={{padding:"11px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+      <span style={{fontSize:15}}>🌱</span>
+      <div style={{flex:"1 1 200px",fontSize:13.5,lineHeight:1.45}}>
+        <b>Quer uma mensagem do dia?</b>
+        <div className="muted" style={{fontSize:12.5}}>Um minuto de reflexão antes de estudar. Você escolhe o tipo — e pode desligar quando quiser.</div>
+      </div>
+      <span className="row" style={{gap:8}}>
+        <button className="btn sm" onClick={()=>setConfig(true)}>Escolher</button>
+        <button className="btn ghost sm" onClick={()=>{setOculta(true);salvarMsgPref(uid,{off:true});setPref({off:true});}}>Não, obrigado</button>
+      </span>
+    </div>;
+  }
+
+  if(config) return <div className="card" style={{padding:18,marginBottom:14,borderColor:"var(--acc)"}}>
+    <b style={{fontSize:16}}>Mensagem do dia</b>
+    <div className="muted" style={{fontSize:13,margin:"6px 0 12px"}}>Escolha o que faz sentido para você. Dá pra trocar ou desligar depois.</div>
+    {MSG_TRILHAS.map(tr=>{ const ativo=pref&&!pref.off&&(pref.k||[]).indexOf(tr.k)>=0;
+      return <div key={tr.k} onClick={()=>{ const atual=(pref&&pref.k)||[];
+          const nova=atual.indexOf(tr.k)>=0?atual.filter(x=>x!==tr.k):atual.concat([tr.k]);
+          setPref({off:false,k:nova}); }}
+        className="card" style={{padding:"11px 13px",marginBottom:8,cursor:"pointer",borderColor:ativo?"var(--acc)":"var(--line)"}}>
+        <div className="row" style={{gap:9,alignItems:"flex-start"}}>
+          <span style={{color:ativo?"var(--acc)":"var(--muted)",fontSize:15,lineHeight:1.3}}>{ativo?"◉":"○"}</span>
+          <div><b style={{fontSize:14.5}}>{tr.nome}</b>
+            <div className="muted" style={{fontSize:12.5,marginTop:2}}>{tr.desc}</div></div>
+        </div>
+      </div>; })}
+    <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
+      <button className="btn" onClick={()=>definir({off:false,k:((pref&&pref.k)||["D"])})}>Salvar</button>
+      <button className="btn ghost" onClick={()=>definir({off:true})}>Desligar mensagens</button>
+    </div>
+  </div>;
+
+  if(pref.off||!(pref.k||[]).length) return null;
+
+  const pool=MSGS.filter(m=>(pref.k||[]).indexOf(m.k)>=0);
+  if(!pool.length) return null;
+  const i=((__diaIndex()%pool.length)+pool.length)%pool.length;
+  const ordem=(()=>{ const n=pool.length,ix=pool.map((_,j)=>j),r=__rng(20260202);
+    for(let j=n-1;j>0;j--){const q=Math.floor(r()*(j+1));const t=ix[j];ix[j]=ix[q];ix[q]=t;} return ix; })();
+  const m=pool[ordem[i]];
+
+  return <div className="card" style={{padding:"17px 19px",marginBottom:14}}>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center",marginBottom:7}}>
+      <div className="tag" style={{color:"var(--acc2,var(--acc))"}}>🌱 MENSAGEM DO DIA</div>
+      <span className="link muted" style={{fontSize:11.5}} onClick={()=>setConfig(true)}>ajustar</span>
+    </div>
+    <b style={{fontSize:16,display:"block",marginBottom:7,lineHeight:1.3}}>{m.t}</b>
+    <div style={{fontSize:14.5,lineHeight:1.55,fontStyle:m.k==="B"?"italic":"normal",
+      paddingLeft:m.k!=="D"?12:0,borderLeft:m.k!=="D"?"2px solid var(--line)":"none"}}>{m.c}</div>
+    <div style={{fontSize:14.5,lineHeight:1.55,marginTop:9,color:"var(--muted)"}}>{m.r}</div>
   </div>;
 }
 
@@ -5771,7 +5898,7 @@ function EstudarAssunto({t,store,avaliarDominio,registrar,irTreinar,isPro,onAssi
       <button className="btn ghost sm" disabled={etapa===0} onClick={()=>irPara(etapa-1)}>← Voltar</button>
       {etapa<etapas.length-1
         ? <button className="btn sm" onClick={()=>irPara(etapa+1)}>{["Entendi, como penso?","Agora pratico","Fixar e avaliar"][etapa]} →</button>
-        : <button className="btn sm" onClick={()=>{ if(onFim)onFim(); else irTreinar(); }}>✓ Concluir assunto</button>}
+        : <button className="btn sm" onClick={()=>{ if(onFim)onFim(); else irTreinar(); }}>✓ Concluir {t.nome}</button>}
     </div>
   </div>;
 }
