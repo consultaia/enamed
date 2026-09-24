@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.24";
+  window.APP_VERSION="2026.09.25";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2446,6 +2446,31 @@ var PLS=(function(){
 })();
 try{ window.PLS=PLS; }catch(_e){}
 
+/* ---- Fila de envio (desempenho offline) ---------------------------------
+   Antes, cada resposta ia direto para o Supabase sem rede de segurança: se a
+   conexão caísse (comum no celular), a resposta se perdia e o restante da
+   função nem rodava. Agora TODA resposta é gravada localmente primeiro e só
+   então enviada; o que não sai fica na fila e é reenviado depois.          */
+function OBKEY(uid){ return "preceptor_fila_"+(uid||"anon"); }
+function obLer(uid){ try{ const v=JSON.parse(PLS.get(OBKEY(uid))||"[]"); return Array.isArray(v)?v:[]; }catch(e){ return []; } }
+function obGravar(uid,arr){ try{ PLS.set(OBKEY(uid),JSON.stringify(arr.slice(-800))); }catch(e){} }
+function obEnfileirar(uid,item){ const a=obLer(uid); a.push(item); obGravar(uid,a); return a.length; }
+async function obEnviar(sb,uid,aoMudar){
+  let fila=obLer(uid); if(!fila.length) return 0;
+  const restante=[];
+  for(const it of fila){
+    let ok=true;
+    try{
+      if(it.r){ const {error}=await sb.from("respostas").insert(it.r); if(error) ok=false; }
+      if(ok&&it.s){ const {error}=await sb.from("srs").upsert(it.s); if(error) ok=false; }
+    }catch(e){ ok=false; }
+    if(!ok) restante.push(it);
+  }
+  obGravar(uid,restante);
+  if(aoMudar) try{ aoMudar(restante.length); }catch(e){}
+  return restante.length;
+}
+
 function progressoProva(chave){ try{ const v=JSON.parse(PLS.get("preceptor_prova_"+chave)||"null"); if(v&&v.resp) return {n:Object.keys(v.resp).length,i:v.i||0}; }catch(e){} return null; }
 function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
   const lsAberta="preceptor_prova_aberta_"+flag;
@@ -2755,6 +2780,7 @@ function Shell({session}){
   const [showAssinar,setShowAssinar]=useState(false);
   const [streak,setStreak]=useState(()=>{try{return JSON.parse(localStorage.getItem("enamed_streak")||"null")}catch(e){return null}});
   const [revisando,setRevisando]=useState(false);
+  const [pendentes,setPendentes]=useState(()=>obLer(uid).length);
   const [meta,setMeta]=useState(()=>{try{return {...META_PADRAO,...JSON.parse(localStorage.getItem("preceptor_meta")||"{}")}}catch(e){return META_PADRAO}});
   const [metaDias,setMetaDias]=useState(()=>{try{return JSON.parse(localStorage.getItem("preceptor_meta_dias")||"[]")}catch(e){return []}});
   const [metaConfig,setMetaConfig]=useState(false);
@@ -2825,7 +2851,11 @@ function Shell({session}){
     qs=embaralharLista(qs);
     try{window.ENAMED_OFICIAL=embaralharLista(window.ENAMED_OFICIAL||[]);}catch(_e){}
     try{window.__ALLQ=qs.concat(window.ENAMED_OFICIAL||[]);}catch(_e){} setQuestoes(qs);
-    setLog((r.data||[]).map(x=>({id:x.questao_id,area:x.area,tema:x.tema,ok:x.acertou,dia:dataLocal(x.criado_em||x.created_at)})));
+    await obEnviar(sb,uid,setPendentes);
+    const fila=obLer(uid); setPendentes(fila.length);
+    const doServidor=(r.data||[]).map(x=>({id:x.questao_id,area:x.area,tema:x.tema,ok:x.acertou,dia:dataLocal(x.criado_em||x.created_at)}));
+    /* respostas que ainda não subiram entram no desempenho do mesmo jeito */
+    setLog(doServidor.concat(fila.filter(i=>i&&i.log).map(i=>i.log)));
     if(mt&&mt.data){const m={meta:mt.data.meta||20,modo:mt.data.modo||"geral",area_foco:mt.data.area_foco||"CM"};setMeta(m);try{localStorage.setItem("preceptor_meta",JSON.stringify(m))}catch(e){}}
     if(va&&va.data){setVideoaulas(va.data||[]);try{window.__VIDEOAULAS=va.data||[];}catch(e){}}
     try{ const m={}; (stq&&stq.data||[]).forEach(x=>{m[x.questao_id]={n:+x.n,ok:+x.acertos};}); window.__STATS=m; }catch(e){}
@@ -2833,7 +2863,9 @@ function Shell({session}){
     if(pp&&pp.data&&pp.data[0]){setPrimeiraPaga(pp.data[0]);}
     if(md&&md.data){const ds=(md.data||[]).map(x=>(x.dia+"").slice(0,10));setMetaDias(ds);try{localStorage.setItem("preceptor_meta_dias",JSON.stringify(ds))}catch(e){}}
     const dm={};(d.data||[]).forEach(x=>dm[x.topico_id]={nivel:x.nivel,last:x.atualizado_em});setDominio(dm);
-    const sr={};(s.data||[]).forEach(x=>sr[x.questao_id]={ef:x.ef,intervalo:x.intervalo,reps:x.reps,due:x.due});setSrs(sr);
+    const sr={};(s.data||[]).forEach(x=>sr[x.questao_id]={ef:x.ef,intervalo:x.intervalo,reps:x.reps,due:x.due});
+    fila.forEach(i=>{ if(i&&i.s) sr[i.s.questao_id]={ef:i.s.ef,intervalo:i.s.intervalo,reps:i.s.reps,due:i.s.due}; });
+    setSrs(sr);
     setAssinatura((a.data&&a.data[0])||{plano:"free",status:"ativa"});
     if(st&&st.data){ setStreak(st.data); try{localStorage.setItem("enamed_streak",JSON.stringify(st.data))}catch(e){} }
     setLoading(false);
@@ -2863,6 +2895,15 @@ function Shell({session}){
     window.__REGISTRAR_ERRO=(q,motivo)=>{ const row={user_id:uid,questao_id:q.id,area:q.area,tema:q.tema,motivo,criado_em:new Date().toISOString()}; setCaderno(c=>[row,...c].slice(0,400)); try{ sb.from("caderno_erros").insert(row).then(()=>{},()=>{}); }catch(e){} };
   }catch(e){} },[isPro,acesso,uid]);
 
+  /* reenvia a fila quando a conexão volta ou quando o app retorna do segundo plano */
+  useEffect(()=>{
+    const tentar=()=>{ if(navigator.onLine!==false) obEnviar(sb,uid,setPendentes); };
+    const vis=()=>{ if(document.visibilityState==="visible") tentar(); };
+    window.addEventListener("online",tentar); document.addEventListener("visibilitychange",vis);
+    const t=setInterval(tentar,60000);
+    return ()=>{ window.removeEventListener("online",tentar); document.removeEventListener("visibilitychange",vis); clearInterval(t); };
+  },[uid]);
+
   const hojeMeta=dataLocal();
   const metaProg=useMemo(()=>calcMeta(log,meta,hojeMeta),[log,meta,hojeMeta]);
   useEffect(()=>{
@@ -2876,11 +2917,16 @@ function Shell({session}){
     try{ await sb.from("meta_diaria").upsert({user_id:uid,meta:m.meta,modo:m.modo,area_foco:m.area_foco,atualizado_em:new Date().toISOString()}); }catch(e){}
   };
   const registrar=async(q,ok)=>{
-    setLog(l=>[...l,{id:q.id,area:q.area,tema:q.tema,ok,dia:dataLocal()}]);
+    const entrada={id:q.id,area:q.area,tema:q.tema,ok,dia:dataLocal()};
+    setLog(l=>[...l,entrada]);
     const nova=schedule(srs[q.id],ok);
     setSrs(s=>({...s,[q.id]:nova}));
-    await sb.from("respostas").insert({user_id:uid,questao_id:q.id,area:q.area,tema:q.tema,acertou:ok});
-    await sb.from("srs").upsert({user_id:uid,questao_id:q.id,ef:nova.ef,intervalo:nova.intervalo,reps:nova.reps,due:nova.due});
+    /* grava localmente ANTES de tentar a rede: nada se perde se a conexão cair */
+    const item={ t:Date.now(), log:entrada,
+      r:{user_id:uid,questao_id:q.id,area:q.area,tema:q.tema,acertou:ok},
+      s:{user_id:uid,questao_id:q.id,ef:nova.ef,intervalo:nova.intervalo,reps:nova.reps,due:nova.due} };
+    setPendentes(obEnfileirar(uid,item));
+    obEnviar(sb,uid,setPendentes);
     // streak diário (conta 1x por dia, na primeira questão respondida)
     try{
       const hoje=new Date().toISOString().slice(0,10);
@@ -2917,6 +2963,13 @@ function Shell({session}){
   if(loading) return <div className="center"><div className="muted">Sincronizando seu progresso...</div></div>;
 
   return <div>
+    {pendentes>0 && <div className="card" style={{padding:"9px 13px",marginBottom:10,borderColor:"var(--warn)",display:"flex",alignItems:"center",gap:9}}>
+      <span style={{fontSize:15}}>📡</span>
+      <div style={{fontSize:13,lineHeight:1.4}}>
+        <b>{pendentes} {pendentes===1?"resposta guardada":"respostas guardadas"} neste aparelho</b>
+        <div className="muted" style={{fontSize:12}}>Sem conexão agora — já contam no seu desempenho e sobem sozinhas quando a internet voltar.</div>
+      </div>
+    </div>}
     <div className="row" style={{justifyContent:"space-between",alignItems:"flex-start"}}>
       <div>
         <div className="tag" style={{color:"var(--acc)"}}>PRECEPTOR <span title="Versão da plataforma" style={{opacity:.5,fontWeight:400,letterSpacing:0,fontSize:11}}>v{window.APP_VERSION}</span></div>
@@ -3020,6 +3073,12 @@ function Shell({session}){
       {tab==="suporte" && <Suporte uid={uid}/>}
       {tab==="gemeas" && sprintGemeas && <div><button className="btn ghost sm" style={{marginBottom:10}} onClick={()=>{setSprintGemeas(null);setTab("praticar");}}>← Voltar</button><RodizioSprint qs={sprintGemeas.qs} label={sprintGemeas.label} registrar={registrar} onVoltar={()=>{setSprintGemeas(null);setTab("praticar");}}/></div>}
       {tab==="dicas" && <DicasDoDia/>}
+      {tab==="trilha" && <ProximoPasso session={session} uid={uid} store={store} srs={srs} poolVisivel={poolVisivel}
+        temasFracos={temasFracos} metaProg={metaProg} acertoArea={acertoArea} streak={streak}
+        irRevisar={()=>setRevisando(true)}
+        irAssunto={(t)=>{ try{window.__ABRIR_ASSUNTO&&window.__ABRIR_ASSUNTO(t.id);}catch(e){} }}
+        irPraticar={()=>setTab("praticar")}
+        irTodas={()=>{ try{document.getElementById("tour-diag")&&document.getElementById("tour-diag").scrollIntoView({behavior:"smooth",block:"center"});}catch(e){} }}/>}
       {tab==="trilha" && <Trilha store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={acesso} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
       {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} metaHoje={metaProg} bloqueadas={acesso?0:bloqueadasFree} isPro={isPro} acesso={acesso} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
       {tab==="internato" && <Internato pool={questoes} registrar={registrar}/>}
@@ -3061,6 +3120,8 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
   // assuntos de uma area, em ordem de rendimento (o caminho)
   const caminho=k=>CURRICULO.filter(t=>t.area===k).sort((a,b)=>b.yield-a.yield);
   const abrir=t=>{ if(!liberado(t)){onAssinar();return;} setAberto(t.id); window.scrollTo(0,0); };
+  useEffect(()=>{ try{ window.__ABRIR_ASSUNTO=(id)=>{ const t=CURRICULO.find(x=>x.id===id); if(!t) return;
+    if(!liberado(t)){onAssinar();return;} setAreaSel(t.area); setAberto(t.id); window.scrollTo(0,0); }; }catch(e){} },[isPro]);
 
   /* ---------- ESTADO 3: estudando um assunto (tela cheia) ---------- */
   if(aberto){
@@ -4111,6 +4172,135 @@ function DicasDoDia(){
         <button className="btn ghost sm" style={{marginTop:10,padding:"4px 10px",fontSize:12}} onClick={()=>marcar(i)}>
           {ok?"Desmarcar":"Marcar como dominada"}</button>
       </details>; })}
+  </div>;
+}
+
+/* ---- Saudação + Próximo passo -------------------------------------------
+   O preceptor não pergunta "o que você quer fazer hoje?" — ele diz onde a
+   aluna está, onde parou e qual é a prioridade AGORA, com um botão só.     */
+function primeiroNome(session){
+  try{ const m=session&&session.user&&session.user.user_metadata;
+    const n=(m&&(m.nome||m.name||m.full_name))||"";
+    return (""+n).trim().split(/\s+/)[0]||""; }catch(e){ return ""; }
+}
+function apelidoKey(uid){ return "preceptor_apelido_"+(uid||"anon"); }
+function lerApelido(uid){ try{ return PLS.get(apelidoKey(uid))||""; }catch(e){ return ""; } }
+function ultimaVisitaKey(uid){ return "preceptor_ultima_visita_"+(uid||"anon"); }
+
+function saudacaoTexto(nome,diasFora,primeiraVez){
+  const h=new Date().getHours();
+  const parte=h<12?"Bom dia":h<18?"Boa tarde":"Boa noite";
+  const n=nome?(", "+nome):"";
+  if(primeiraVez) return {t:"Bem-vinda ao Preceptor"+n, s:"Vou te dizer, a cada dia, exatamente por onde seguir."};
+  if(diasFora===0)  return {t:parte+n, s:"Bom te ver de novo por aqui hoje."};
+  if(diasFora===1)  return {t:"Que bom que você voltou"+n, s:"Ontem você esteve aqui. Manter o ritmo é o que faz a diferença."};
+  if(diasFora<=3)   return {t:"Que bom que você voltou"+n, s:"Faz "+diasFora+" dias. Dá pra retomar sem susto — comece pela revisão."};
+  if(diasFora<=14)  return {t:"Que bom que você voltou"+n, s:"Faz "+diasFora+" dias que a gente não se via. Nada se perdeu: seu progresso está todo aqui."};
+  return {t:"Que bom que você voltou"+n, s:"Faz um tempo. Vamos recomeçar com calma, um assunto de cada vez."};
+}
+
+function ApelidoPrompt({uid,sugestao,onPronto}){
+  const [v,setV]=useState(sugestao||"");
+  const salvar=(nome)=>{ PLS.set(apelidoKey(uid),(nome||"").trim().slice(0,24)); onPronto(); };
+  return <div className="card" style={{padding:18,marginBottom:14,borderColor:"var(--acc)"}}>
+    <b style={{fontSize:16}}>Como você prefere ser chamada?</b>
+    <div className="muted" style={{fontSize:13,margin:"6px 0 12px"}}>Só pra eu falar com você do jeito certo. Pode ser apelido.</div>
+    <div className="row" style={{gap:8,flexWrap:"wrap"}}>
+      <input value={v} onChange={e=>setV(e.target.value)} maxLength={24} placeholder="seu nome ou apelido"
+        onKeyDown={e=>{if(e.key==="Enter")salvar(v)}}
+        style={{flex:"1 1 180px",padding:"10px 12px",borderRadius:10,border:"1px solid var(--line)",background:"transparent",color:"inherit",fontSize:15}}/>
+      <button className="btn" onClick={()=>salvar(v)}>Pronto</button>
+      <button className="btn ghost" onClick={()=>salvar(sugestao||" ")}>Agora não</button>
+    </div>
+  </div>;
+}
+
+/* Decide UMA prioridade, por regra fixa e explicável. */
+function decidirProximoPasso({store,srs,poolVisivel,temasFracos,metaProg,acertoArea}){
+  const venc=questoesVencidas(poolVisivel,srs);
+  if(venc.length>0) return {
+    tipo:"revisar", n:venc.length,
+    titulo:venc.length+(venc.length===1?" questão venceu o prazo de revisão":" questões venceram o prazo de revisão"),
+    porque:"Revisar o que está prestes a ser esquecido rende mais do que avançar para assunto novo.",
+    botao:"Revisar agora" };
+  const fracos=(temasFracos||[]).map(x=>x.split("||")[1]);
+  if(fracos.length){
+    const t=CURRICULO.find(x=>fracos.indexOf(x.nome)>=0 && !store.dominio[x.id]);
+    if(t) return {tipo:"assunto", t, titulo:t.nome,
+      porque:"Seu diagnóstico mostrou que este é um dos temas em que você mais erra.",
+      botao:"Estudar "+t.nome};
+  }
+  const comecado=CURRICULO.find(x=>{const d=store.dominio[x.id]; return d && d.nivel<3;});
+  if(comecado) return {tipo:"assunto", t:comecado, titulo:comecado.nome,
+    porque:"Você começou este assunto e ainda não fechou. Terminar antes de abrir outro evita conhecimento pela metade.",
+    botao:"Retomar "+comecado.nome};
+  let pior=null;
+  AREAS.forEach(a=>{ const v=acertoArea?acertoArea[a.k]:null;
+    if(v!==null&&v!==undefined&&(pior===null||v<pior.v)) pior={k:a.k,v}; });
+  const areaAlvo=pior?pior.k:"CM";
+  const prox=CURRICULO.filter(x=>x.area===areaAlvo&&!store.dominio[x.id]).sort((a,b)=>b.yield-a.yield)[0]
+          || CURRICULO.filter(x=>!store.dominio[x.id]).sort((a,b)=>b.yield-a.yield)[0];
+  if(prox) return {tipo:"assunto", t:prox, titulo:prox.nome,
+    porque:pior?("É o assunto de maior rendimento na sua área mais fraca ("+areaNome(areaAlvo)+", "+Math.round(pior.v*100)+"% de acerto)."):"É o assunto de maior rendimento para começar.",
+    botao:"Estudar "+prox.nome};
+  if(metaProg && !metaProg.batida) return {tipo:"praticar",
+    titulo:"Tudo revisado e nenhum assunto pendente",
+    porque:"Faltam "+Math.max(0,(metaProg.alvo||0)-(metaProg.feitas||0))+" questões para bater sua meta de hoje.",
+    botao:"Praticar questões"};
+  return {tipo:"praticar", titulo:"Você está em dia",
+    porque:"Nada vencido, nenhum assunto pela metade e meta batida. Treinar questões mantém o ritmo.",
+    botao:"Praticar questões"};
+}
+
+function ProximoPasso({session,uid,store,srs,poolVisivel,temasFracos,metaProg,acertoArea,streak,irRevisar,irAssunto,irPraticar,irTodas}){
+  const [apelido,setApelido]=useState(()=>lerApelido(uid));
+  const [perguntar,setPerguntar]=useState(()=>!lerApelido(uid));
+  const diasFora=useMemo(()=>{
+    const hoje=new Date().toISOString().slice(0,10);
+    const ant=PLS.get(ultimaVisitaKey(uid));
+    PLS.set(ultimaVisitaKey(uid),hoje);
+    if(!ant) return -1;
+    return Math.max(0,Math.round((new Date(hoje)-new Date(ant))/86400000));
+  },[uid]);
+  if(perguntar) return <ApelidoPrompt uid={uid} sugestao={primeiroNome(session)}
+    onPronto={()=>{ setApelido(lerApelido(uid)); setPerguntar(false); }}/>;
+
+  const nome=(apelido||"").trim();
+  const sd=saudacaoTexto(nome,diasFora<0?0:diasFora,diasFora<0);
+  const passo=decidirProximoPasso({store,srs,poolVisivel,temasFracos,metaProg,acertoArea});
+
+  // onde ela está, em uma frase
+  const totalResp=(store.log||[]).length;
+  const acertos=(store.log||[]).filter(x=>x.ok).length;
+  const pctGeral=totalResp?Math.round(acertos/totalResp*100):null;
+  const feitos=CURRICULO.filter(t=>store.dominio[t.id]).length;
+  const situacao = totalResp===0
+    ? "Você ainda não respondeu nenhuma questão — vamos começar do zero, sem pressa."
+    : feitos+" de "+CURRICULO.length+" assuntos concluídos · "+totalResp+" questões respondidas · "+pctGeral+"% de acerto"
+      + (streak&&streak.dias_seguidos>1?" · 🔥 "+streak.dias_seguidos+" dias seguidos":"");
+
+  const ir=()=>{ if(passo.tipo==="revisar") irRevisar(); else if(passo.tipo==="assunto") irAssunto(passo.t); else irPraticar(); };
+
+  return <div className="card" style={{padding:"20px 22px",marginBottom:16,borderColor:"var(--acc)"}}>
+    <h2 style={{fontSize:23,margin:"0 0 2px",lineHeight:1.2}}>{sd.t}</h2>
+    <div className="muted" style={{fontSize:14}}>{sd.s}</div>
+
+    <div style={{marginTop:14,paddingTop:13,borderTop:"1px solid var(--line)"}}>
+      <div className="tag" style={{color:"var(--muted)"}}>ONDE VOCÊ ESTÁ</div>
+      <div style={{fontSize:14.5,marginTop:4,lineHeight:1.5}}>{situacao}</div>
+    </div>
+
+    <div style={{marginTop:14,padding:"14px 16px",borderRadius:12,background:"var(--acc-bg,rgba(75,181,142,.10))",borderLeft:"3px solid var(--acc)"}}>
+      <div className="tag" style={{color:"var(--acc)"}}>SUA PRIORIDADE AGORA</div>
+      <b style={{fontSize:17,display:"block",margin:"5px 0 4px",lineHeight:1.3}}>{passo.titulo}</b>
+      <div style={{fontSize:14,lineHeight:1.5}}>{passo.porque}</div>
+      <button className="btn" style={{marginTop:12}} onClick={ir}>{passo.botao} →</button>
+    </div>
+
+    <div className="row" style={{marginTop:12,justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8}}>
+      <span className="link" style={{fontSize:13}} onClick={irTodas}>Hoje eu quero outra coisa →</span>
+      <span className="link muted" style={{fontSize:12}} onClick={()=>setPerguntar(true)}>mudar como me chama</span>
+    </div>
   </div>;
 }
 
