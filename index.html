@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.26";
+  window.APP_VERSION="2026.09.26b";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -3021,6 +3021,7 @@ function Shell({session}){
               const ids=(fracos||[]).map(f=>f.area+"||"+f.tema);
               setTemasFracos(ids); setJaFezDiag(true);
               try{localStorage.setItem("enamed_fracos",JSON.stringify(ids));localStorage.setItem("enamed_diag_feito","1");}catch(e){}
+              try{PLS.set("preceptor_diag_em",new Date().toISOString().slice(0,10));}catch(e){}
               setDiag(null); setTab("trilha");
             }}/>
         </div>
@@ -3053,14 +3054,23 @@ function Shell({session}){
           </div>
         </div>;
       })()}
-      <div className="card" style={{marginBottom:16,borderColor:"var(--acc)"}}>
-        <b style={{fontSize:16}} id="tour-diag">Escolha seu diagnóstico</b>
-        <div className="muted" style={{fontSize:13,margin:"6px 0 12px"}}>Descubra seus pontos fracos e deixe a trilha priorizar o que você mais erra — ou treine no formato da prova oficial. Dá pra refazer quando quiser.</div>
-        <div className="row" style={{gap:10,flexWrap:"wrap"}}>
-          <button className="btn" onClick={()=>setDiag("rapido")}>⚡ Diagnóstico rápido (~20)</button>
-          <button className="btn ghost" onClick={()=>setDiag("enamed")}>🏛️ Prova Oficial ENAMED 2025.2</button>
-        </div>
-      </div>
+      {!jaFezDiag
+        ? <div className="card" style={{marginBottom:16,borderColor:"var(--acc)"}}>
+            <b style={{fontSize:16}} id="tour-diag">Comece pelo diagnóstico</b>
+            <div className="muted" style={{fontSize:13,margin:"6px 0 12px"}}>Responda uma rodada curta e eu descubro onde você mais erra — a partir daí, a trilha passa a priorizar isso pra você. Leva poucos minutos e é feito uma vez só.</div>
+            <div className="row" style={{gap:10,flexWrap:"wrap"}}>
+              <button className="btn" onClick={()=>setDiag("rapido")}>⚡ Diagnóstico rápido (~20)</button>
+              <button className="btn ghost" onClick={()=>setDiag("enamed")}>🏛️ Prova Oficial ENAMED 2025.2</button>
+            </div>
+          </div>
+        : (()=>{ /* já fez: sai da frente. Só volta a sugerir se ficou velho. */
+            let velho=0; try{ const d=PLS.get("preceptor_diag_em");
+              if(d) velho=Math.round((Date.now()-new Date(d).getTime())/86400000); }catch(e){}
+            return <div className="row" id="tour-diag" style={{justifyContent:"flex-end",alignItems:"center",gap:12,marginBottom:14,flexWrap:"wrap"}}>
+              {velho>=60 && <span className="muted" style={{fontSize:12.5}}>Seu diagnóstico é de {velho} dias atrás — seu perfil já mudou.</span>}
+              <span className="link muted" style={{fontSize:12.5}} onClick={()=>setDiag("rapido")}>refazer diagnóstico</span>
+              <span className="link muted" style={{fontSize:12.5}} onClick={()=>setDiag("enamed")}>prova oficial ENAMED</span>
+            </div>; })()}
 
       {novaVersao && <div className="card" style={{marginBottom:12,borderColor:"var(--gold)",padding:"10px 14px"}}>
         <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
