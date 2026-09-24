@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.23";
+  window.APP_VERSION="2026.09.23b";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2427,12 +2427,31 @@ function GlobalSearch(){
   </React.Fragment>;
 }
 
-function progressoProva(chave){ try{ const v=JSON.parse(localStorage.getItem("preceptor_prova_"+chave)||"null"); if(v&&v.resp) return {n:Object.keys(v.resp).length,i:v.i||0}; }catch(e){} return null; }
+/* ---- Armazenamento resiliente (celular) ---------------------------------
+   localStorage falha em silêncio no Safari anônimo e pode ser apagado pelo
+   iOS após 7 dias. PLS testa a escrita de verdade, cai para sessionStorage e,
+   em último caso, para memória — e expõe PLS.ok para avisarmos a aluna.     */
+var PLS=(function(){
+  var mem={}, base=null, ok=false, motivo="";
+  function testar(st){ try{ var k="__pls_t"; st.setItem(k,"1"); var v=st.getItem(k)==="1"; st.removeItem(k); return v; }catch(e){ return false; } }
+  try{ if(typeof localStorage!=="undefined" && testar(localStorage)){ base=localStorage; ok=true; } }catch(e){}
+  if(!base){ try{ if(typeof sessionStorage!=="undefined" && testar(sessionStorage)){ base=sessionStorage; motivo="sessao"; } }catch(e){} }
+  if(!base) motivo=motivo||"memoria";
+  return {
+    ok:ok, modo: ok?"local":(motivo||"memoria"),
+    get:function(k){ try{ return base?base.getItem(k):(k in mem?mem[k]:null); }catch(e){ return (k in mem)?mem[k]:null; } },
+    set:function(k,v){ mem[k]=v; try{ base&&base.setItem(k,v); return true; }catch(e){ return false; } },
+    del:function(k){ delete mem[k]; try{ base&&base.removeItem(k); }catch(e){} }
+  };
+})();
+try{ window.PLS=PLS; }catch(_e){}
+
+function progressoProva(chave){ try{ const v=JSON.parse(PLS.get("preceptor_prova_"+chave)||"null"); if(v&&v.resp) return {n:Object.keys(v.resp).length,i:v.i||0}; }catch(e){} return null; }
 function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
   const lsAberta="preceptor_prova_aberta_"+flag;
-  const [provaEd,setProvaEd]=useState(()=>{try{return localStorage.getItem(lsAberta)||null}catch(e){return null}});
-  const abrir=(p)=>{ setProvaEd(p.ed); try{localStorage.setItem(lsAberta,p.ed)}catch(e){} window.scrollTo(0,0); };
-  const fechar=()=>{ setProvaEd(null); try{localStorage.removeItem(lsAberta)}catch(e){} };
+  const [provaEd,setProvaEd]=useState(()=>{try{return PLS.get(lsAberta)||null}catch(e){return null}});
+  const abrir=(p)=>{ setProvaEd(p.ed); PLS.set(lsAberta,p.ed); window.scrollTo(0,0); };
+  const fechar=()=>{ setProvaEd(null); PLS.del(lsAberta); };
   const provas=useMemo(()=>{
     const arr=(pool||[]).filter(q=>q&&q.transv&&q.transv.indexOf&&q.transv.indexOf(flag)>=0);
     const grupos={};
@@ -2720,8 +2739,8 @@ function RevisaoHoje({qs, registrar, onVoltar}){
 function Shell({session}){
   const uid=session.user.id;
   const TABS_OK=["trilha","praticar","internato","enamed","tpi","tecm","revalida","enare","strix","flash","videos","suporte","dash"];
-  const [tab,setTab]=useState(()=>{try{const t=localStorage.getItem("preceptor_tab");return (t&&TABS_OK.indexOf(t)>=0)?t:"trilha"}catch(e){return "trilha"}});
-  useEffect(()=>{try{localStorage.setItem("preceptor_tab",tab)}catch(e){}},[tab]);
+  const [tab,setTab]=useState(()=>{try{const t=PLS.get("preceptor_tab");return (t&&TABS_OK.indexOf(t)>=0)?t:"trilha"}catch(e){return "trilha"}});
+  useEffect(()=>{PLS.set("preceptor_tab",tab)},[tab]);
   const [tema,setTema]=useState(()=>{try{return localStorage.getItem("enamed_tema")||"escuro"}catch(e){return "escuro"}});
   useEffect(()=>{document.documentElement.setAttribute("data-tema",tema);try{localStorage.setItem("enamed_tema",tema)}catch(e){}},[tema]);
   const [loading,setLoading]=useState(true);
@@ -5069,15 +5088,26 @@ function Diagnostico({pool,registrar,onFim,modo,questoesFixas,flag,chave}){
     return sel.sort(()=>Math.random()-0.5).slice(0,Math.min(alvo,sel.length));
   },[modo]);
   const chaveLS = chave? "preceptor_prova_"+chave : null;
-  const salvo = useMemo(()=>{ if(!chaveLS) return null; try{ return JSON.parse(localStorage.getItem(chaveLS)||"null"); }catch(e){ return null; } },[chaveLS]);
+  const salvo = useMemo(()=>{ if(!chaveLS) return null; try{ return JSON.parse(PLS.get(chaveLS)||"null"); }catch(e){ return null; } },[chaveLS]);
   const [i,setI]=useState(()=>{ if(salvo&&typeof salvo.i==="number") return Math.max(0,Math.min(salvo.i,prova.length-1)); return 0; });
   const [resp,setResp]=useState(()=>(salvo&&salvo.resp&&typeof salvo.resp==="object")?salvo.resp:{}); // qid -> {ok, area, tema, sel}
   const [sel,setSel]=useState(null);
   const [fim,setFim]=useState(false);
   const [nav,setNav]=useState(false);
   const q=prova[i];
-  useEffect(()=>{ if(!chaveLS) return; try{ if(fim) localStorage.removeItem(chaveLS); else localStorage.setItem(chaveLS,JSON.stringify({i:i,resp:resp,t:Date.now()})); }catch(e){} },[chaveLS,i,resp,fim]);
-  const reiniciar=()=>{ if(!confirm("Recomeçar esta prova do zero? As respostas salvas serão apagadas.")) return; setResp({}); setI(0); setSel(null); setNav(false); try{ chaveLS&&localStorage.removeItem(chaveLS); }catch(e){} };
+  const [lsFalhou,setLsFalhou]=useState(false);
+  useEffect(()=>{ if(!chaveLS) return; if(fim){ PLS.del(chaveLS); return; }
+    const okW=PLS.set(chaveLS,JSON.stringify({i:i,resp:resp,t:Date.now()}));
+    if(!okW||!PLS.ok) setLsFalhou(true);
+  },[chaveLS,i,resp,fim]);
+  /* iOS encerra a aba em segundo plano sem aviso: regrava ao sair da tela */
+  useEffect(()=>{ if(!chaveLS) return;
+    const grava=()=>{ if(!fim) PLS.set(chaveLS,JSON.stringify({i:i,resp:resp,t:Date.now()})); };
+    const vis=()=>{ if(document.visibilityState==="hidden") grava(); };
+    window.addEventListener("pagehide",grava); document.addEventListener("visibilitychange",vis);
+    return ()=>{ window.removeEventListener("pagehide",grava); document.removeEventListener("visibilitychange",vis); };
+  },[chaveLS,i,resp,fim]);
+  const reiniciar=()=>{ if(!confirm("Recomeçar esta prova do zero? As respostas salvas serão apagadas.")) return; setResp({}); setI(0); setSel(null); setNav(false); if(chaveLS) PLS.del(chaveLS); };
   const irPara=(n)=>{ setI(n); setSel(null); setNav(false); window.scrollTo(0,0); };
 
   if(prova.length===0) return <div className="card">Ainda não há questões suficientes no banco para o diagnóstico. Gere questões na aba Praticar.</div>;
@@ -5134,6 +5164,15 @@ function Diagnostico({pool,registrar,onFim,modo,questoesFixas,flag,chave}){
           const st={padding:"7px 0",fontSize:13,fontWeight:600,borderRadius:8,cursor:"pointer",border:"1px solid var(--line)",background:atual?"var(--acc)":"transparent",color:atual?"#fff":"inherit"};
           if(r&&!atual){ st.borderColor=r.ok?"var(--acc)":"var(--bad)"; st.color=r.ok?"var(--acc)":"var(--bad)"; }
           return <button key={qq.id} style={st} onClick={()=>irPara(n)}>{n+1}</button>; })}
+      </div>
+    </div>}
+    {chave&&lsFalhou&&<div className="card" style={{padding:12,marginBottom:12,borderColor:"var(--warn)"}}>
+      <b style={{fontSize:14}}>⚠️ Seu progresso não está sendo salvo neste aparelho</b>
+      <div className="muted" style={{fontSize:13,marginTop:6,lineHeight:1.5}}>
+        O navegador está bloqueando o armazenamento. Causas mais comuns no celular:
+        aba anônima/privativa do navegador, bloqueio de cookies e dados de site, ou
+        armazenamento cheio. Saia do modo privativo, libere os dados de site para este
+        endereço e recarregue a página. Enquanto isso, se fechar o app você recomeça a prova.
       </div>
     </div>}
     <div className="bar" style={{marginBottom:14}}><i style={{width:((i+1)/prova.length*100)+"%",background:"var(--acc)"}}/></div>
