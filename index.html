@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.25";
+  window.APP_VERSION="2026.09.25b";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -3079,7 +3079,7 @@ function Shell({session}){
         irAssunto={(t)=>{ try{window.__ABRIR_ASSUNTO&&window.__ABRIR_ASSUNTO(t.id);}catch(e){} }}
         irPraticar={()=>setTab("praticar")}
         irTodas={()=>{ try{document.getElementById("tour-diag")&&document.getElementById("tour-diag").scrollIntoView({behavior:"smooth",block:"center"});}catch(e){} }}/>}
-      {tab==="trilha" && <Trilha store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={acesso} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
+      {tab==="trilha" && <Trilha uid={uid} store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={acesso} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
       {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} metaHoje={metaProg} bloqueadas={acesso?0:bloqueadasFree} isPro={isPro} acesso={acesso} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
       {tab==="internato" && <Internato pool={questoes} registrar={registrar}/>}
       {tab==="enamed" && <ExameProvas pool={questoes.concat(window.ENAMED_OFICIAL||[])} registrar={registrar} flag="ENAMED" icone="📝" titulo="ENAMED — Provas oficiais" subtitulo="ENAMED · INEP"/>}
@@ -3109,7 +3109,7 @@ function prioridade(top,store,acertoArea){
   if(aa!==null&&aa<0.6)motivos.push("acerta so "+Math.round(aa*100)+"% em "+areaNome(top.area));
   return {score,nivel,motivos};
 }
-function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeTopico,onAssinar,temasFracos}){
+function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeTopico,onAssinar,temasFracos,uid}){
   const fracosSet=new Set((temasFracos||[]).map(x=>x.split("||")[1]));
   const [areaSel,setAreaSel]=useState(null); // area escolhida
   const [aberto,setAberto]=useState(null);   // assunto em estudo
@@ -3134,8 +3134,9 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
           <span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(t.area)}</span>
         </div>
         <h2 style={{fontSize:22,margin:"6px 0 16px"}}>{t.nome}</h2>
-        <EstudarAssunto t={t} store={store} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={irTreinar} isPro={isPro} onAssinar={onAssinar}
+        <EstudarAssunto t={t} store={store} uid={uid} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={irTreinar} isPro={isPro} onAssinar={onAssinar}
           onFim={()=>{ // ao concluir, emenda no proximo pendente da area
+            limparParada(uid,t.id);
             const lista=caminho(t.area);
             const idx=lista.findIndex(x=>x.id===t.id);
             const prox=lista.slice(idx+1).find(x=>!concluido(x));
@@ -4183,6 +4184,29 @@ function primeiroNome(session){
     const n=(m&&(m.nome||m.name||m.full_name))||"";
     return (""+n).trim().split(/\s+/)[0]||""; }catch(e){ return ""; }
 }
+/* onde a aluna parou dentro de cada assunto: {id:{etapa,nome,quando}} */
+function paradaKey(uid){ return "preceptor_parada_"+(uid||"anon"); }
+function lerParadas(uid){ try{ const v=JSON.parse(PLS.get(paradaKey(uid))||"{}"); return (v&&typeof v==="object")?v:{}; }catch(e){ return {}; } }
+function salvarParada(uid,id,etapa,nome,total){
+  try{ const m=lerParadas(uid); m[id]={e:etapa,n:nome,t:total,q:Date.now()};
+    const ids=Object.keys(m).sort((a,b)=>m[b].q-m[a].q).slice(0,60);
+    const novo={}; ids.forEach(k=>novo[k]=m[k]); PLS.set(paradaKey(uid),JSON.stringify(novo)); }catch(e){}
+}
+function limparParada(uid,id){ try{ const m=lerParadas(uid); delete m[id]; PLS.set(paradaKey(uid),JSON.stringify(m)); }catch(e){} }
+function ultimaParada(uid,dominio){
+  const m=lerParadas(uid); let melhor=null;
+  Object.keys(m).forEach(id=>{ const p=m[id];
+    const d=dominio&&dominio[id];
+    if(d&&d.nivel>=4) return;            // já dominado, não é pendência
+    if(!melhor||p.q>melhor.q) melhor={id,...p};
+  });
+  return melhor;
+}
+function hMin(ms){ const m=Math.round((Date.now()-ms)/60000);
+  if(m<60) return "há "+Math.max(1,m)+" min";
+  const h=Math.round(m/60); if(h<24) return "há "+h+(h===1?" hora":" horas");
+  const d=Math.round(h/24); return d===1?"ontem":("há "+d+" dias"); }
+
 function apelidoKey(uid){ return "preceptor_apelido_"+(uid||"anon"); }
 function lerApelido(uid){ try{ return PLS.get(apelidoKey(uid))||""; }catch(e){ return ""; } }
 function ultimaVisitaKey(uid){ return "preceptor_ultima_visita_"+(uid||"anon"); }
@@ -4216,7 +4240,7 @@ function ApelidoPrompt({uid,sugestao,onPronto}){
 }
 
 /* Decide UMA prioridade, por regra fixa e explicável. */
-function decidirProximoPasso({store,srs,poolVisivel,temasFracos,metaProg,acertoArea}){
+function decidirProximoPasso({store,srs,poolVisivel,temasFracos,metaProg,acertoArea,parada}){
   const venc=questoesVencidas(poolVisivel,srs);
   if(venc.length>0) return {
     tipo:"revisar", n:venc.length,
@@ -4230,6 +4254,10 @@ function decidirProximoPasso({store,srs,poolVisivel,temasFracos,metaProg,acertoA
       porque:"Seu diagnóstico mostrou que este é um dos temas em que você mais erra.",
       botao:"Estudar "+t.nome};
   }
+  const par=parada&&CURRICULO.find(x=>x.id===parada.id);
+  if(par) return {tipo:"assunto", t:par, titulo:par.nome, retomar:parada,
+    porque:"Você parou aqui "+hMin(parada.q)+", na etapa \u201c"+(parada.n2||"")+"\u201d. Terminar o que começou vale mais do que abrir assunto novo.",
+    botao:"Retomar "+par.nome};
   const comecado=CURRICULO.find(x=>{const d=store.dominio[x.id]; return d && d.nivel<3;});
   if(comecado) return {tipo:"assunto", t:comecado, titulo:comecado.nome,
     porque:"Você começou este assunto e ainda não fechou. Terminar antes de abrir outro evita conhecimento pela metade.",
@@ -4267,7 +4295,10 @@ function ProximoPasso({session,uid,store,srs,poolVisivel,temasFracos,metaProg,ac
 
   const nome=(apelido||"").trim();
   const sd=saudacaoTexto(nome,diasFora<0?0:diasFora,diasFora<0);
-  const passo=decidirProximoPasso({store,srs,poolVisivel,temasFracos,metaProg,acertoArea});
+  const parada=useMemo(()=>{ const p=ultimaParada(uid,store.dominio); if(!p) return null;
+    const nomes=["Aula","Como pensar","Pratique","Fixe"];
+    return {...p, n2:nomes[p.e]||("etapa "+((p.e||0)+1))}; },[uid,store.dominio]);
+  const passo=decidirProximoPasso({store,srs,poolVisivel,temasFracos,metaProg,acertoArea,parada});
 
   // onde ela está, em uma frase
   const totalResp=(store.log||[]).length;
@@ -5671,9 +5702,9 @@ function Banco({questoes,uid,onAdd}){
 }
 
 /* =================== ESTUDAR ASSUNTO (fluxo de etapas) =================== */
-function EstudarAssunto({t,store,avaliarDominio,registrar,irTreinar,isPro,onAssinar,onFim}){
+function EstudarAssunto({t,store,avaliarDominio,registrar,irTreinar,isPro,onAssinar,onFim,uid}){
   // etapas: 0 aula · 1 como pensar · 2 pratique · 3 fixe
-  const [etapa,setEtapa]=useState(0);
+  const [etapa,setEtapa]=useState(()=>{ try{ const p=lerParadas(uid)[t.id]; return (p&&typeof p.e==="number")?p.e:0; }catch(e){ return 0; } });
   const d=store.dominio[t.id];
   const temAula=!!t.aula;
   const etapas=[
@@ -5683,6 +5714,8 @@ function EstudarAssunto({t,store,avaliarDominio,registrar,irTreinar,isPro,onAssi
     "Fixe",
   ];
   const irPara=n=>setEtapa(Math.max(0,Math.min(etapas.length-1,n)));
+  /* guarda onde parou, para o card da home retomar exatamente daqui */
+  useEffect(()=>{ salvarParada(uid,t.id,etapa,t.nome,etapas.length); },[uid,t.id,etapa]);
 
   return <div>
     {/* trilho de progresso das etapas */}
