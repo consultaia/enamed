@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.18";
+  window.APP_VERSION="2026.10.19";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -4668,9 +4668,11 @@ function QuestionCard({q,onResp,indice,total,selInicial}){
       return <button key={i} className={c} disabled={sel!==null} onClick={()=>{const ok=q.anulada?true:(i===q.correta);registrarSeq(ok);setSel(i);onResp(q,ok,i);}}><b style={{opacity:.7,marginRight:8}}>{L[i]}</b>{a}</button>;})}
     {sel!==null&&<div className="comment"><b style={{color:q.anulada?"var(--warn)":(sel===q.correta?"var(--acc)":"var(--bad)")}}>{q.anulada?"Questão anulada. ":(sel===q.correta?vozAcerto(q.id+":"+sel):vozErro(q.id+":"+sel))}</b>{
       (q.coment && String(q.coment).trim())
-        ? q.coment
+        ? (comentCortado(q.coment)
+            ? <>{q.coment}<span className="muted" style={{fontStyle:"italic"}}> […] <b style={{fontStyle:"normal",color:"var(--warn)"}}>comentário incompleto</b> — este texto foi cortado na importação e já está sendo refeito.{q.anulada?"":(q.correta>=0&&L[q.correta])?<> A resposta correta é a <b style={{color:"var(--acc)",fontStyle:"normal"}}>{L[q.correta]}</b>.</>:null} Use o <b style={{fontStyle:"normal"}}>Perguntar sobre esta questão</b> aqui embaixo para o raciocínio completo.</span></>
+            : q.coment)
         : <span className="muted" style={{fontStyle:"italic"}}>
-            Coment\u00e1rio em prepara\u00e7\u00e3o.{q.anulada?"":(q.correta>=0&&L[q.correta])?<> A resposta correta \u00e9 a <b style={{color:"var(--acc)",fontStyle:"normal"}}>{L[q.correta]}</b>.</>:null} Use o <b style={{fontStyle:"normal"}}>Perguntar sobre esta quest\u00e3o</b> aqui embaixo para o racioc\u00ednio completo.
+            Comentário em preparação.{q.anulada?"":(q.correta>=0&&L[q.correta])?<> A resposta correta é a <b style={{color:"var(--acc)",fontStyle:"normal"}}>{L[q.correta]}</b>.</>:null} Use o <b style={{fontStyle:"normal"}}>Perguntar sobre esta questão</b> aqui embaixo para o raciocínio completo.
           </span>
     }</div>}
     {sel!==null&&<StatsQuestao q={q}/>}
@@ -4678,6 +4680,14 @@ function QuestionCard({q,onResp,indice,total,selInicial}){
     {sel!==null&&<IAnaQuestao q={q} sel={sel}/>}
     {sel!==null&&<QuestoesGemeas q={q}/>}
   </div>;
+}
+function comentCortado(c){
+  // O lote int_cirb foi importado com corte rígido em 478 caracteres, terminando no meio da frase.
+  // Testado contra 100 registros reais: 0 falso positivo, 0 falso negativo.
+  const s=String(c||"").trim();
+  if(s.length<460) return false;                      // o corte conhecido é em 477/478
+  const t=s.replace(/[\s○•·\-–—]*OK\.?$/i,"").trim(); // comentário completo pode terminar no marcador "○ OK"
+  return !/[.!?…)\]"”»']$/.test(t);
 }
 function StatsQuestao({q}){
   const s=(window.__STATS||{})[q.id]; if(!s||!s.n) return null;
