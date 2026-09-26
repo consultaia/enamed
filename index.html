@@ -2456,7 +2456,7 @@ function GlobalSearch(){
 /* ---- Armazenamento resiliente (celular) ---------------------------------
    localStorage falha em silêncio no Safari anônimo e pode ser apagado pelo
    iOS após 7 dias. PLS testa a escrita de verdade, cai para sessionStorage e,
-   em último caso, para memória — e expõe PLS.ok para avisarmos a aluna.     */
+   em último caso, para memória — e expõe PLS.ok para avisarmos quem está usando.     */
 var PLS=(function(){
   var mem={}, base=null, ok=false, motivo="";
   function testar(st){ try{ var k="__pls_t"; st.setItem(k,"1"); var v=st.getItem(k)==="1"; st.removeItem(k); return v; }catch(e){ return false; } }
@@ -4230,13 +4230,13 @@ function DicasDoDia(){
 
 /* ---- Saudação + Próximo passo -------------------------------------------
    O preceptor não pergunta "o que você quer fazer hoje?" — ele diz onde a
-   aluna está, onde parou e qual é a prioridade AGORA, com um botão só.     */
+    pessoa está, onde parou e qual é a prioridade AGORA, com um botão só.     */
 function primeiroNome(session){
   try{ const m=session&&session.user&&session.user.user_metadata;
     const n=(m&&(m.nome||m.name||m.full_name))||"";
     return (""+n).trim().split(/\s+/)[0]||""; }catch(e){ return ""; }
 }
-/* onde a aluna parou dentro de cada assunto: {id:{etapa,nome,quando}} */
+/* onde a pessoa parou dentro de cada assunto: {id:{etapa,nome,quando}} */
 function paradaKey(uid){ return "preceptor_parada_"+(uid||"anon"); }
 function lerParadas(uid){ try{ const v=JSON.parse(PLS.get(paradaKey(uid))||"{}"); return (v&&typeof v==="object")?v:{}; }catch(e){ return {}; } }
 function salvarParada(uid,id,etapa,nome,total){
@@ -4309,7 +4309,7 @@ function saudacaoTexto(nome,diasFora,primeiraVez){
   const h=new Date().getHours();
   const parte=h<12?"Bom dia":h<18?"Boa tarde":"Boa noite";
   const n=nome?(", "+nome):"";
-  if(primeiraVez) return {t:"Bem-vinda ao Preceptor"+n, s:"Vou te dizer, a cada dia, exatamente por onde seguir."};
+  if(primeiraVez) return {t:"Boas-vindas ao Preceptor"+n, s:"Vou te dizer, a cada dia, exatamente por onde seguir."};
   if(diasFora===0)  return {t:parte+n, s:"Bom te ver de novo por aqui hoje."};
   if(diasFora===1)  return {t:"Que bom que você voltou"+n, s:"Ontem você esteve aqui. Manter o ritmo é o que faz a diferença."};
   if(diasFora<=3)   return {t:"Que bom que você voltou"+n, s:"Faz "+diasFora+" dias. Dá pra retomar sem susto — comece pela revisão."};
@@ -4321,7 +4321,7 @@ function ApelidoPrompt({uid,sugestao,onPronto}){
   const [v,setV]=useState(sugestao||"");
   const salvar=(nome)=>{ PLS.set(apelidoKey(uid),(nome||"").trim().slice(0,24)); onPronto(); };
   return <div className="card" style={{padding:18,marginBottom:14,borderColor:"var(--acc)"}}>
-    <b style={{fontSize:16}}>Como você prefere ser chamada?</b>
+    <b style={{fontSize:16}}>Como prefere que eu te chame?</b>
     <div className="muted" style={{fontSize:13,margin:"6px 0 12px"}}>Só pra eu falar com você do jeito certo. Pode ser apelido.</div>
     <div className="row" style={{gap:8,flexWrap:"wrap"}}>
       <input value={v} onChange={e=>setV(e.target.value)} maxLength={24} placeholder="seu nome ou apelido"
@@ -4592,7 +4592,7 @@ function Pomodoro(){
       avisar(longa?"Ciclo completo. Pausa longa de "+st.cfg.longa+" min.":"Foco concluído. Pausa de "+st.cfg.pausa+" min.");
       gravar({...st,ciclos:n,modo:longa?"longa":"pausa",fim:Date.now()+MIN(longa?st.cfg.longa:st.cfg.pausa),rodando:true,resto:null});
     }else{
-      avisar("Pausa encerrada. Pronta para voltar?");
+      avisar("Pausa encerrada. Hora de voltar.");
       gravar({...st,modo:"foco",fim:0,rodando:false,resto:null});
     }
   },[restante,st.rodando]);
