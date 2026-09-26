@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.34";
+  window.APP_VERSION="2026.10.35";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2504,9 +2504,9 @@ async function obEnviar(sb,uid,aoMudar){
     it.tent=(it.tent||0)+1;
     it.erro=String(code||(err&&err.message)||"erro").slice(0,90);
     ultimoErro=it.erro;
-    /* Erro permanente (RLS, coluna inexistente, payload inválido): depois de 3 tentativas
-       descarta, senão a fila trava para sempre e o aviso fica poluindo a tela. */
-    if(it.tent>=3) continue;
+    /* NUNCA descartar por contagem de tentativa: se a causa for do servidor (RLS, coluna,
+       constraint), descartar apaga resposta de aluno pagante. O item fica na fila, o erro
+       fica registrado para diagnóstico, e o aviso na tela é discreto de propósito. */
     restante.push(it);
   }
   obGravar(uid,restante);
