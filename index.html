@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.39";
+  window.APP_VERSION="2026.10.41";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -170,6 +170,42 @@
   @media(max-width:380px){
     .nav button{padding:7px 9px;font-size:12px}
   }
+
+/* ═══════ COLUNA LATERAL DE NAVEGAÇÃO (telas largas) ═══════
+   A barra de abas ficava no meio da página: depois de rolar para baixo,
+   trocar de aba exigia voltar ao topo. Fixa à esquerda, está sempre ao alcance. */
+@media (min-width:1100px){
+  /* o deslocamento vai no body: assim o #root continua centralizado,
+     agora dentro do espaco que sobra ao lado da barra. */
+  body{ padding-left:248px; }
+  .tour-balao{ left:calc(248px + 12px); }
+  .nav{
+    position:fixed; top:0; left:0; bottom:0; width:248px; z-index:60;
+    display:flex; flex-direction:column; flex-wrap:nowrap; gap:2px;
+    margin:0; padding:0 12px 18px;
+    overflow-y:auto; overscroll-behavior:contain;
+    background:var(--panel); border-right:1px solid var(--line);
+  }
+  .nav::before{
+    content:"PRECEPTOR";
+    display:block; padding:20px 12px 14px; margin-bottom:6px;
+    font-size:12.5px; font-weight:800; letter-spacing:.16em; color:var(--acc);
+    border-bottom:1px solid var(--line);
+  }
+  .nav button{
+    width:100%; text-align:left; padding:10px 12px;
+    font-size:13.5px; line-height:1.3; border-radius:10px;
+  }
+  .nav button:hover{ background:var(--panel2); color:var(--ink); }
+  .nav button.on{ background:var(--glow); color:var(--ink); border-color:var(--line); }
+  .nav::-webkit-scrollbar{width:8px}
+  .nav::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+}
+@media (min-width:1100px) and (max-width:1279px){
+  body{ padding-left:212px; }
+  .tour-balao{ left:calc(212px + 12px); }
+  .nav{width:212px}
+}
 </style>
 <style id="tour-css">
 @keyframes confete-cai{0%{transform:translateY(-10vh) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
@@ -4548,7 +4584,9 @@ function Pomodoro(){
     const w=(el&&el.offsetWidth)||150, h=(el&&el.offsetHeight)||48;
     const W=(typeof window!=="undefined"&&window.innerWidth)||360;
     const H=(typeof window!=="undefined"&&window.innerHeight)||700;
-    return { x:Math.min(Math.max(8,p.x), Math.max(8,W-w-8)),
+    /* com a coluna lateral fixa, a esquerda deixa de ser area livre */
+    const xmin = W>=1280 ? 258 : (W>=1100 ? 222 : 8);
+    return { x:Math.min(Math.max(xmin,p.x), Math.max(xmin,W-w-8)),
              y:Math.min(Math.max(8,p.y), Math.max(8,H-h-8)) };
   };
   /* reenquadra ao abrir/fechar (muda de tamanho) e quando a janela muda */
