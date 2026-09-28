@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.26c";
+  window.APP_VERSION="2026.09.28";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2639,7 +2639,14 @@ function RodizioSprint({qs, label, registrar, onVoltar}){
   const [log,setLog]=useState([]);
   const [rodada,setRodada]=useState(1);
   const [fim,setFim]=useState(false);
-  useEffect(()=>{ setFila(shuffle(qs||[])); setI(0); setFeito(false); setLog([]); setRodada(1); setFim(false); },[qs]);
+  /* Reinicia só quando o CONJUNTO de questões muda (ids), não quando o pai
+     re-renderiza e passa um array novo com as mesmas questões — antes, cada
+     resposta registrada re-renderizava o pai, o array "todas" nascia de novo,
+     o efeito reembaralhava e zerava "feito": a alternativa ficava marcada mas
+     o botão "Próxima" continuava travado. */
+  const chaveQs=(qs||[]).map(x=>x&&x.id).join("|");
+  const primeira=useRef(true);
+  useEffect(()=>{ if(primeira.current){primeira.current=false;return;} setFila(shuffle(qs||[])); setI(0); setFeito(false); setLog([]); setRodada(1); setFim(false); },[chaveQs]);
   const total=fila.length;
   const q=fila[i];
   const acertos=log.filter(x=>x.ok).length;
@@ -4908,6 +4915,7 @@ function Internato({pool, registrar}){
   const [rodizio,setRodizio]=useState(false);   // modo rodízio (sprint da metade)
 
   const totalMod=(modId)=> questoesMetade(pool,modId,"A").length + questoesMetade(pool,modId,"B").length;
+  const todasRodizio=useMemo(()=> (rodizio&&modulo) ? blocosMetade(pool,modulo,half).reduce((a,b)=>a.concat(b.qs||[]),[]) : [], [pool,modulo,half,rodizio]);
 
   /* -------- TELA: Estação OSCE -------- */
   if(osce){
@@ -4945,7 +4953,7 @@ function Internato({pool, registrar}){
 
   /* -------- TELA: Modo Rodízio (sprint da metade) -------- */
   if(rodizio && modulo){
-    const todas = blocosMetade(pool,modulo,half).reduce((a,b)=>a.concat(b.qs||[]),[]);
+    const todas = todasRodizio;
     return <RodizioSprint qs={todas} label={(MOD_TEMA[modulo]||modulo)+" "+half} registrar={registrar} onVoltar={()=>setRodizio(false)}/>;
   }
 
