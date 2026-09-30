@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.09.28";
+  window.APP_VERSION="2026.09.30";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -98,9 +98,14 @@
   .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
   .btn.ghost:hover{border-color:var(--acc)}
   .btn.sm{padding:7px 12px;font-size:13px}
-  .nav{display:flex;gap:6px;flex-wrap:wrap;margin:18px 0 24px}
-  .nav button{background:transparent;color:var(--muted);padding:9px 14px;border-radius:9px;font-size:14px;font-weight:600;border:1px solid transparent}
-  .nav button.on{background:var(--panel2);color:var(--ink);border-color:var(--line)}
+  /* Menu em telas estreitas: grade de botões com borda e fundo — antes eram
+     rótulos soltos, e o aluno não percebia que eram botões. */
+  .nav{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:14px 0 22px;
+    padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+  .nav::before{content:"MENU";grid-column:1 / -1;font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--muted);padding:0 2px 2px}
+  .nav button{background:var(--panel2);color:var(--ink);padding:10px 10px;border-radius:10px;font-size:13.5px;font-weight:600;
+    border:1px solid var(--line);text-align:center;white-space:normal;line-height:1.2;min-height:42px;display:flex;align-items:center;justify-content:center}
+  .nav button.on{background:var(--acc);color:#07120f;border-color:var(--acc)}
   .grid{display:grid;gap:14px}
   .muted{color:var(--muted)}
   .bar{height:8px;background:var(--bar);border-radius:99px;overflow:hidden}
@@ -154,8 +159,8 @@
   /* ===== Ajustes para celular ===== */
   @media(max-width:560px){
     #root{padding:calc(16px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(84px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left))}
-    .nav{gap:5px;margin:14px 0 18px}
-    .nav button{padding:8px 11px;font-size:13px}
+    .nav{grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px;margin:12px 0 18px;padding:10px}
+    .nav button{padding:9px 6px;font-size:12.5px;min-height:40px}
     h1{font-size:24px !important}
     .kpi{font-size:28px}
     .grid{grid-template-columns:1fr !important}
@@ -168,7 +173,8 @@
     .srev-frame{height:calc(100vh - 128px) !important;min-height:460px !important}
   }
   @media(max-width:380px){
-    .nav button{padding:7px 9px;font-size:12px}
+    .nav{grid-template-columns:repeat(2,1fr)}
+    .nav button{padding:8px 6px;font-size:12px}
   }
 
 /* ═══════ COLUNA LATERAL DE NAVEGAÇÃO (telas largas) ═══════
@@ -182,19 +188,20 @@
   .nav{
     position:fixed; top:0; left:0; bottom:0; width:248px; z-index:60;
     display:flex; flex-direction:column; flex-wrap:nowrap; gap:2px;
-    margin:0; padding:0 12px 18px;
+    margin:0; padding:0 12px 18px; border-radius:0; border:0;
     overflow-y:auto; overscroll-behavior:contain;
     background:var(--panel); border-right:1px solid var(--line);
   }
   .nav::before{
     content:"PRECEPTOR";
-    display:block; padding:20px 12px 14px; margin-bottom:6px;
+    display:block; padding:20px 12px 14px; margin-bottom:6px; letter-spacing:.16em;
     font-size:12.5px; font-weight:800; letter-spacing:.16em; color:var(--acc);
     border-bottom:1px solid var(--line);
   }
   .nav button{
-    width:100%; text-align:left; padding:10px 12px;
+    width:100%; text-align:left; padding:10px 12px; min-height:0; display:block;
     font-size:13.5px; line-height:1.3; border-radius:10px;
+    background:transparent; color:var(--muted); border-color:transparent;
   }
   .nav button:hover{ background:var(--panel2); color:var(--ink); }
   .nav button.on{ background:var(--glow); color:var(--ink); border-color:var(--line); }
@@ -206,6 +213,37 @@
   .tour-balao{ left:calc(212px + 12px); }
   .nav{width:212px}
 }
+
+/* ═══════ MENU NO RODAPÉ (< 1100px) ═══════ */
+.nav-rodape{display:none}
+@media (max-width:1099px){
+  .nav{display:none !important}
+  .nav-rodape{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;
+    background:var(--panel);border-top:1px solid var(--line);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -6px 20px rgba(0,0,0,.25)}
+  .nav-rodape button{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+    background:transparent;border:0;color:var(--muted);padding:6px 2px;border-radius:12px;font-weight:600;min-width:0}
+  .nav-rodape .ic{font-size:20px;line-height:1;filter:grayscale(.6);opacity:.8}
+  .nav-rodape .lb{font-size:11px;letter-spacing:.01em;white-space:nowrap}
+  .nav-rodape button.on{color:var(--acc)}
+  .nav-rodape button.on .ic{filter:none;opacity:1;transform:translateY(-1px)}
+  .nav-rodape button.on::before{content:"";position:absolute;top:-6px;left:50%;margin-left:-14px;width:28px;height:3px;border-radius:0 0 3px 3px;background:var(--acc)}
+  /* espaço para o conteúdo não ficar atrás da barra */
+  #root{padding-bottom:calc(92px + env(safe-area-inset-bottom)) !important}
+  /* lupa de busca e balão do tour sobem acima da barra */
+  .fab-busca{bottom:calc(78px + env(safe-area-inset-bottom)) !important}
+  .tour-balao{bottom:calc(78px + env(safe-area-inset-bottom)) !important}
+}
+body.folha-aberta .fab-busca{display:none !important}
+.nav-folha-fundo{position:fixed;inset:0;z-index:39;background:rgba(0,0,0,.5);display:flex;align-items:flex-end}
+.nav-folha{width:100%;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;
+  padding:14px 14px calc(84px + env(safe-area-inset-bottom));box-shadow:0 -10px 30px rgba(0,0,0,.35);animation:folha-sobe .18s ease-out}
+@keyframes folha-sobe{from{transform:translateY(24px);opacity:.4}to{transform:none;opacity:1}}
+.nav-folha-tit{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:0 2px 10px}
+.nav-folha-grade{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.nav-folha-grade button{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:12px;
+  padding:14px 10px;font-size:14px;font-weight:600;text-align:left}
+.nav-folha-grade button.on{border-color:var(--acc);color:var(--acc)}
 </style>
 <style id="tour-css">
 @keyframes confete-cai{0%{transform:translateY(-10vh) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
@@ -2467,7 +2505,7 @@ function GlobalSearch(){
   },[q,pool]);
   useEffect(()=>{ if(!open){ setQ(""); setSel(null); } },[open]);
   return <React.Fragment>
-    <button onClick={()=>setOpen(true)} title="Buscar questões" aria-label="Buscar" style={{position:"fixed",right:18,bottom:18,zIndex:9998,width:52,height:52,borderRadius:"50%",border:"1px solid var(--acc)",background:"var(--acc)",color:"#fff",fontSize:22,cursor:"pointer",boxShadow:"0 4px 14px rgba(0,0,0,.25)"}}>🔍</button>
+    <button className="fab-busca" onClick={()=>setOpen(true)} title="Buscar questões" aria-label="Buscar" style={{position:"fixed",right:18,bottom:18,zIndex:9998,width:52,height:52,borderRadius:"50%",border:"1px solid var(--acc)",background:"var(--acc)",color:"#fff",fontSize:22,cursor:"pointer",boxShadow:"0 4px 14px rgba(0,0,0,.25)"}}>🔍</button>
     {open&&<div onClick={()=>setOpen(false)} style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.55)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"6vh 12px 12px"}}>
       <div className="card" onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:720,maxHeight:"84vh",overflow:"auto",padding:14}}>
         <div className="row" style={{gap:8,marginBottom:10}}>
@@ -3196,9 +3234,10 @@ function Shell({session}){
       {tour && !diag && !revisando && !loading && <TourInicial isPro={isPro} trialAtivo={trialAtivo} onFim={()=>setTour(false)}/>}
       {pesquisa && !tour && !isPro && <PesquisaAdesao gatilho={pesquisa} onEnviar={enviarPesquisa} onAssinar={()=>setShowAssinar(true)} onDepois={()=>pesqDepois(pesquisa)} onFechar={()=>setPesquisa(null)}/>}
       <div className="nav" id="tour-nav">
-        {[["trilha","📚 Estudar"],["dicas","💡 Dicas do dia"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["enamed","📝 ENAMED"],["tpi","🎓 TPI"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["strix","🦉 Strix (SUS/BA e AL)"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Fale com o Suporte"],["dash","📈 Meu progresso"]].concat(isAdmin?[["admin","📊 Métricas"]]:[]).map(([k,l])=>
+        {NAV_ITENS.concat(isAdmin?[["admin","📊 Métricas"]]:[]).map(([k,l])=>
           <button key={k} className={tab===k?"on":""} onClick={()=>setTab(k)}>{l}</button>)}
       </div>
+      <BarraInferior tab={tab} isAdmin={isAdmin} irPara={(k)=>{setTab(k);setTimeout(irAoTopo,0);}}/>
 
       <div id="topo-conteudo" style={{scrollMarginTop:10}}/>
 
@@ -3685,7 +3724,8 @@ function TourInicial({isPro,trialAtivo,onFim}){
   useEffect(()=>{ const t=setInterval(()=>setPodeInstalar(!!window.__PWA_PROMPT),800); return ()=>clearInterval(t); },[]);
   const instalarAgora=async()=>{ try{ const ev=window.__PWA_PROMPT; if(!ev) return; ev.prompt(); const r=await ev.userChoice; if(r&&r.outcome==="accepted"){ window.__PWA_PROMPT=null; setPodeInstalar(false); } }catch(e){} };
   useEffect(()=>{
-    const el=p&&p.alvo?document.getElementById(p.alvo):null;
+    const alvo=(p&&p.alvo==="tour-nav"&&(window.innerWidth||0)<1100)?"tour-navbar":(p&&p.alvo);
+    const el=alvo?document.getElementById(alvo):null;
     if(el){ el.classList.add("tour-glow"); try{ el.scrollIntoView({block:"center",behavior:"smooth"}); }catch(e){} }
     return ()=>{ if(el) el.classList.remove("tour-glow"); };
   },[passo]);
@@ -4606,7 +4646,7 @@ function Pomodoro(){
   const POSKEY="preceptor_pomo_pos";
   const [pos,setPos]=useState(()=>{
     try{ const v=JSON.parse(PLS.get(POSKEY)||"null"); if(v&&typeof v.x==="number"&&typeof v.y==="number") return v; }catch(e){}
-    try{ return {x:14,y:Math.max(8,(window.innerHeight||700)-76)}; }catch(e){ return {x:14,y:400}; }
+    try{ const W=window.innerWidth||360; return {x:14,y:Math.max(8,(window.innerHeight||700)-(W<1100?150:76))}; }catch(e){ return {x:14,y:400}; }
   });
   const elRef=useRef(null), dragRef=useRef(null), arrastouRef=useRef(false);
   const limitar=(p)=>{
@@ -4617,7 +4657,7 @@ function Pomodoro(){
     /* com a coluna lateral fixa, a esquerda deixa de ser area livre */
     const xmin = W>=1280 ? 258 : (W>=1100 ? 222 : 8);
     return { x:Math.min(Math.max(xmin,p.x), Math.max(xmin,W-w-8)),
-             y:Math.min(Math.max(8,p.y), Math.max(8,H-h-8)) };
+             y:Math.min(Math.max(8,p.y), Math.max(8,H-h-(W<1100?86:8))) };
   };
   /* reenquadra ao abrir/fechar (muda de tamanho) e quando a janela muda */
   useEffect(()=>{ setPos(p=>limitar(p)); },[aberto]);
@@ -4768,6 +4808,38 @@ function QuestionCard({q,onResp,indice,total,selInicial}){
     {sel!==null&&<QuestoesGemeas q={q}/>}
   </div>;
 }
+/* ═══════ MENU NO RODAPÉ (celular e tablet, < 1100px) ═══════
+   Cinco botões fixos, ao alcance do polegar e sempre visíveis ao rolar.
+   Provas e "Mais" abrem uma folha com as demais abas. No desktop continua
+   a coluna lateral (.nav). */
+const NAV_ITENS=[["trilha","📚 Estudar"],["dicas","💡 Dicas do dia"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["enamed","📝 ENAMED"],["tpi","🎓 TPI"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["strix","🦉 Strix (SUS-BA/AL)"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Suporte"],["dash","📈 Meu progresso"]];
+const NAV_PROVAS=["enamed","tpi","tecm","revalida","enare","strix"];
+const NAV_MAIS=["dicas","flash","videos","dash","suporte","admin"];
+function BarraInferior({tab,isAdmin,irPara}){
+  const [folha,setFolha]=useState(null);
+  const rot=Object.fromEntries(NAV_ITENS.concat([["admin","📊 Métricas"]]));
+  const grupos={provas:NAV_PROVAS, mais:NAV_MAIS.filter(k=>k!=="admin"||isAdmin)};
+  const ativo = NAV_PROVAS.indexOf(tab)>=0 ? "provas" : (NAV_MAIS.indexOf(tab)>=0 ? "mais" : tab);
+  const botoes=[["trilha","📚","Estudar"],["praticar","✍️","Praticar"],["internato","🩺","Internato"],["provas","📝","Provas"],["mais","☰","Mais"]];
+  const toque=(k)=>{ if(grupos[k]){ setFolha(f=>f===k?null:k); return; } setFolha(null); irPara(k); };
+  useEffect(()=>{ try{ document.body.classList.toggle("folha-aberta",!!folha); }catch(e){} return ()=>{ try{ document.body.classList.remove("folha-aberta"); }catch(e){} }; },[folha]);
+  useEffect(()=>{ if(!folha) return; const esc=e=>{ if(e.key==="Escape") setFolha(null); }; window.addEventListener("keydown",esc); return ()=>window.removeEventListener("keydown",esc); },[folha]);
+  return <React.Fragment>
+    {folha && <div className="nav-folha-fundo" onClick={()=>setFolha(null)}>
+      <div className="nav-folha" onClick={e=>e.stopPropagation()} role="dialog" aria-label={folha==="provas"?"Provas":"Mais opções"}>
+        <div className="nav-folha-tit">{folha==="provas"?"Provas e bancas":"Mais"}</div>
+        <div className="nav-folha-grade">
+          {grupos[folha].map(k=><button key={k} className={tab===k?"on":""} onClick={()=>{ setFolha(null); irPara(k); }}>{rot[k]||k}</button>)}
+        </div>
+      </div>
+    </div>}
+    <nav className="nav-rodape" id="tour-navbar" aria-label="Menu principal">
+      {botoes.map(([k,ic,l])=><button key={k} className={(folha?folha===k:ativo===k)?"on":""} aria-current={ativo===k?"page":undefined} onClick={()=>toque(k)}>
+        <span className="ic" aria-hidden="true">{ic}</span><span className="lb">{l}</span></button>)}
+    </nav>
+  </React.Fragment>;
+}
+
 function irAoTopo(){
   /* Abrir um assunto levava ao topo da PÁGINA — saudação, avisos e barra de abas —
      obrigando o aluno a rolar de novo até o conteúdo. Agora para no topo do conteúdo.
