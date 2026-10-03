@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.03b";
+  window.APP_VERSION="2026.10.03d";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2921,6 +2921,45 @@ function RevisaoHoje({qs, registrar, onVoltar}){
   </div>;
 }
 
+/* ---- Início: botão "Adicionar como app" (PWA) ----
+   Chrome/Edge/Android: abre o instalador nativo (beforeinstallprompt).
+   iPhone e navegadores sem instalador: mostra o passo a passo.
+   Some quando o app já está instalado ou se o aluno fechar o cartão. */
+function pwaInstalado(){ try{ return window.matchMedia("(display-mode: standalone)").matches||navigator.standalone===true||localStorage.getItem("preceptor_pwa_instalado")==="1"; }catch(e){ return false; } }
+function CardInstalarApp(){
+  const [oculto,setOculto]=useState(()=>{ try{ return pwaInstalado()||localStorage.getItem("preceptor_pwa_card_fechado")==="1"; }catch(e){ return pwaInstalado(); } });
+  const [pode,setPode]=useState(()=>!!window.__PWA_PROMPT);
+  const [passos,setPassos]=useState(false);
+  useEffect(()=>{ if(oculto) return; const t=setInterval(()=>{ setPode(!!window.__PWA_PROMPT); if(pwaInstalado()) setOculto(true); },1000); return ()=>clearInterval(t); },[oculto]);
+  if(oculto) return null;
+  const ua=navigator.userAgent||"";
+  const ios=/iPhone|iPad|iPod/i.test(ua)||(/Macintosh/i.test(ua)&&navigator.maxTouchPoints>1);
+  const android=/Android/i.test(ua);
+  const txt=ios
+    ? "No Safari, toque em Compartilhar (o quadrado com a seta pra cima), role a lista e escolha \"Adicionar à Tela de Início\". No iPhone só funciona pelo Safari."
+    : (android
+      ? "No Chrome, toque nos três pontinhos (⋮) e em \"Instalar app\" ou \"Adicionar à tela inicial\"."
+      : "No Chrome ou Edge, clique no ícone de instalar no fim da barra de endereço, ou no menu ⋮ → \"Instalar Preceptor\".");
+  const instalar=async()=>{
+    const ev=window.__PWA_PROMPT;
+    if(!ev){ setPassos(p=>!p); return; }
+    try{ ev.prompt(); const r=await ev.userChoice; if(r&&r.outcome==="accepted"){ window.__PWA_PROMPT=null; try{localStorage.setItem("preceptor_pwa_instalado","1");}catch(e){} setOculto(true); } }catch(e){ setPassos(true); }
+  };
+  const fechar=()=>{ try{localStorage.setItem("preceptor_pwa_card_fechado","1");}catch(e){} setOculto(true); };
+  return <div className="card" style={{marginBottom:16,padding:"14px 16px"}}>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+      <div style={{minWidth:0,flex:"1 1 220px"}}>
+        <b style={{fontSize:15}}>📲 Tenha o Preceptor como app</b>
+        <div className="muted" style={{fontSize:13,marginTop:3}}>Ícone na tela, abre em tela cheia e funciona sem internet.</div>
+      </div>
+      <div className="row" style={{gap:10,alignItems:"center"}}>
+        <button className="btn sm" onClick={instalar}>{pode?"Instalar agora":"Adicionar como app"}</button>
+        <span className="link muted" style={{fontSize:12.5}} onClick={fechar} title="Não mostrar mais">Agora não</span>
+      </div>
+    </div>
+    {passos && <div style={{fontSize:13.5,lineHeight:1.55,marginTop:10,paddingTop:10,borderTop:"1px solid var(--line)"}}>{txt}</div>}
+  </div>;
+}
 function Shell({session}){
   const uid=session.user.id;
   const TABS_OK=["inicio","trilha","dicas","praticar","internato","enamed","tpi","tecm","revalida","enare","strix","flash","videos","suporte","dash"];
@@ -3241,6 +3280,7 @@ function Shell({session}){
               <span className="link muted" style={{fontSize:12.5}} onClick={()=>setDiag("rapido")}>refazer diagnóstico</span>
               <span className="link muted" style={{fontSize:12.5}} onClick={()=>setDiag("enamed")}>prova oficial ENAMED</span>
             </div>; })()}
+      <CardInstalarApp/>
       </React.Fragment>}
 
       {novaVersao && <div className="card" style={{marginBottom:12,borderColor:"var(--gold)",padding:"10px 14px"}}>
@@ -4527,14 +4567,17 @@ function ProximoPasso({session,uid,store,srs,poolVisivel,temasFracos,metaProg,ac
     if(!ant) return -1;
     return Math.max(0,Math.round((new Date(hoje)-new Date(ant))/86400000));
   },[uid]);
+  /* todo hook ANTES do return do cartão do apelido: antes este useMemo vinha
+     depois, e ao responder "Pronto"/"Agora não" o React via um hook a mais
+     ("Rendered more hooks than during the previous render") e a tela ficava branca */
+  const parada=useMemo(()=>{ const p=ultimaParada(uid,store.dominio); if(!p) return null;
+    const nomes=["Aula","Como pensar","Pratique","Fixe"];
+    return {...p, n2:nomes[p.e]||("etapa "+((p.e||0)+1))}; },[uid,store.dominio]);
   if(perguntar) return <ApelidoPrompt uid={uid} sugestao={primeiroNome(session)}
     onPronto={()=>{ setApelido(lerApelido(uid)); setPerguntar(false); }}/>;
 
   const nome=(apelido||"").trim();
   const sd=saudacaoTexto(nome,diasFora<0?0:diasFora,diasFora<0);
-  const parada=useMemo(()=>{ const p=ultimaParada(uid,store.dominio); if(!p) return null;
-    const nomes=["Aula","Como pensar","Pratique","Fixe"];
-    return {...p, n2:nomes[p.e]||("etapa "+((p.e||0)+1))}; },[uid,store.dominio]);
   const passo=decidirProximoPasso({store,srs,poolVisivel,temasFracos,metaProg,acertoArea,parada});
 
   // onde ela está, em uma frase
