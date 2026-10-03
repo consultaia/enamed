@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.03g";
+  window.APP_VERSION="2026.10.03j";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -249,6 +249,24 @@ body.folha-aberta .fab-busca{display:none !important}
 body.modo-casado #root{max-width:1680px}
 .casado-grade{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:16px;align-items:start}
 .casado-guia{position:sticky;top:10px;height:calc(100vh - 20px);border-radius:12px;overflow:hidden;border:1px solid rgba(127,127,127,.25)}
+
+/* ═══════ COLUNA LATERAL RECOLHÍVEL (≥1100px) ═══════ */
+.nav-recolher{display:none}
+@media (min-width:1100px){
+  .nav{position:fixed}
+  .nav .nav-recolher{display:flex;align-items:center;justify-content:center;position:absolute;top:14px;right:10px;
+    width:30px !important;height:30px;padding:0 !important;border-radius:8px;border:1px solid var(--line) !important;
+    background:var(--panel2) !important;color:var(--muted) !important;font-size:16px;font-weight:700;line-height:1;z-index:2}
+  .nav .nav-recolher:hover{color:var(--ink) !important;border-color:var(--acc) !important}
+  body.nav-recolhida{padding-left:68px}
+  body.nav-recolhida #root{max-width:1280px}  /* a tela ganha de verdade: não só recentraliza */
+  body.nav-recolhida .tour-balao{left:calc(68px + 12px)}
+  body.nav-recolhida .nav{width:68px;padding:0 8px 18px}
+  body.nav-recolhida .nav::before{content:"";padding:0;margin:0 0 6px;height:58px;border-bottom:1px solid var(--line)}
+  body.nav-recolhida .nav .nav-recolher{right:50%;transform:translateX(50%)}
+  body.nav-recolhida .nav .nav-tx{display:none}
+  body.nav-recolhida .nav button:not(.nav-recolher){text-align:center;padding:10px 0;font-size:18px}
+}
 </style>
 <style id="tour-css">
 @keyframes confete-cai{0%{transform:translateY(-10vh) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
@@ -307,6 +325,7 @@ function aplicarRegrasClinicas(rota, corpo){
     if(!corpo||typeof corpo!=="object") return corpo;
     const tema=""+(corpo.tema||"");
     if(/^OSCE/i.test(tema)) return corpo; // simulação de paciente/examinador: sem injeção
+    if(/^PLANO/i.test(tema)) return corpo; // plano de estudo: organização, não conteúdo clínico
     if(rota==="/tirar-duvida" && typeof corpo.contexto==="string" && corpo.contexto.indexOf("REGRAS CLÍNICAS INEGOCIÁVEIS")<0)
       return {...corpo, contexto: REGRAS_CLINICAS+"\n\n"+corpo.contexto};
     if(rota==="/tirar-duvida" && corpo.contexto==null)
@@ -2200,7 +2219,7 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
   if(prova) return <div>
     <button className="btn ghost sm" style={{marginBottom:10}} onClick={fechar}>← Voltar às provas</button>
     <div className="muted" style={{fontSize:12,marginBottom:8,textTransform:"uppercase",letterSpacing:".05em"}}>{icone} {prova.nome}</div>
-    <Diagnostico pool={pool} registrar={registrar} modo="completo" questoesFixas={prova.qs} onFim={fechar} flag={flag} chave={flag+":"+prova.ed}/>
+    <Diagnostico pool={pool} registrar={registrar} modo="completo" questoesFixas={prova.qs} onFim={fechar} flag={flag} chave={flag+":"+prova.ed} rotulo={prova.nome}/>
   </div>;
   return <div className="card" style={{padding:22}}>
     <div className="tag" style={{color:"var(--acc)"}}>{subtitulo}</div>
@@ -2233,13 +2252,16 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
   </div>;
 }
 
-function RodizioSprint({qs, label, registrar, onVoltar}){
+function RodizioSprint({qs, label, registrar, onVoltar, sessaoMeta}){
   const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=a[i];a[i]=a[j];a[j]=t;}return a;};
-  const [fila,setFila]=useState(()=>shuffle(qs||[]));
-  const [i,setI]=useState(0);
-  const [feito,setFeito]=useState(false);
-  const [log,setLog]=useState([]);
-  const [rodada,setRodada]=useState(1);
+  const chaveS="rodizio:"+(label||"");
+  const salvo=useMemo(()=>{ const s=sessaoLer(chaveS); return s&&ordemSalva(s.ids,qs)?s:null; },[]);
+  const [fila,setFila]=useState(()=>salvo?ordemSalva(salvo.ids,qs):shuffle(qs||[]));
+  const [i,setI]=useState(()=>salvo?Math.max(0,Math.min(salvo.i||0,(salvo.ids||[]).length-1)):0);
+  const [resp,setResp]=useState(()=>(salvo&&salvo.resp)||{});
+  const [retomado,setRetomado]=useState(()=>!!salvo);
+  const [log,setLog]=useState(()=>(salvo&&salvo.log)||[]);
+  const [rodada,setRodada]=useState(()=>(salvo&&salvo.rodada)||1);
   const [fim,setFim]=useState(false);
   /* Reinicia só quando o CONJUNTO de questões muda (ids), não quando o pai
      re-renderiza e passa um array novo com as mesmas questões — antes, cada
@@ -2248,12 +2270,15 @@ function RodizioSprint({qs, label, registrar, onVoltar}){
      o botão "Próxima" continuava travado. */
   const chaveQs=(qs||[]).map(x=>x&&x.id).join("|");
   const primeira=useRef(true);
-  useEffect(()=>{ if(primeira.current){primeira.current=false;return;} setFila(shuffle(qs||[])); setI(0); setFeito(false); setLog([]); setRodada(1); setFim(false); },[chaveQs]);
+  useEffect(()=>{ if(primeira.current){primeira.current=false;return;} setFila(shuffle(qs||[])); setI(0); setResp({}); setLog([]); setRodada(1); setFim(false); },[chaveQs]);
   const total=fila.length;
   const q=fila[i];
   const acertos=log.filter(x=>x.ok).length;
   const temaCurto=t=>{ const p=(""+(t||"")).split("· "); return p.length>1?p[p.length-1]:(t||"—"); };
-  const reiniciar=(base)=>{ setFila(shuffle(base)); setI(0); setFeito(false); setLog([]); setFim(false); };
+  const reiniciar=(base)=>{ setFila(shuffle(base)); setI(0); setResp({}); setLog([]); setFim(false); setRetomado(false); };
+  const feito=!!(fila[i]&&resp[fila[i].id]);
+  useEffect(()=>{ if(fim){ sessaoApagar(chaveS); return; } const n=fila.filter(x=>resp[x.id]).length; if(!n) return;
+    sessaoGravar(chaveS,{ids:fila.map(x=>x.id),i,resp,log,rodada},{...(sessaoMeta||{}),tipo:"rodizio",label,rotulo:(sessaoMeta?"Modo Rodízio · ":"")+label,i,total:fila.length,respondidas:n,certas:fila.filter(x=>resp[x.id]&&resp[x.id].ok).length}); },[fila,i,resp,fim]);
 
   if(!total) return <div><button className="btn ghost sm" onClick={onVoltar}>← Sair do rodízio</button>
     <div className="card muted" style={{marginTop:12,padding:20}}>Não há questões carregadas para {label}.</div></div>;
@@ -2300,9 +2325,12 @@ function RodizioSprint({qs, label, registrar, onVoltar}){
       <div style={{width:Math.round(i/Math.max(1,total)*100)+"%",height:"100%",background:"var(--acc)",transition:"width .3s"}}/>
     </div>
     <div className="muted" style={{fontSize:11.5,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>🏁 Rodízio {label} · rodada {rodada}</div>
-    <QuestionCard q={q} indice={i} total={total} onResp={(qq,ok)=>{ if(registrar)registrar(qq,ok); setLog(l=>l.concat([{id:qq.id,tema:qq.tema,ok:ok}])); setFeito(true); }}/>
+    {retomado&&<AvisoRetomado onRecomecar={()=>{ setRodada(1); reiniciar(qs||[]); sessaoApagar(chaveS); }}/>}
+    <MapaQuestoes fila={fila} i={i} resp={resp} onIr={setI}/>
+    <QuestionCard q={q} indice={i} total={total} selInicial={resp[q.id]&&typeof resp[q.id].sel==="number"?resp[q.id].sel:null}
+      onResp={(qq,ok,esc)=>{ if(registrar)registrar(qq,ok); setLog(l=>l.concat([{id:qq.id,tema:qq.tema,ok:ok}])); setResp(r=>({...r,[qq.id]:{ok,sel:typeof esc==="number"?esc:null}})); }}/>
     <div className="row" style={{marginTop:14}}>
-      <button className="btn" disabled={!feito} onClick={()=>{ if(i<total-1){setFeito(false);setI(x=>x+1);} else {setFim(true);irAoTopo();} }}>
+      <button className="btn" disabled={!feito} onClick={()=>{ if(i<total-1){setI(x=>x+1);} else {setFim(true);irAoTopo();} }}>
         {i<total-1?"Próxima":"Ver resultado"}
       </button>
       {!feito && <BotaoPular texto={i<total-1?"Pular →":"Pular e ver resultado"} onClick={()=>{ if(i<total-1){setI(x=>x+1);} else {setFim(true);irAoTopo();} }}/>}
@@ -2519,6 +2547,328 @@ function CardInstalarApp(){
     {passos && <div style={{fontSize:13.5,lineHeight:1.55,marginTop:10,paddingTop:10,borderTop:"1px solid var(--line)"}}>{txt}</div>}
   </div>;
 }
+/* =================== PLANO DA SEMANA (passo 6) ===================
+   1) O aluno combina o caminho: objetivo, e — se for interno — rodízio, metade
+      (A/B) e data da N2. 2) O app mede a semana dele (o que respondeu, onde
+      errou, por que errou, revisões vencidas). 3) Monta uma lista FECHADA de
+      ações que o app sabe executar (aula, treino, bloco, Super Revisão, rodízio,
+      revisão, diagnóstico). 4) A IA (PRO) organiza essas ações em 7 dias e diz o
+      porquê de cada uma; sem IA, um plano automático com a mesma lógica. */
+const OBJETIVOS=[["enamed","ENAMED / residência"],["internato","Internato (N2)"],["revalida","Revalida"],["tecm","TECM"]];
+function caminhoKey(uid){ return "preceptor_caminho_"+(uid||"anon"); }
+function planoKey(uid){ return "preceptor_plano_"+(uid||"anon"); }
+function lerJSON(k){ try{ return JSON.parse(PLS.get(k)||"null"); }catch(e){ return null; } }
+function gravarJSON(k,v){ try{ PLS.set(k,JSON.stringify(v)); }catch(e){} }
+function somaDias(iso,n){ const d=new Date(iso+"T12:00:00"); d.setDate(d.getDate()+n); return dataLocal(d); }
+function diasEntre(a,b){ return Math.round((new Date(b+"T12:00:00")-new Date(a+"T12:00:00"))/86400000); }
+function rotuloDia(iso,i){ if(i===0) return "Hoje"; if(i===1) return "Amanhã";
+  const d=new Date(iso+"T12:00:00"); const s=d.toLocaleDateString("pt-BR",{weekday:"short",day:"2-digit",month:"2-digit"}); return s.charAt(0).toUpperCase()+s.slice(1).replace(".",""); }
+function temaCurtoPlano(t){ const s=""+(t||""); const i=s.indexOf(" · "); if(i>=0) return s.slice(i+3); const j=s.lastIndexOf("— "); return j>=0?s.slice(j+2):s; }
+function resumoCaminho(c){ if(!c) return "";
+  const o=(OBJETIVOS.find(x=>x[0]===c.objetivo)||[,""])[1];
+  if(c.objetivo==="internato"){ const m=(MODULOS_INTERNATO.find(x=>x.id===c.modulo)||{}).nome||c.modulo;
+    return "Internato · "+m+" "+c.metade+(c.dataProva?" · N2 em "+c.dataProva.split("-").reverse().slice(0,2).join("/"):"")+(c.misto?" · + ENAMED":""); }
+  return o+(c.dataProva?" · prova em "+c.dataProva.split("-").reverse().join("/"):""); }
+
+function assuntoDoTema(area,tema,pool){
+  const ids=new Set((pool||[]).filter(q=>q.tema===tema).map(q=>q.id));
+  let t=CURRICULO.find(x=>(x.questoes||[]).some(id=>ids.has(id)));
+  if(t) return t;
+  const cands=[tema, temaCurtoPlano(tema)].map(_nTema).filter(s=>s.length>=5);
+  return CURRICULO.find(x=>x.area===area && cands.some(n=>{ const m=_nTema(x.nome); return n===m||n.indexOf(m)>=0||m.indexOf(n)>=0; }))||null;
+}
+
+/* ---- 2) a semana do aluno ---- */
+function diagnosticoSemana({store,srs,pool,temasFracos,caminho}){
+  const hoje=dataLocal(), ini=somaDias(hoje,-6);
+  const log=(store.log||[]), sem=log.filter(x=>x.dia&&x.dia>=ini);
+  const porTema={};
+  sem.forEach(x=>{ const k=x.area+"||"+x.tema; const o=porTema[k]=porTema[k]||{area:x.area,tema:x.tema,n:0,erros:0}; o.n++; if(!x.ok) o.erros++; });
+  let fracos=Object.values(porTema).filter(o=>!(""+o.tema).startsWith("Internato — ")&&(o.erros>=2||(o.n>=2&&o.erros/o.n>=0.4)))
+    .map(o=>({...o,pct:Math.round((o.n-o.erros)/o.n*100)})).sort((a,b)=>(b.erros-a.erros)||(a.pct-b.pct)).slice(0,6);
+  if(fracos.length<3) (temasFracos||[]).forEach(k=>{ const [area,tema]=(""+k).split("||"); if(tema&&!fracos.some(f=>f.tema===tema)&&fracos.length<5) fracos.push({area,tema,n:0,erros:0,pct:null,doDiagnostico:true}); });
+  const motivos={}; (store.caderno||[]).forEach(c=>{ const d=dataLocal(c.criado_em); if(d>=ini) motivos[c.motivo]=(motivos[c.motivo]||0)+1; });
+  const vencidas=questoesVencidas(pool,srs).length;
+  const acertos=sem.filter(x=>x.ok).length;
+  const diasAtivos=new Set(sem.map(x=>x.dia)).size;
+  let internato=null;
+  if(caminho&&caminho.objetivo==="internato"&&caminho.modulo){
+    const blocos=blocosMetade(store.questoes||[],caminho.modulo,caminho.metade||"A");
+    const pref="Internato — "+MOD_TEMA[caminho.modulo]+" "+(caminho.metade||"A")+" · ";
+    const hist={}; log.forEach(x=>{ if((""+x.tema).startsWith(pref)){ const n=(""+x.tema).slice(pref.length); const o=hist[n]=hist[n]||{n:0,ok:0}; o.n++; if(x.ok) o.ok++; } });
+    internato={modulo:caminho.modulo,metade:caminho.metade||"A",guia:!!SUPERREV[caminho.modulo+"|"+(caminho.metade||"A")],
+      topicos:blocos.map(b=>({nome:b.nome,questoes:b.n,feitas:(hist[b.nome]||{}).n||0,pct:hist[b.nome]&&hist[b.nome].n?Math.round(hist[b.nome].ok/hist[b.nome].n*100):null}))};
+  }
+  return {hoje,respondidas:sem.length,acerto:sem.length?Math.round(acertos/sem.length*100):null,diasAtivos,fracos,motivos,vencidas,internato};
+}
+
+/* ---- 3) ações que o app sabe executar ---- */
+function acoesPossiveis(diag,caminho,pool,store){
+  const A=[]; let n=0; const id=p=>p+(++n);
+  const internato=diag.internato;
+  if(internato){
+    const mod=internato.modulo, h=internato.metade, nomeMod=MOD_TEMA[mod]||mod;
+    internato.topicos.forEach(t=>{
+      if(internato.guia) A.push({id:id("G"),tipo:"guia",modulo:mod,metade:h,topico:t.nome,label:"Super Revisão: "+t.nome,info:"revisão do tema ("+nomeMod+" "+h+")"});
+      A.push({id:id("B"),tipo:"bloco",modulo:mod,metade:h,topico:t.nome,label:"Bloco: "+t.nome+" ("+t.questoes+" questões)",
+        info:t.feitas?("já respondeu "+t.feitas+", acerto "+t.pct+"%"):"ainda não treinado"});
+    });
+    A.push({id:id("M"),tipo:"rodizio",modulo:mod,metade:h,label:"Modo Rodízio "+nomeMod+" "+h+" (todas as questões, embaralhadas)",info:"simulado da metade"});
+  }
+  if(!internato||caminho.misto){
+    diag.fracos.forEach(f=>{
+      const t=assuntoDoTema(f.area,f.tema,pool);
+      if(t) A.push({id:id("A"),tipo:"aula",assunto:t.id,label:"Aula da trilha: "+t.nome,info:"tema fraco: "+temaCurtoPlano(f.tema)+(f.pct!=null?" ("+f.pct+"% de acerto, "+f.erros+" erros)":" (do diagnóstico)")});
+      const qn=(pool||[]).filter(q=>q.tema===f.tema).length;
+      if(qn>=3) A.push({id:id("T"),tipo:"treino",area:f.area,tema:f.tema,label:"Treinar "+Math.min(15,qn)+" questões de "+temaCurtoPlano(f.tema),info:f.pct!=null?(f.pct+"% de acerto na semana"):"tema fraco do diagnóstico"});
+    });
+    // assuntos de alto rendimento ainda não estudados (útil para quem começou agora)
+    const dom=store.dominio||{};
+    const area=caminho.objetivo==="tecm"?"CM":null;
+    CURRICULO.filter(t=>!dom[t.id]&&(!area||t.area===area)).sort((a,b)=>b.yield-a.yield).slice(0,internato?2:5)
+      .forEach(t=>{ if(!A.some(x=>x.assunto===t.id)) A.push({id:id("A"),tipo:"aula",assunto:t.id,label:"Aula da trilha: "+t.nome,info:"alto rendimento, ainda não estudado"}); });
+  }
+  if(diag.vencidas>0) A.push({id:"R",tipo:"revisao",label:"Revisão espaçada ("+diag.vencidas+" vencidas)",info:"todo dia que houver vencidas"});
+  if(!internato&&diag.respondidas<15) A.push({id:"D",tipo:"diag",label:"Diagnóstico rápido (~20 questões)",info:"poucos dados ainda — mapeia os pontos fracos"});
+  return A;
+}
+
+/* ---- 4a) plano automático (sem IA) ---- */
+function planoAutomatico(diag,acoes,caminho){
+  const dias=[...Array(7)].map(()=>({titulo:"",tarefas:[]}));
+  const limite=caminho.dataProva?Math.max(1,Math.min(7,diasEntre(diag.hoje,caminho.dataProva))):7; // não planeja o dia da prova
+  const R=acoes.find(a=>a.tipo==="revisao");
+  const put=(d,a,p)=>{ if(d<limite&&a&&dias[d].tarefas.length<4) dias[d].tarefas.push({acao:a.id,porque:p}); };
+  if(diag.internato){
+    const tops=diag.internato.topicos.slice().sort((a,b)=>((a.pct==null?-1:a.pct)-(b.pct==null?-1:b.pct))); // nunca treinados e piores primeiro
+    let d=0;
+    tops.forEach((t,i)=>{
+      const G=acoes.find(a=>a.tipo==="guia"&&a.topico===t.nome), B=acoes.find(a=>a.tipo==="bloco"&&a.topico===t.nome);
+      const dia=Math.min(limite-1,Math.floor(i/2));
+      put(dia,G,"Revise o tema antes de treinar."); put(dia,B,t.feitas?"Acerto ainda baixo: treine de novo.":"Fixe o tema com as questões.");
+      if(t.pct!=null&&t.pct<60) put(Math.min(limite-1,dia+3),B,"Volta do tema fraco, dias depois.");
+      d=dia;
+    });
+    put(limite-1,acoes.find(a=>a.tipo==="rodizio"),"Simulado da metade inteira para fechar a semana.");
+  }else{
+    const D=acoes.find(a=>a.tipo==="diag"); if(D) put(0,D,"Mapeia onde você mais erra.");
+    const aulas=acoes.filter(a=>a.tipo==="aula"), treinos=acoes.filter(a=>a.tipo==="treino");
+    aulas.forEach((a,i)=>put(Math.min(limite-1,i%limite),a,a.info&&a.info.startsWith("tema fraco")?"Entenda o tema onde você errou.":"Assunto que mais cai e você ainda não viu."));
+    treinos.forEach((t,i)=>put(Math.min(limite-1,(i+2)%limite),t,"Treine o tema dias depois da aula: é o que fixa."));
+  }
+  if(caminho.misto&&diag.internato){ const en=acoes.filter(a=>a.tipo==="aula"||a.tipo==="treino"); en.forEach((a,i)=>put(Math.min(limite-1,i),a,"Uma tarefa de ENAMED por dia, sem atrapalhar o rodízio.")); }
+  for(let i=0;i<limite;i++) if(R&&!dias[i].tarefas.some(t=>t.acao==="R")) dias[i].tarefas.unshift({acao:"R",porque:"As vencidas de hoje — é o que segura a memória."});
+  dias.forEach((d,i)=>{ d.titulo=i>=limite?(caminho.dataProva&&i===limite?"Dia da prova":"Descanso e revisão leve"):(d.tarefas.length?"":"Dia livre: pratique questões soltas"); });
+  const fr=diag.fracos.slice(0,3).map(f=>temaCurtoPlano(f.tema));
+  return {resumo:(diag.respondidas?("Nos últimos 7 dias: "+diag.respondidas+" questões, "+diag.acerto+"% de acerto, em "+diag.diasAtivos+" dia"+(diag.diasAtivos===1?"":"s")+". "):"Ainda não há respostas nesta semana. ")+
+    (diag.internato?"Foco nos temas de "+(MOD_TEMA[diag.internato.modulo]||"")+" "+diag.internato.metade+", começando pelos que você ainda não treinou ou mais errou.":(fr.length?"Pontos a atacar: "+fr.join(", ")+".":"Vamos começar pelos assuntos que mais caem.")),
+    dias, dica:"", fonte:"auto"};
+}
+
+/* ---- 4b) plano com IA ---- */
+async function planoComIA(diag,acoes,caminho){
+  const limite=caminho.dataProva?Math.max(1,Math.min(7,diasEntre(diag.hoje,caminho.dataProva))):7;
+  const datas=[...Array(7)].map((_,i)=>somaDias(diag.hoje,i));
+  const contexto=[
+    "Você é o Preceptor, um preceptor de estudos de medicina bem-humorado que chama o aluno de 'Doc'. Monte o plano de estudo dos próximos 7 dias.",
+    "CAMINHO COMBINADO COM O ALUNO: "+resumoCaminho(caminho)+(caminho.dataProva?" (faltam "+diasEntre(diag.hoje,caminho.dataProva)+" dias para a prova)":""),
+    "META DIÁRIA: "+(caminho.meta||20)+" questões.",
+    "SEMANA DO ALUNO: "+JSON.stringify({respondidas:diag.respondidas,acerto_pct:diag.acerto,dias_ativos:diag.diasAtivos,revisoes_vencidas:diag.vencidas,motivos_de_erro:diag.motivos,temas_fracos:diag.fracos.map(f=>({tema:temaCurtoPlano(f.tema),acerto_pct:f.pct,erros:f.erros}))}),
+    "AÇÕES DISPONÍVEIS (use SÓ estes ids):\n"+acoes.map(a=>a.id+" — "+a.label+(a.info?" ["+a.info+"]":"")).join("\n"),
+    "DIAS: "+datas.map((d,i)=>"dia "+i+" = "+d+(i>=limite?" (SEM tarefas: "+(i===limite&&caminho.dataProva?"dia da prova":"após a prova")+")":"")).join("; "),
+    "REGRAS: 2 a 4 tarefas por dia útil; não repita a mesma ação no mesmo dia; inclua R em todo dia útil se existir; "+
+      (diag.internato?"o rodízio vem primeiro: cubra todos os temas da metade antes da prova, Super Revisão (G) antes do Bloco (B) do mesmo tema, temas com acerto baixo voltam 2 a 3 dias depois, e o Modo Rodízio (M) no último dia útil"+(caminho.misto?"; no máximo 1 ação de ENAMED (A ou T) por dia":"")+"."
+        :"aula (A) do tema fraco antes do treino (T) do mesmo tema, com 2 a 3 dias de intervalo; se existir D, ponha no dia 0.")+
+      " Se o aluno mais 'leu errado' ou 'chutou', diga isso na dica. Não invente números: use só os dados acima.",
+    "RESPONDA SÓ EM JSON VÁLIDO: {\"resumo\":\"2 a 3 frases sobre a semana do aluno e o foco do plano\",\"dias\":[{\"titulo\":\"foco do dia em até 6 palavras\",\"tarefas\":[{\"acao\":\"id\",\"porque\":\"até 12 palavras\"}]}],\"dica\":\"1 frase prática\"} com exatamente 7 itens em dias."
+  ].join("\n\n");
+  const r=await wfetch("/tirar-duvida",{tema:"PLANO semanal",contexto,pergunta:"Monte o plano da semana em JSON."});
+  const d=await r.json(); if(!r.ok||d.error) throw new Error(d.error||"Falha da IA");
+  let raw=(d.resposta||"").replace(/```json|```/g,"").trim(); raw=raw.slice(raw.indexOf("{"),raw.lastIndexOf("}")+1);
+  const p=JSON.parse(raw); const ids=new Set(acoes.map(a=>a.id));
+  if(!Array.isArray(p.dias)) throw new Error("plano sem dias");
+  const dias=[...Array(7)].map((_,i)=>{ const x=p.dias[i]||{}; const vistos=new Set();
+    const tarefas=(i>=limite?[]:(x.tarefas||[])).filter(t=>t&&ids.has(t.acao)&&!vistos.has(t.acao)&&vistos.add(t.acao)).slice(0,4).map(t=>({acao:t.acao,porque:(""+(t.porque||"")).slice(0,140)}));
+    return {titulo:(""+(x.titulo||"")).slice(0,60),tarefas}; });
+  if(dias.reduce((s,x)=>s+x.tarefas.length,0)<3) throw new Error("plano vazio");
+  return {resumo:(""+(p.resumo||"")).slice(0,500),dias,dica:(""+(p.dica||"")).slice(0,240),fonte:"ia"};
+}
+
+/* ---- 1) combinar o caminho ---- */
+function CaminhoSetup({inicial,meta,onSalvar,onCancelar}){
+  const [c,setC]=useState(()=>({objetivo:"enamed",modulo:"CM",metade:"A",dataProva:"",misto:false,...(inicial||{})}));
+  const set=(k,v)=>setC(x=>({...x,[k]:v}));
+  const chip=(on,txt,fn,key)=><button key={key||txt} type="button" className={"btn sm"+(on?"":" ghost")} aria-pressed={on} onClick={fn}>{on?"✓ ":""}{txt}</button>;
+  const intern=c.objetivo==="internato";
+  return <div>
+    <div className="muted" style={{fontSize:13,margin:"4px 0 10px"}}>Me conta o que você precisa agora. O plano segue o seu caminho, e você muda quando quiser.</div>
+    <label style={{marginTop:0}}>Meu foco agora é</label>
+    <div className="row" style={{gap:6,flexWrap:"wrap"}}>{OBJETIVOS.map(([k,l])=>chip(c.objetivo===k,l,()=>set("objetivo",k),k))}</div>
+    {intern && <>
+      <label style={{marginTop:12}}>Rodízio atual</label>
+      <div className="row" style={{gap:6,flexWrap:"wrap"}}>{MODULOS_INTERNATO.map(m=>chip(c.modulo===m.id,m.icone+" "+(MOD_TEMA[m.id]||m.nome),()=>set("modulo",m.id),m.id))}</div>
+      <label style={{marginTop:12}}>Metade</label>
+      <div className="row" style={{gap:6}}>{["A","B"].map(h=>chip(c.metade===h,"Temas "+h,()=>set("metade",h),h))}</div>
+      <label style={{marginTop:12}}>Também quero manter o ENAMED em dia</label>
+      <div className="row" style={{gap:6}}>{chip(!c.misto,"Só o rodízio",()=>set("misto",false),"so")}{chip(c.misto,"Rodízio + 1 tarefa de ENAMED por dia",()=>set("misto",true),"mix")}</div>
+    </>}
+    <label style={{marginTop:12}}>{intern?"Data da N2":"Data da prova"} <span className="muted" style={{fontSize:12}}>(opcional)</span></label>
+    <input type="date" value={c.dataProva||""} min={dataLocal()} onChange={e=>set("dataProva",e.target.value)} style={{maxWidth:200,margin:0}}/>
+    <div className="muted" style={{fontSize:12,marginTop:8}}>Ritmo: {meta||20} questões por dia (é a sua meta diária — ajuste no cartão da meta).</div>
+    <div className="row" style={{gap:10,marginTop:14}}>
+      <button className="btn sm" onClick={()=>onSalvar({...c,dataProva:(c.dataProva&&c.dataProva>=dataLocal())?c.dataProva:""})}>Combinado — montar meu plano</button>
+      {onCancelar && <span className="link muted" style={{fontSize:13,alignSelf:"center"}} onClick={onCancelar}>Cancelar</span>}
+    </div>
+  </div>;
+}
+
+/* ---- 5) o cartão no Início ---- */
+function PlanoSemana({uid,store,srs,pool,temasFracos,meta,isPro,acoes:exec}){
+  const [caminho,setCaminho]=useState(()=>lerJSON(caminhoKey(uid)));
+  const [plano,setPlano]=useState(()=>lerJSON(planoKey(uid)));
+  const [editando,setEditando]=useState(false);
+  const [semana,setSemana]=useState(false);
+  const [gerando,setGerando]=useState(false);
+  const [erro,setErro]=useState("");
+  const hoje=dataLocal();
+  const cam=caminho?{...caminho,meta:(meta&&meta.meta)||20}:null;
+  const assinatura=cam?JSON.stringify([cam.objetivo,cam.modulo,cam.metade,cam.dataProva,cam.misto]):"";
+  const diag=useMemo(()=>cam?diagnosticoSemana({store,srs,pool,temasFracos,caminho:cam}):null,[assinatura,store.log.length,store.questoes.length,(store.caderno||[]).length,Object.keys(srs||{}).length]);
+  const acoes=useMemo(()=>diag?acoesPossiveis(diag,cam,pool,store):[],[diag]);
+  const valido=p=>p&&p.caminho===assinatura&&p.inicio&&diasEntre(p.inicio,hoje)>=0&&diasEntre(p.inicio,hoje)<7;
+  /* sem plano válido (novo caminho, semana vencida): monta o automático na hora */
+  useEffect(()=>{ if(!cam||!diag) return; if(valido(plano)) return;
+    const p={...planoAutomatico(diag,acoes,cam),inicio:hoje,caminho:assinatura,acoes,feitos:{},iaEm:null};
+    setPlano(p); gravarJSON(planoKey(uid),p); },[assinatura,diag]);
+  const salvarCaminho=c=>{ gravarJSON(caminhoKey(uid),c); setCaminho(c); setEditando(false); setPlano(null); };
+  const usarIA=async()=>{
+    if(!isPro){ exec.assinar(); return; }
+    setGerando(true); setErro("");
+    try{ const p=await planoComIA(diag,acoes,cam); const np={...p,inicio:hoje,caminho:assinatura,acoes,feitos:{},iaEm:hoje}; setPlano(np); gravarJSON(planoKey(uid),np); }
+    catch(e){ setErro("A IA não respondeu agora ("+(e.message||"erro")+"). Seu plano automático continua valendo."); }
+    setGerando(false);
+  };
+  const executar=(a,chave)=>{
+    const np={...plano,feitos:{...(plano.feitos||{}),[chave]:true}}; setPlano(np); gravarJSON(planoKey(uid),np);
+    if(a.tipo==="revisao") exec.revisar();
+    else if(a.tipo==="diag") exec.diag("rapido");
+    else if(a.tipo==="aula") exec.assunto(a.assunto);
+    else if(a.tipo==="treino"){ const qs=(pool||[]).filter(q=>q.tema===a.tema).sort(()=>Math.random()-0.5).slice(0,15); exec.treinar(qs,"Plano · "+temaCurtoPlano(a.tema)); }
+    else if(a.tipo==="bloco"||a.tipo==="guia"||a.tipo==="rodizio") exec.internato({modulo:a.modulo,metade:a.metade,topico:a.topico,modo:a.tipo});
+  };
+
+  const titulo=<div className="row" style={{justifyContent:"space-between",alignItems:"baseline",gap:10,flexWrap:"wrap"}}>
+    <div><div className="tag" style={{color:"var(--acc)"}}>🧭 SEU PLANO DA SEMANA</div>
+      {cam&&!editando&&<div className="muted" style={{fontSize:12.5,marginTop:3}}>{resumoCaminho(cam)} · <span className="link" style={{fontSize:12.5}} onClick={()=>setEditando(true)}>mudar caminho</span></div>}</div>
+    {plano&&cam&&!editando&&<span className="pill" style={{fontSize:11}}>{plano.fonte==="ia"?"✨ feito pela IA":"automático"}</span>}
+  </div>;
+
+  if(!cam||editando) return <div className="card" style={{marginBottom:16,borderColor:"var(--acc)"}}>
+    {titulo}<b style={{fontSize:16,display:"block",marginTop:6}}>{cam?"Mudar o caminho":"Vamos combinar seu caminho?"}</b>
+    <CaminhoSetup inicial={cam} meta={meta&&meta.meta} onSalvar={salvarCaminho} onCancelar={cam?()=>setEditando(false):null}/>
+  </div>;
+  if(!plano||!valido(plano)) return null;
+
+  const acaoPor={}; (plano.acoes||acoes).forEach(a=>{ acaoPor[a.id]=a; });
+  const diaHoje=Math.max(0,Math.min(6,diasEntre(plano.inicio,hoje)));
+  const listaDia=(i)=>{ const d=plano.dias[i]||{tarefas:[]};
+    return <div key={i} style={{padding:"10px 0",borderTop:i===diaHoje&&!semana?"0":"1px solid var(--line)"}}>
+      <div className="row" style={{justifyContent:"space-between",gap:8}}>
+        <b style={{fontSize:13.5,color:i===diaHoje?"var(--acc)":"inherit"}}>{rotuloDia(somaDias(plano.inicio,i),i-diaHoje)}{d.titulo?" · "+d.titulo:""}</b>
+      </div>
+      {d.tarefas.length===0 && <div className="muted" style={{fontSize:13,marginTop:4}}>{d.titulo?"":"Sem tarefas."}</div>}
+      {d.tarefas.map((t,j)=>{ const a=acaoPor[t.acao]; if(!a) return null; const ch=i+"-"+t.acao; const feito=!!(plano.feitos||{})[ch];
+        return <div key={ch} className="row" style={{gap:10,alignItems:"center",padding:"6px 0"}}>
+          <span style={{width:18,flex:"none",color:feito?"var(--acc)":"var(--muted)"}}>{feito?"✓":"○"}</span>
+          <div style={{minWidth:0,flex:1}}>
+            <div style={{fontSize:13.5,fontWeight:600,textDecoration:feito?"line-through":"none",opacity:feito?.6:1}}>{a.label}</div>
+            {t.porque&&<div className="muted" style={{fontSize:12}}>{t.porque}</div>}
+          </div>
+          {i<=diaHoje+1 && <button className={"btn sm"+(feito?" ghost":"")} onClick={()=>executar(a,ch)}>{feito?"Refazer":"Fazer →"}</button>}
+        </div>; })}
+    </div>; };
+  const iaHoje=plano.iaEm===hoje;
+  return <div className="card" style={{marginBottom:16}}>
+    {titulo}
+    {plano.resumo&&<div style={{fontSize:13.5,lineHeight:1.5,margin:"8px 0 4px"}}>{plano.resumo}</div>}
+    {plano.dica&&<div className="muted" style={{fontSize:12.5,marginBottom:4}}>💡 {plano.dica}</div>}
+    {semana ? plano.dias.map((_,i)=>listaDia(i)) : listaDia(diaHoje)}
+    <div className="row" style={{gap:12,marginTop:10,flexWrap:"wrap",alignItems:"center"}}>
+      <span className="link" style={{fontSize:13}} onClick={()=>setSemana(s=>!s)}>{semana?"Ver só hoje":"Ver a semana inteira"}</span>
+      {isPro
+        ? <button className="btn ghost sm" disabled={gerando||iaHoje} onClick={usarIA} title={iaHoje?"Um plano novo por dia":""}>{gerando?"Montando com a IA…":(iaHoje?"✨ Novo plano da IA amanhã":(plano.fonte==="ia"?"✨ Refazer com a IA":"✨ Montar com a IA"))}</button>
+        : <span className="muted" style={{fontSize:12.5}}>✨ No PRO, a IA ajusta o plano aos seus erros e explica cada tarefa. <span className="link" style={{fontSize:12.5}} onClick={exec.assinar}>Conhecer</span></span>}
+    </div>
+    {erro&&<div className="muted" style={{fontSize:12.5,marginTop:8,color:"var(--warn)"}}>{erro}</div>}
+  </div>;
+}
+
+/* =================== CONTINUAR DE ONDE PAROU ===================
+   Toda lista de questões (Praticar, blocos do Internato, Modo Rodízio, treinos e
+   provas oficiais) guarda neste aparelho: a ordem, a posição e o que o aluno
+   marcou em cada questão. Ao voltar, retoma sozinha; o mapa mostra as já feitas
+   (verde acertou, vermelho errou) e tocar numa delas a reabre já corrigida.
+   Um índice único alimenta o cartão "Continuar de onde parou" do Início. */
+const SESSAO_PREF="preceptor_sessao_", SESSAO_IDX="preceptor_sessoes", SESSAO_DIAS=30;
+function sessaoLer(chave){ const s=lerJSON(SESSAO_PREF+chave); if(!s||!s.t||(Date.now()-s.t)>SESSAO_DIAS*86400000) return null; return s; }
+function sessaoIndice(){ return lerJSON(SESSAO_IDX)||{}; }
+function sessaoGravar(chave,estado,meta){
+  try{ const t=Date.now(); gravarJSON(SESSAO_PREF+chave,{...estado,t});
+    const idx=sessaoIndice(); idx[chave]={...(idx[chave]||{}),...(meta||{}),t};
+    const ks=Object.keys(idx).sort((a,b)=>idx[b].t-idx[a].t); ks.slice(25).forEach(k=>{ delete idx[k]; try{PLS.del(SESSAO_PREF+k);}catch(e){} });
+    gravarJSON(SESSAO_IDX,idx); }catch(e){}
+}
+function sessaoApagar(chave){ try{ PLS.del(SESSAO_PREF+chave); const idx=sessaoIndice(); if(idx[chave]){ delete idx[chave]; gravarJSON(SESSAO_IDX,idx); } }catch(e){} }
+function sessaoPendentes(){ const idx=sessaoIndice(); const agora=Date.now();
+  return Object.keys(idx).map(k=>({chave:k,...idx[k]})).filter(s=>s.respondidas>0&&s.respondidas<s.total&&(agora-s.t)<SESSAO_DIAS*86400000).sort((a,b)=>b.t-a.t); }
+function haQuanto(t){ const m=Math.round((Date.now()-t)/60000); if(m<2) return "agora há pouco"; if(m<60) return "há "+m+" min"; const h=Math.round(m/60); if(h<24) return "há "+h+" h"; const d=Math.round(h/24); return d===1?"ontem":"há "+d+" dias"; }
+/* reconstrói a ordem salva a partir das questões disponíveis; null se alguma sumiu */
+function ordemSalva(ids,qs){ if(!Array.isArray(ids)||!ids.length) return null; const m={}; (qs||[]).forEach(q=>{ m[q.id]=q; }); const out=ids.map(id=>m[id]); return out.every(Boolean)?out:null; }
+
+function MapaQuestoes({fila,i,resp,onIr}){
+  const [aberto,setAberto]=useState(false);
+  const feitas=fila.filter(q=>resp[q.id]).length, certas=fila.filter(q=>resp[q.id]&&resp[q.id].ok).length;
+  return <div style={{margin:"8px 0 10px"}}>
+    <span className="link" style={{fontSize:13}} onClick={()=>setAberto(a=>!a)}>🔢 {aberto?"Fechar o mapa":"Ver as questões"} · {feitas} de {fila.length} feitas{feitas?" · "+certas+" certas":""}</span>
+    {aberto && <div className="card" style={{padding:12,marginTop:8}}>
+      <div className="muted" style={{fontSize:12,marginBottom:8}}>Toque no número para ir à questão. <span style={{color:"var(--acc)"}}>■</span> acertou · <span style={{color:"var(--bad)"}}>■</span> errou · as respondidas abrem já corrigidas.</div>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(40px,1fr))",gap:6,maxHeight:220,overflowY:"auto"}}>
+        {fila.map((qq,n)=>{ const r=resp[qq.id]; const atual=n===i;
+          const st={padding:"7px 0",fontSize:13,fontWeight:600,borderRadius:8,cursor:"pointer",border:"1px solid var(--line)",background:atual?"var(--acc)":"transparent",color:atual?"#06120e":"inherit"};
+          if(r&&!atual){ st.borderColor=r.ok?"var(--acc)":"var(--bad)"; st.color=r.ok?"var(--acc)":"var(--bad)"; }
+          return <button key={qq.id+"_"+n} type="button" style={st} onClick={()=>{ onIr(n); setAberto(false); }}>{n+1}</button>; })}
+      </div>
+    </div>}
+  </div>;
+}
+function AvisoRetomado({onRecomecar}){
+  const [visivel,setVisivel]=useState(true);
+  if(!visivel) return null;
+  return <div className="row" style={{gap:10,alignItems:"center",fontSize:12.5,margin:"6px 0",flexWrap:"wrap"}}>
+    <span className="muted">↩️ Retomado de onde você parou.</span>
+    <span className="link" style={{fontSize:12.5}} onClick={()=>{ if(confirm("Recomeçar do zero? As respostas desta lista serão esquecidas aqui (o seu desempenho continua salvo).")){ setVisivel(false); onRecomecar(); } }}>Recomeçar do zero</span>
+  </div>;
+}
+function ContinuarCard({onAbrir}){
+  const [lista,setLista]=useState(()=>sessaoPendentes().slice(0,3));
+  if(!lista.length) return null;
+  return <div className="card" style={{marginBottom:16,borderColor:"var(--acc2)"}}>
+    <div className="tag" style={{color:"var(--acc2)"}}>↩️ CONTINUAR DE ONDE PAROU</div>
+    {lista.map(s=><div key={s.chave} className="row" style={{gap:10,alignItems:"center",padding:"8px 0",borderTop:"1px solid var(--line)",marginTop:6}}>
+      <div style={{minWidth:0,flex:1}}>
+        <div style={{fontSize:14,fontWeight:600}}>{s.rotulo||"Questões"}</div>
+        <div className="muted" style={{fontSize:12}}>questão {Math.min((s.i||0)+1,s.total)} de {s.total} · {s.respondidas} respondida{s.respondidas===1?"":"s"}{s.certas!=null?" ("+s.certas+" certas)":""} · {haQuanto(s.t)}</div>
+      </div>
+      <button className="btn sm" onClick={()=>onAbrir(s)}>Continuar →</button>
+      <span className="link muted" style={{fontSize:12}} title="Tirar da lista" onClick={()=>{ sessaoApagar(s.chave); setLista(l=>l.filter(x=>x.chave!==s.chave)); }}>✕</span>
+    </div>)}
+  </div>;
+}
+/* provas oficiais já guardam o próprio progresso: aqui só entram no índice */
+function sessaoIndexar(chave,meta){ try{ const idx=sessaoIndice(); idx[chave]={...(idx[chave]||{}),...meta,t:Date.now()}; gravarJSON(SESSAO_IDX,idx); }catch(e){} }
+function sessaoDesindexar(chave){ try{ const idx=sessaoIndice(); if(idx[chave]){ delete idx[chave]; gravarJSON(SESSAO_IDX,idx); } }catch(e){} }
+const FLAG_TAB={ENAMED:"enamed",TPI:"tpi",TECM:"tecm",REVALIDA:"revalida",ENARE:"enare",STRIX:"strix"};
+
 function Shell({session}){
   const uid=session.user.id;
   const TABS_OK=["inicio","trilha","dicas","praticar","internato","enamed","tpi","tecm","revalida","enare","strix","flash","videos","suporte","dash"];
@@ -2551,7 +2901,14 @@ function Shell({session}){
   const [primeiraPaga,setPrimeiraPaga]=useState(null);
   const [novaVersao,setNovaVersao]=useState(null);
   const [tour,setTour]=useState(()=>{try{return !localStorage.getItem("preceptor_tour_v1")}catch(e){return false}});
-  useEffect(()=>{ if(tour) setTab("inicio"); },[tour]); // os alvos do tour (meta, diagnóstico) ficam no Início
+  useEffect(()=>{ if(tour) setTab("inicio"); },[tour]);
+  /* coluna lateral recolhível (telas largas): vira uma faixa só com ícones */
+  const [navRec,setNavRec]=useState(()=>{ try{ return localStorage.getItem("preceptor_nav_recolhida")==="1"; }catch(e){ return false; } });
+  useEffect(()=>{ try{ document.body.classList.toggle("nav-recolhida",navRec); localStorage.setItem("preceptor_nav_recolhida",navRec?"1":"0"); window.dispatchEvent(new Event("resize")); }catch(e){} },[navRec]);
+  const abrirAssunto=(id)=>{ setDiag(null); setRevisando(false);
+    if(tab==="trilha"&&window.__ABRIR_ASSUNTO){ window.__ABRIR_ASSUNTO(id); return; }
+    window.__ASSUNTO_PENDENTE=id; setTab("trilha"); };
+  const abrirInternato=(o)=>{ setDiag(null); setRevisando(false); window.__INTERNATO_PENDENTE=o; setTab("internato"); }; // o plano vive no Início: a aba Internato monta e lê o pedido // os alvos do tour (meta, diagnóstico) ficam no Início
   const [pesquisa,setPesquisa]=useState(null); // gatilho ativo: "trial" | "paywall" | null
   const [sprintGemeas,setSprintGemeas]=useState(null); // {qs,label} — treino aberto pelas gêmeas / raio-x
   useEffect(()=>{ try{ window.__TREINAR_GEMEAS=async(qs,label)=>{
@@ -2783,7 +3140,7 @@ function Shell({session}){
           <Diagnostico pool={acesso?questoes:poolVisivel} registrar={registrar} modo={diag}
             questoesFixas={diag==="enamed"?(window.ENAMED_OFICIAL||[]).slice().sort((a,b)=>{const n=q=>{const m=/_q(\d+)$/.exec(q.id||"");return m?+m[1]:9999;};return n(a)-n(b);}):null}
             /* mesma chave da aba ENAMED: seletor de questão, numeração oficial e progresso compartilhado */
-            chave={diag==="enamed"?"ENAMED:ENAMED_2025_2":undefined} flag={diag==="enamed"?"ENAMED":undefined}
+            chave={diag==="enamed"?"ENAMED:ENAMED_2025_2":undefined} flag={diag==="enamed"?"ENAMED":undefined} rotulo={diag==="enamed"?"Prova Oficial ENAMED 2025.2":undefined}
             onFim={(fracos)=>{
               const ids=(fracos||[]).map(f=>f.area+"||"+f.tema);
               setTemasFracos(ids); setJaFezDiag(true);
@@ -2796,6 +3153,13 @@ function Shell({session}){
     : revisando ? <RevisaoHoje qs={questoesVencidas(poolVisivel,srs)} registrar={registrar} onVoltar={()=>setRevisando(false)}/>
     : <div>
       {tab==="inicio" && <React.Fragment>
+      <ContinuarCard onAbrir={(s)=>{ try{
+        if(s.tipo==="bloco") abrirInternato({modulo:s.modulo,metade:s.metade,topico:s.topico,modo:"bloco"});
+        else if(s.tipo==="rodizio"&&s.modulo) abrirInternato({modulo:s.modulo,metade:s.metade,modo:"rodizio"});
+        else if(s.tipo==="rodizio"){ const st=sessaoLer(s.chave); const qs=ordemSalva(st&&st.ids,questoes); if(qs&&window.__TREINAR_GEMEAS) window.__TREINAR_GEMEAS(qs,s.label); }
+        else if(s.tipo==="praticar"){ window.__PRATICAR_PENDENTE={area:s.area,tema:s.tema}; setTab("praticar"); }
+        else if(s.tipo==="prova"){ PLS.set("preceptor_prova_aberta_"+s.flag,(s.chaveProva||"").split(":").slice(1).join(":")); setTab(FLAG_TAB[s.flag]||"enamed"); }
+        irAoTopo(); }catch(e){} }}/>
       {metaConfig ? <MetaConfig meta={meta} onSalvar={salvarMeta} onFechar={()=>setMetaConfig(false)}/> : <div id="tour-meta"><MetaDiariaCard prog={metaProg} meta={meta} diasPerfeitos={metaDias.length} celebra={metaCelebra} estimativa={calcEstimativa(log)} onConfig={()=>setMetaConfig(true)} onPraticar={()=>setTab("praticar")}/></div>}
       {(()=>{
         const venc=questoesVencidas(poolVisivel,srs); const n=venc.length;
@@ -2822,6 +3186,9 @@ function Shell({session}){
           </div>
         </div>;
       })()}
+      <PlanoSemana uid={uid} store={store} srs={srs} pool={poolVisivel} temasFracos={temasFracos} meta={meta} isPro={isPro}
+        acoes={{revisar:()=>setRevisando(true), diag:(m)=>{setRevisando(false);setDiag(m);}, assunto:abrirAssunto, internato:abrirInternato,
+          treinar:(qs,l)=>{ try{ window.__TREINAR_GEMEAS&&window.__TREINAR_GEMEAS(qs,l); }catch(e){} }, assinar:()=>setShowAssinar(true)}}/>
       {!jaFezDiag
         ? <div className="card" style={{marginBottom:16,borderColor:"var(--acc)"}}>
             <b style={{fontSize:16}} id="tour-diag">Comece pelo diagnóstico</b>
@@ -2851,8 +3218,10 @@ function Shell({session}){
       {tour && !diag && !revisando && !loading && <TourInicial isPro={isPro} trialAtivo={trialAtivo} onFim={()=>setTour(false)}/>}
       {pesquisa && !tour && !isPro && <PesquisaAdesao gatilho={pesquisa} onEnviar={enviarPesquisa} onAssinar={()=>setShowAssinar(true)} onDepois={()=>pesqDepois(pesquisa)} onFechar={()=>setPesquisa(null)}/>}
       <div className="nav" id="tour-nav">
-        {NAV_ITENS.concat(isAdmin?[["admin","📊 Métricas"]]:[]).map(([k,l])=>
-          <button key={k} className={tab===k?"on":""} onClick={()=>setTab(k)}>{l}</button>)}
+        <button type="button" className="nav-recolher" onClick={()=>setNavRec(v=>!v)} title={navRec?"Mostrar o menu":"Recolher o menu (mais tela para estudar)"} aria-label={navRec?"Mostrar o menu":"Recolher o menu"}>{navRec?"»":"«"}</button>
+        {NAV_ITENS.concat(isAdmin?[["admin","📊 Métricas"]]:[]).map(([k,l])=>{ const sp=l.indexOf(" ");
+          return <button key={k} className={tab===k?"on":""} onClick={()=>setTab(k)} title={navRec?l.slice(sp+1):undefined}>
+            <span className="nav-ic">{l.slice(0,sp)}</span><span className="nav-tx"> {l.slice(sp+1)}</span></button>; })}
       </div>
       <BarraInferior tab={tab} isAdmin={isAdmin} irPara={(k)=>{setTab(k);setTimeout(irAoTopo,0);}}/>
 
@@ -2868,7 +3237,7 @@ function Shell({session}){
       {tab==="inicio" && <ProximoPasso session={session} uid={uid} store={store} srs={srs} poolVisivel={poolVisivel}
         temasFracos={temasFracos} metaProg={metaProg} acertoArea={acertoArea} streak={streak}
         irRevisar={()=>setRevisando(true)}
-        irAssunto={(t)=>{ try{window.__ABRIR_ASSUNTO&&window.__ABRIR_ASSUNTO(t.id);}catch(e){} }}
+        irAssunto={(t)=>abrirAssunto(t.id)}
         irPraticar={()=>setTab("praticar")}
         irTodas={()=>{ try{document.getElementById("tour-diag")&&document.getElementById("tour-diag").scrollIntoView({behavior:"smooth",block:"center"});}catch(e){} }}/>}
       {tab==="inicio" && <MensagemDoDia uid={uid}/>}
@@ -2914,7 +3283,10 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
   const caminho=k=>CURRICULO.filter(t=>t.area===k).sort((a,b)=>b.yield-a.yield);
   const abrir=t=>{ if(!liberado(t)){onAssinar();return;} setAberto(t.id); irAoTopo(); };
   useEffect(()=>{ try{ window.__ABRIR_ASSUNTO=(id)=>{ const t=CURRICULO.find(x=>x.id===id); if(!t) return;
-    if(!liberado(t)){onAssinar();return;} setAreaSel(t.area); setAberto(t.id); irAoTopo(); }; }catch(e){} },[isPro]);
+    if(!liberado(t)){onAssinar();return;} setAreaSel(t.area); setAberto(t.id); irAoTopo(); };
+    /* pedido vindo de outra aba (Início, plano da semana): a Trilha acabou de montar */
+    if(window.__ASSUNTO_PENDENTE){ const id=window.__ASSUNTO_PENDENTE; window.__ASSUNTO_PENDENTE=null; window.__ABRIR_ASSUNTO(id); }
+  }catch(e){} return ()=>{ try{ window.__ABRIR_ASSUNTO=null; }catch(e){} }; },[isPro]);
 
   /* ---------- ESTADO 3: estudando um assunto (tela cheia) ---------- */
   if(aberto){
@@ -4277,7 +4649,8 @@ function Pomodoro(){
     const W=(typeof window!=="undefined"&&window.innerWidth)||360;
     const H=(typeof window!=="undefined"&&window.innerHeight)||700;
     /* com a coluna lateral fixa, a esquerda deixa de ser area livre */
-    const xmin = W>=1280 ? 258 : (W>=1100 ? 222 : 8);
+    const recolhida=(typeof document!=="undefined")&&document.body.classList.contains("nav-recolhida");
+    const xmin = W>=1100 ? (recolhida ? 76 : (W>=1280 ? 258 : 222)) : 8;
     return { x:Math.min(Math.max(xmin,p.x), Math.max(xmin,W-w-8)),
              y:Math.min(Math.max(8,p.y), Math.max(8,H-h-(W<1100?86:8))) };
   };
@@ -4609,6 +4982,13 @@ function Internato({pool, registrar}){
   const [rodizio,setRodizio]=useState(false);   // modo rodízio (sprint da metade)
   /* Uma videoaula do YouTube por tema (tabela videoaulas_internato). Carrega uma
      vez por sessão; se a tabela não existir, segue sem vídeos e sem erro. */
+  /* atalho vindo do plano da semana: abre direto o bloco, a Super Revisão do tema ou o rodízio */
+  useEffect(()=>{ const p=window.__INTERNATO_PENDENTE; if(!p) return; window.__INTERNATO_PENDENTE=null;
+    try{ setModulo(p.modulo); setHalf(p.metade||"A");
+      if(p.modo==="rodizio") setRodizio(true);
+      else if(p.modo==="guia"&&SUPERREV[p.modulo+"|"+(p.metade||"A")]){ setRevTopico(p.topico||null); setSuperrev(true); }
+      else if(p.modo==="bloco"){ const b=blocosMetade(pool,p.modulo,p.metade||"A").find(x=>x.nome===p.topico); if(b) setBloco(b); }
+      irAoTopo(); }catch(e){} },[]);
   const [aulasInt,setAulasInt]=useState(()=>window.__VAI||[]);
   useEffect(()=>{
     if(window.__VAI||!sb) return;
@@ -4651,13 +5031,13 @@ function Internato({pool, registrar}){
       registrar={registrar} onVoltar={()=>setBloco(null)}
       onRevisar={temGuiaBloco?()=>{setRevTopico(bloco.nome);setBloco(null);setSuperrev(true);irAoTopo();}:null}
       guiaHtml={temGuiaBloco?SUPERREV[modulo+"|"+half].html():null} topico={bloco.nome}
-      aula={aulaDoTema(aulasInt,modulo,half,bloco.nome)}/>;
+      aula={aulaDoTema(aulasInt,modulo,half,bloco.nome)} sessaoMeta={{modulo,metade:half,topico:bloco.nome}}/>;
   }
 
   /* -------- TELA: Modo Rodízio (sprint da metade) -------- */
   if(rodizio && modulo){
     const todas = todasRodizio;
-    return <RodizioSprint qs={todas} label={(MOD_TEMA[modulo]||modulo)+" "+half} registrar={registrar} onVoltar={()=>setRodizio(false)}/>;
+    return <RodizioSprint qs={todas} label={(MOD_TEMA[modulo]||modulo)+" "+half} registrar={registrar} onVoltar={()=>setRodizio(false)} sessaoMeta={{modulo,metade:half}}/>;
   }
 
   /* -------- TELA: metades A/B de um módulo -------- */
@@ -4795,12 +5175,19 @@ function AulaDoTema({aula,tema}){
    apresentação ("<Módulo> de A a Z", barra de progresso) e o rodapé "Como usar",
    que comiam quase metade da altura antes do conteúdo do tema. */
 const CASADO_CSS="<style>header.top,.footer{display:none!important}.wrap{padding-top:12px!important;padding-bottom:24px!important}</style>";
-function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar, guiaHtml, topico, aula}){
+function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar, guiaHtml, topico, aula, sessaoMeta}){
   const fila = useMemo(()=>qs.slice(),[nome]);
-  const [i,setI]=useState(0);
-  const [feito,setFeito]=useState(false);
-  const [acertos,setAcertos]=useState(0);
-  useEffect(()=>{setI(0);setFeito(false);setAcertos(0);},[nome]);
+  const chaveS="bloco:"+(label||"")+"|"+nome;
+  const salvo=useMemo(()=>sessaoLer(chaveS),[chaveS]);
+  const [i,setI]=useState(()=>salvo&&typeof salvo.i==="number"?Math.max(0,Math.min(salvo.i,fila.length)):0);
+  const [resp,setResp]=useState(()=>(salvo&&salvo.resp)||{});
+  const [retomado,setRetomado]=useState(()=>!!(salvo&&salvo.resp&&Object.keys(salvo.resp).length));
+  const feito=!!(fila[i]&&resp[fila[i].id]);
+  const acertos=fila.filter(x=>resp[x.id]&&resp[x.id].ok).length;
+  useEffect(()=>{ const n=fila.filter(x=>resp[x.id]).length;
+    if(i>=fila.length){ sessaoApagar(chaveS); return; } if(!n) return;
+    sessaoGravar(chaveS,{i,resp},{...(sessaoMeta||{}),tipo:"bloco",rotulo:(label||"Internato")+" · "+nome,i,total:fila.length,respondidas:n,certas:acertos}); },[i,resp]);
+  const recomecar=()=>{ setI(0); setResp({}); setRetomado(false); sessaoApagar(chaveS); };
   const [casado,setCasado]=useState(false);
   const [wide,setWide]=useState(typeof window!=="undefined"?window.innerWidth>=1000:true);
   useEffect(()=>{const h=()=>setWide(window.innerWidth>=1000);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
@@ -4825,6 +5212,8 @@ function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar, guiaH
       <h2 style={{fontSize:21,marginTop:4}}>{nome}</h2>
     </div>
     <AulaDoTema aula={aula} tema={nome}/>
+    {retomado&&!fim&&<AvisoRetomado onRecomecar={recomecar}/>}
+    {!fim&&<MapaQuestoes fila={fila} i={i} resp={resp} onIr={setI}/>}
     <div className="bar" style={{margin:"14px 0"}}><i style={{width:((Math.min(i+(feito?1:0),fila.length))/fila.length*100)+"%",background:"var(--acc)"}}/></div>
 
     {fim
@@ -4833,14 +5222,15 @@ function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar, guiaH
           <div className="kpi" style={{margin:"8px 0 2px"}}>{acertos} / {fila.length}</div>
           <div className="muted" style={{fontSize:14,marginBottom:14}}>{Math.round(acertos/fila.length*100)}% de acerto neste bloco.</div>
           <div className="row">
-            <button className="btn ghost" onClick={()=>{setI(0);setFeito(false);setAcertos(0);}}>↻ Refazer bloco</button>
+            <button className="btn ghost" onClick={recomecar}>↻ Refazer bloco</button>
             <button className="btn" onClick={onVoltar}>Voltar aos blocos</button>
           </div>
         </div>
       : (()=>{ const qBlock=<div>
-          <QuestionCard q={q} indice={i} total={fila.length} onResp={(qq,ok)=>{ if(registrar)registrar(qq,ok); if(ok)setAcertos(a=>a+1); setFeito(true); }}/>
+          <QuestionCard q={q} indice={i} total={fila.length} selInicial={resp[q.id]&&typeof resp[q.id].sel==="number"?resp[q.id].sel:null}
+            onResp={(qq,ok,esc)=>{ if(registrar)registrar(qq,ok); setResp(r=>({...r,[qq.id]:{ok,sel:typeof esc==="number"?esc:null}})); }}/>
           <div className="row" style={{marginTop:14}}>
-            <button className="btn" disabled={!feito} onClick={()=>{setFeito(false);setI(x=>x+1);}}>
+            <button className="btn" disabled={!feito} onClick={()=>setI(x=>x+1)}>
               {i<fila.length-1?"Próxima":"Ver resultado"}
             </button>
             {!feito && <BotaoPular texto={i<fila.length-1?"Pular →":"Pular e ver resultado"} onClick={()=>setI(x=>x+1)}/>}
@@ -5469,8 +5859,13 @@ function Praticar(props){
 }
 
 function Treinar({pool,store,registrar,bloqueadas,isPro,acesso,onAssinar,onNovasQuestoes}){
-  const [area,setArea]=useState("todas");
-  const [tema,setTema]=useState("todos");
+  /* volta para o último filtro em andamento (ou o que veio do "Continuar" do Início) */
+  const iniRef=useRef(null);
+  if(iniRef.current===null){ let p=null; try{ p=window.__PRATICAR_PENDENTE||null; window.__PRATICAR_PENDENTE=null; }catch(e){}
+    if(!p){ const s=sessaoPendentes().find(x=>x.tipo==="praticar"); if(s) p={area:s.area,tema:s.tema}; }
+    iniRef.current=p||false; }
+  const [area,setArea]=useState(()=>(iniRef.current&&iniRef.current.area)||"todas");
+  const [tema,setTema]=useState(()=>(iniRef.current&&iniRef.current.tema)||"todos");
   const [extra,setExtra]=useState([]);   // questoes geradas na sessao
   const [gerando,setGerando]=useState(false);
   const [msg,setMsg]=useState("");
@@ -5501,10 +5896,23 @@ function Treinar({pool,store,registrar,bloqueadas,isPro,acesso,onAssinar,onNovas
     return arr;
   },[base,extra,area,tema,seed]);
 
-  const [i,setI]=useState(0);const [feito,setFeito]=useState(false);
-  useEffect(()=>{setI(0);setFeito(false);},[area,tema,seed]);
-  useEffect(()=>{setTema("todos");},[area]);  // ao trocar area, reseta tema
+  const [i,setI]=useState(0);
+  const [resp,setResp]=useState({});
+  const [retomado,setRetomado]=useState(false);
+  const chaveS="praticar:"+area+"|"+tema;
+  /* ao entrar num filtro: retoma a lista dele se houver uma em andamento */
+  useEffect(()=>{ const s=sessaoLer(chaveS);
+    if(s&&s.resp&&Object.keys(s.resp).length){ setSeed(s.seed||1); setI(s.i||0); setResp(s.resp); setRetomado(true); }
+    else { setI(0); setResp({}); setRetomado(false); } },[chaveS]);
+  const primeiraArea=useRef(true);
+  useEffect(()=>{ if(primeiraArea.current){ primeiraArea.current=false; return; } setTema("todos"); },[area]);  // ao trocar area, reseta tema
   const q=fila[i];
+  const feito=!!(q&&resp[q.id]);
+  useEffect(()=>{ const n=Object.keys(resp).length; if(!n) return;
+    if(fila.length&&i>=fila.length){ sessaoApagar(chaveS); return; }
+    const certas=Object.values(resp).filter(x=>x.ok).length;
+    sessaoGravar(chaveS,{seed,i,resp},{tipo:"praticar",area,tema,rotulo:"Praticar · "+(area==="todas"?"todas as áreas":areaNome(area))+(tema!=="todos"?" · "+temaCurtoPlano(tema):""),i,total:fila.length,respondidas:n,certas}); },[i,resp,seed]);
+  const recomecar=()=>{ setSeed(s=>s+1); setI(0); setResp({}); setRetomado(false); sessaoApagar(chaveS); };
   const workerOk=!WORKER_URL.startsWith("COLE_");
 
   const mais=async()=>{
@@ -5553,7 +5961,7 @@ function Treinar({pool,store,registrar,bloqueadas,isPro,acesso,onAssinar,onNovas
     <div className="card">
       <div className="muted" style={{marginBottom:12}}>Você já respondeu todas as questões deste filtro. 🎉</div>
       <div className="row" style={{gap:8,flexWrap:"wrap"}}>
-        <button className="btn ghost" onClick={()=>setSeed(s=>s+1)}>↻ Refazer estas questões</button>
+        <button className="btn ghost" onClick={recomecar}>↻ Refazer estas questões</button>
         <button className="btn" disabled={gerando} onClick={mais}>{gerando?"Gerando...":"✨ Gerar 10 novas com IA"}</button>
       </div>
       {msg&&<div className="muted" style={{fontSize:13,marginTop:10,color:"var(--acc2)"}}>{msg}</div>}
@@ -5565,14 +5973,17 @@ function Treinar({pool,store,registrar,bloqueadas,isPro,acesso,onAssinar,onNovas
     {filtroUI}
     <div className="bar" style={{marginBottom:14}}><i style={{width:((i+1)/fila.length*100)+"%",background:"var(--acc)"}}/></div>
 
-    <QuestionCard q={q} indice={i} total={fila.length} onResp={(qq,ok)=>{registrar(qq,ok);setFeito(true);}}/>
+    {retomado&&<AvisoRetomado onRecomecar={recomecar}/>}
+    <MapaQuestoes fila={fila} i={i} resp={resp} onIr={setI}/>
+    <QuestionCard q={q} indice={i} total={fila.length} selInicial={resp[q.id]&&typeof resp[q.id].sel==="number"?resp[q.id].sel:null}
+      onResp={(qq,ok,esc)=>{registrar(qq,ok);setResp(r=>({...r,[qq.id]:{ok,sel:typeof esc==="number"?esc:null}}));}}/>
 
     <div className="row" style={{marginTop:14}}>
       {ultimaFree && feito
         ? <button className="btn" onClick={onAssinar}>Liberar todas as questões (PRO)</button>
         : i<fila.length-1
           ? <React.Fragment>
-              <button className="btn" disabled={!feito} onClick={()=>{setFeito(false);setI(x=>x+1);}}>Próxima</button>
+              <button className="btn" disabled={!feito} onClick={()=>setI(x=>x+1)}>Próxima</button>
               {!feito && <BotaoPular onClick={()=>setI(x=>x+1)}/>}
             </React.Fragment>
           : <button className="btn" disabled={!feito||gerando} onClick={mais}>{gerando?"Gerando mais 10...":"✨ Mais questões deste tema"}</button>}
@@ -5587,7 +5998,7 @@ function Treinar({pool,store,registrar,bloqueadas,isPro,acesso,onAssinar,onNovas
 }
 
 /* =================== DIAGNÓSTICO (teste inicial + simuladão) =================== */
-function Diagnostico({pool,registrar,onFim,modo,questoesFixas,flag,chave}){
+function Diagnostico({pool,registrar,onFim,modo,questoesFixas,flag,chave,rotulo}){
   // modo: "rapido" (~20) ou "completo" (100)
   const alvo = modo==="completo" ? 100 : 20;
   const prova=useMemo(()=>{
@@ -5610,7 +6021,9 @@ function Diagnostico({pool,registrar,onFim,modo,questoesFixas,flag,chave}){
   const [nav,setNav]=useState(false);
   const q=prova[i];
   const [lsFalhou,setLsFalhou]=useState(false);
-  useEffect(()=>{ if(!chaveLS) return; if(fim){ PLS.del(chaveLS); return; }
+  useEffect(()=>{ if(!chaveLS) return; if(fim){ PLS.del(chaveLS); sessaoDesindexar("prova:"+chave); return; }
+    const nR=Object.keys(resp).length;
+    if(nR) sessaoIndexar("prova:"+chave,{tipo:"prova",flag,chaveProva:chave,rotulo:rotulo||("Prova "+(chave.split(":")[1]||"")),i,total:prova.length,respondidas:nR,certas:Object.values(resp).filter(r=>r.ok).length});
     const okW=PLS.set(chaveLS,JSON.stringify({i:i,resp:resp,t:Date.now()}));
     if(!okW||!PLS.ok) setLsFalhou(true);
   },[chaveLS,i,resp,fim]);
