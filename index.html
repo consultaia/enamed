@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.02";
+  window.APP_VERSION="2026.10.02c";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2911,8 +2911,8 @@ function RevisaoHoje({qs, registrar, onVoltar}){
 
 function Shell({session}){
   const uid=session.user.id;
-  const TABS_OK=["trilha","dicas","praticar","internato","enamed","tpi","tecm","revalida","enare","strix","flash","videos","suporte","dash"];
-  const [tab,setTab]=useState(()=>{try{const t=PLS.get("preceptor_tab");return (t&&TABS_OK.indexOf(t)>=0)?t:"trilha"}catch(e){return "trilha"}});
+  const TABS_OK=["inicio","trilha","dicas","praticar","internato","enamed","tpi","tecm","revalida","enare","strix","flash","videos","suporte","dash"];
+  const [tab,setTab]=useState(()=>{try{const t=PLS.get("preceptor_tab");return (t&&TABS_OK.indexOf(t)>=0)?t:"inicio"}catch(e){return "inicio"}});
   useEffect(()=>{PLS.set("preceptor_tab",tab)},[tab]);
   const [tema,setTema]=useState(()=>{try{return localStorage.getItem("enamed_tema")||"escuro"}catch(e){return "escuro"}});
   useEffect(()=>{document.documentElement.setAttribute("data-tema",tema);try{localStorage.setItem("enamed_tema",tema)}catch(e){}},[tema]);
@@ -2941,6 +2941,7 @@ function Shell({session}){
   const [primeiraPaga,setPrimeiraPaga]=useState(null);
   const [novaVersao,setNovaVersao]=useState(null);
   const [tour,setTour]=useState(()=>{try{return !localStorage.getItem("preceptor_tour_v1")}catch(e){return false}});
+  useEffect(()=>{ if(tour) setTab("inicio"); },[tour]); // os alvos do tour (meta, diagnóstico) ficam no Início
   const [pesquisa,setPesquisa]=useState(null); // gatilho ativo: "trial" | "paywall" | null
   const [sprintGemeas,setSprintGemeas]=useState(null); // {qs,label} — treino aberto pelas gêmeas / raio-x
   useEffect(()=>{ try{ window.__TREINAR_GEMEAS=async(qs,label)=>{
@@ -3144,22 +3145,22 @@ function Shell({session}){
       </div>
     </div>
 
-    {trialAtivo && <div className="card" style={{marginTop:16,borderColor:"var(--acc)"}}>
+    {tab==="inicio" && trialAtivo && <div className="card" style={{marginTop:16,borderColor:"var(--acc)"}}>
         <div className="tag" style={{color:"var(--acc)"}}>TESTE GRÁTIS · {trialRestante}h restantes</div>
         <div style={{fontSize:14,lineHeight:1.55,marginTop:4}}>Você tem <b>acesso completo</b> a questões, provas oficiais, simulados, guias, flashcards e progresso até <b>{trialFim.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</b>. A <b>IA</b> — tira-dúvida, reexplicar, OSCE com paciente simulado, gerar questão e resolver por foto — é exclusiva do PRO.</div>
         <div className="row" style={{gap:10,marginTop:10,flexWrap:"wrap"}}><button className="btn sm" onClick={()=>setShowAssinar(true)}>Liberar a IA · {precoTxt}</button><span style={{fontSize:12,alignSelf:"center"}}><b style={{color:"var(--gold)"}}>Assine durante o teste e leve 7 meses pelo preço de 6.</b> <span className="muted">Pix, na hora, sem renovação automática.</span></span></div>
     </div>}
-    {isPro && (fundador || (diasParaVencer!==null && diasParaVencer<=30)) && <div className="card" style={{marginTop:16,borderColor:"var(--gold)"}}>
+    {tab==="inicio" && isPro && (fundador || (diasParaVencer!==null && diasParaVencer<=30)) && <div className="card" style={{marginTop:16,borderColor:"var(--gold)"}}>
       {fundador && <div style={{fontSize:13}}><b style={{color:"var(--gold)"}}>🏅 Membro fundador.</b> Você entrou no começo — seu preço fica em <b>{"R$ "+PC.VALOR_INICIAL.toFixed(2).replace(".",",")}</b> em todas as renovações, mesmo depois do reajuste.</div>}
       {diasParaVencer!==null && diasParaVencer<=30 && <div style={{fontSize:13,marginTop:fundador?8:0}}>{diasParaVencer>0?<span>Sua assinatura vence em <b>{diasParaVencer} dia{diasParaVencer===1?"":"s"}</b>.</span>:<span><b>Sua assinatura venceu.</b></span>} Renovando agora, os dias que restam são <b>somados</b> aos novos 6 meses.
         <div style={{marginTop:8}}><button className="btn sm" onClick={()=>setShowAssinar(true)}>Renovar · {precoTxt} / 6 meses</button></div></div>}
     </div>}
-    {!acesso && trialFim && (new Date()-trialFim)<7*24*3600*1000 && <div className="card" style={{marginTop:16,borderColor:"var(--gold)"}}>
+    {tab==="inicio" && !acesso && trialFim && (new Date()-trialFim)<7*24*3600*1000 && <div className="card" style={{marginTop:16,borderColor:"var(--gold)"}}>
       <div className="tag" style={{color:"var(--gold)"}}>SEU TESTE TERMINOU</div>
       <div style={{fontSize:14,lineHeight:1.55,marginTop:4}}>Nestas 24 horas você respondeu <b>{log.length}</b> questões{metaDias.length?<span>, bateu <b>{metaDias.length}</b> meta{metaDias.length>1?"s":""}</span>:null}{calcEstimativa(log)!=null?<span> e sua nota estimada chegou a <b>{calcEstimativa(log)}%</b></span>:null}. <b>Está tudo salvo</b> — sequência, caderno de erros, revisão espaçada e progresso. Assine e continue exatamente de onde parou.</div>
       <div className="row" style={{gap:10,marginTop:10,flexWrap:"wrap"}}><button className="btn sm" onClick={()=>setShowAssinar(true)}>Continuar · {precoTxt} / 6 meses</button><span className="muted" style={{fontSize:12,alignSelf:"center"}}>Pix, na hora, sem renovação automática.</span></div>
     </div>}
-    {!acesso && <div className="lock" style={{marginTop:16,textAlign:"left"}}>
+    {tab==="inicio" && !acesso && <div className="lock" style={{marginTop:16,textAlign:"left"}}>
       <b>Você está na versão de demonstração.</b> Ela mostra 1 assunto da Trilha e 2 questões — uma amostra do método.
       <div className="muted" style={{fontSize:13,marginTop:6}}>O Combo até o ENAMED libera: os {CURRICULO.length} assuntos da Trilha, {questoes.length}+ questões, simulados no formato oficial, dashboard de padrões completo e resolver questão por foto.</div>
       <div style={{marginTop:12}}><button className="btn" onClick={()=>setShowAssinar(true)}>Liberar acesso — {precoTxt} (6 meses)</button>{antesCorte&&!fundador&&<div style={{fontSize:12,marginTop:8}}><b style={{color:"var(--gold)"}}>🏅 Preço fundador:</b> assine até <b>{dataCorteTxt}</b> e renove sempre por {precoTxt}. Depois sobe para {valorNovoTxt} para quem entrar.</div>}</div>
@@ -3169,7 +3170,10 @@ function Shell({session}){
     {diag ? <div>
         <button className="btn ghost sm" onClick={()=>setDiag(null)}>← Sair do teste</button>
         <div style={{marginTop:14}}>
-          <Diagnostico pool={acesso?questoes:poolVisivel} registrar={registrar} modo={diag} questoesFixas={diag==="enamed"?(window.ENAMED_OFICIAL||[]):null}
+          <Diagnostico pool={acesso?questoes:poolVisivel} registrar={registrar} modo={diag}
+            questoesFixas={diag==="enamed"?(window.ENAMED_OFICIAL||[]).slice().sort((a,b)=>{const n=q=>{const m=/_q(\d+)$/.exec(q.id||"");return m?+m[1]:9999;};return n(a)-n(b);}):null}
+            /* mesma chave da aba ENAMED: seletor de questão, numeração oficial e progresso compartilhado */
+            chave={diag==="enamed"?"ENAMED:ENAMED_2025_2":undefined} flag={diag==="enamed"?"ENAMED":undefined}
             onFim={(fracos)=>{
               const ids=(fracos||[]).map(f=>f.area+"||"+f.tema);
               setTemasFracos(ids); setJaFezDiag(true);
@@ -3181,6 +3185,7 @@ function Shell({session}){
       </div>
     : revisando ? <RevisaoHoje qs={questoesVencidas(poolVisivel,srs)} registrar={registrar} onVoltar={()=>setRevisando(false)}/>
     : <div>
+      {tab==="inicio" && <React.Fragment>
       {metaConfig ? <MetaConfig meta={meta} onSalvar={salvarMeta} onFechar={()=>setMetaConfig(false)}/> : <div id="tour-meta"><MetaDiariaCard prog={metaProg} meta={meta} diasPerfeitos={metaDias.length} celebra={metaCelebra} estimativa={calcEstimativa(log)} onConfig={()=>setMetaConfig(true)} onPraticar={()=>setTab("praticar")}/></div>}
       {(()=>{
         const venc=questoesVencidas(poolVisivel,srs); const n=venc.length;
@@ -3224,6 +3229,7 @@ function Shell({session}){
               <span className="link muted" style={{fontSize:12.5}} onClick={()=>setDiag("rapido")}>refazer diagnóstico</span>
               <span className="link muted" style={{fontSize:12.5}} onClick={()=>setDiag("enamed")}>prova oficial ENAMED</span>
             </div>; })()}
+      </React.Fragment>}
 
       {novaVersao && <div className="card" style={{marginBottom:12,borderColor:"var(--gold)",padding:"10px 14px"}}>
         <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
@@ -3248,13 +3254,13 @@ function Shell({session}){
       {tab==="suporte" && <Suporte uid={uid}/>}
       {tab==="gemeas" && sprintGemeas && <div><button className="btn ghost sm" style={{marginBottom:10}} onClick={()=>{const v=sprintGemeas&&sprintGemeas.volta;setSprintGemeas(null);if(v==="revisao"){setRevisando(true);}else{setTab("praticar");}}}>{sprintGemeas&&sprintGemeas.volta==="revisao"?"← Voltar à revisão":"← Voltar"}</button><RodizioSprint qs={sprintGemeas.qs} label={sprintGemeas.label} registrar={registrar} onVoltar={()=>{setSprintGemeas(null);setTab("praticar");}}/></div>}
       {tab==="dicas" && <DicasDoDia/>}
-      {tab==="trilha" && <ProximoPasso session={session} uid={uid} store={store} srs={srs} poolVisivel={poolVisivel}
+      {tab==="inicio" && <ProximoPasso session={session} uid={uid} store={store} srs={srs} poolVisivel={poolVisivel}
         temasFracos={temasFracos} metaProg={metaProg} acertoArea={acertoArea} streak={streak}
         irRevisar={()=>setRevisando(true)}
         irAssunto={(t)=>{ try{window.__ABRIR_ASSUNTO&&window.__ABRIR_ASSUNTO(t.id);}catch(e){} }}
         irPraticar={()=>setTab("praticar")}
         irTodas={()=>{ try{document.getElementById("tour-diag")&&document.getElementById("tour-diag").scrollIntoView({behavior:"smooth",block:"center"});}catch(e){} }}/>}
-      {tab==="trilha" && <MensagemDoDia uid={uid}/>}
+      {tab==="inicio" && <MensagemDoDia uid={uid}/>}
       {tab==="trilha" && <Trilha uid={uid} store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={acesso} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
       {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} metaHoje={metaProg} bloqueadas={acesso?0:bloqueadasFree} isPro={isPro} acesso={acesso} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
       {tab==="internato" && <Internato pool={questoes} registrar={registrar}/>}
@@ -4812,7 +4818,7 @@ function QuestionCard({q,onResp,indice,total,selInicial}){
    Cinco botões fixos, ao alcance do polegar e sempre visíveis ao rolar.
    Provas e "Mais" abrem uma folha com as demais abas. No desktop continua
    a coluna lateral (.nav). */
-const NAV_ITENS=[["trilha","📚 Estudar"],["dicas","💡 Dicas do dia"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["enamed","📝 ENAMED"],["tpi","🎓 TPI"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["strix","🦉 Strix (SUS-BA/AL)"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Suporte"],["dash","📈 Meu progresso"]];
+const NAV_ITENS=[["inicio","🏠 Início"],["trilha","📚 Estudar"],["dicas","💡 Dicas do dia"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["enamed","📝 ENAMED"],["tpi","🎓 TPI"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["strix","🦉 Strix (SUS-BA/AL)"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Suporte"],["dash","📈 Meu progresso"]];
 const NAV_PROVAS=["enamed","tpi","tecm","revalida","enare","strix"];
 const NAV_MAIS=["dicas","flash","videos","dash","suporte","admin"];
 function BarraInferior({tab,isAdmin,irPara}){
@@ -4820,7 +4826,7 @@ function BarraInferior({tab,isAdmin,irPara}){
   const rot=Object.fromEntries(NAV_ITENS.concat([["admin","📊 Métricas"]]));
   const grupos={provas:NAV_PROVAS, mais:NAV_MAIS.filter(k=>k!=="admin"||isAdmin)};
   const ativo = NAV_PROVAS.indexOf(tab)>=0 ? "provas" : (NAV_MAIS.indexOf(tab)>=0 ? "mais" : tab);
-  const botoes=[["trilha","📚","Estudar"],["praticar","✍️","Praticar"],["internato","🩺","Internato"],["provas","📝","Provas"],["mais","☰","Mais"]];
+  const botoes=[["inicio","🏠","Início"],["trilha","📚","Estudar"],["praticar","✍️","Praticar"],["internato","🩺","Internato"],["provas","📝","Provas"],["mais","☰","Mais"]];
   const toque=(k)=>{ if(grupos[k]){ setFolha(f=>f===k?null:k); return; } setFolha(null); irPara(k); };
   useEffect(()=>{ try{ document.body.classList.toggle("folha-aberta",!!folha); }catch(e){} return ()=>{ try{ document.body.classList.remove("folha-aberta"); }catch(e){} }; },[folha]);
   useEffect(()=>{ if(!folha) return; const esc=e=>{ if(e.key==="Escape") setFolha(null); }; window.addEventListener("keydown",esc); return ()=>window.removeEventListener("keydown",esc); },[folha]);
@@ -5142,7 +5148,9 @@ function aulaDoTema(lista,mod,half,nome){
   const n=_nTema(nome);
   const daMetade=lista.filter(v=>v.modulo===mod&&v.metade===half);
   return daMetade.find(v=>_nTema(v.tema)===n)
-      || daMetade.find(v=>{ const t=_nTema(v.tema); return t.slice(0,14)===n.slice(0,14); })
+      /* variação de grafia: só quando um nome contém o outro por inteiro
+         ("Sangramentos da 1ª/2ª metade" começam igual e NÃO podem casar) */
+      || daMetade.find(v=>{ const t=_nTema(v.tema); return t.length>=8&&n.length>=8&&(t.indexOf(n)===0||n.indexOf(t)===0); })
       || null;
 }
 function AulaDoTema({aula,tema}){
@@ -5161,9 +5169,10 @@ function AulaDoTema({aula,tema}){
       </span>
     </a>;
   }
+  /* sp=EgIIBQ%3D%3D = filtro "Este ano" do YouTube: só aulas recentes */
   const q=encodeURIComponent((tema||"")+" aula residência médica");
   return <div style={{marginTop:8}}>
-    <a className="link" style={{fontSize:13}} href={"https://www.youtube.com/results?search_query="+q} target="_blank" rel="noopener noreferrer">🔎 Procurar aula deste tema no YouTube</a>
+    <a className="link" style={{fontSize:13}} href={"https://www.youtube.com/results?search_query="+q+"&sp=EgIIBQ%3D%3D"} target="_blank" rel="noopener noreferrer">🔎 Procurar aula recente deste tema no YouTube</a>
   </div>;
 }
 function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar, guiaHtml, topico, aula}){
@@ -6027,7 +6036,7 @@ function Diagnostico({pool,registrar,onFim,modo,questoesFixas,flag,chave}){
     <div className="row" style={{justifyContent:"space-between",marginBottom:10}}>
       <b style={{fontSize:15}}>{modo==="completo"?"Simulado completo":modo==="enamed"?"🏛️ Prova Oficial ENAMED 2025.2":"Diagnóstico rápido"}</b>
       <span className="row" style={{gap:8,alignItems:"center"}}>
-        {chave&&<button className="btn ghost sm" style={{padding:"3px 9px",fontSize:12}} onClick={()=>setNav(v=>!v)} title="Escolher a questão">🔢 Ir para</button>}
+        {chave&&<button className="btn ghost sm" style={{padding:"3px 9px",fontSize:12}} onClick={()=>setNav(v=>!v)} title="Escolher a questão">🔢 Escolher questão</button>}
         {chave&&Object.keys(resp).length>0&&<button className="btn ghost sm" style={{padding:"3px 9px",fontSize:12}} onClick={reiniciar} title="Recomeçar do zero">↺</button>}
         <span className="muted" style={{fontSize:13}}>{i+1} de {prova.length}</span>
       </span>
