@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.02c";
+  window.APP_VERSION="2026.10.03";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -244,6 +244,11 @@ body.folha-aberta .fab-busca{display:none !important}
 .nav-folha-grade button{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:12px;
   padding:14px 10px;font-size:14px;font-weight:600;text-align:left}
 .nav-folha-grade button.on{border-color:var(--acc);color:var(--acc)}
+
+/* ═══════ ESTUDO CASADO (questões + Super Revisão lado a lado) ═══════ */
+body.modo-casado #root{max-width:1680px}
+.casado-grade{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:16px;align-items:start}
+.casado-guia{position:sticky;top:10px;height:calc(100vh - 20px);border-radius:12px;overflow:hidden;border:1px solid rgba(127,127,127,.25)}
 </style>
 <style id="tour-css">
 @keyframes confete-cai{0%{transform:translateY(-10vh) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
@@ -5175,6 +5180,10 @@ function AulaDoTema({aula,tema}){
     <a className="link" style={{fontSize:13}} href={"https://www.youtube.com/results?search_query="+q+"&sp=EgIIBQ%3D%3D"} target="_blank" rel="noopener noreferrer">🔎 Procurar aula recente deste tema no YouTube</a>
   </div>;
 }
+/* No estudo casado o guia divide a tela com as questões: some o cabeçalho de
+   apresentação ("<Módulo> de A a Z", barra de progresso) e o rodapé "Como usar",
+   que comiam quase metade da altura antes do conteúdo do tema. */
+const CASADO_CSS="<style>header.top,.footer{display:none!important}.wrap{padding-top:12px!important;padding-bottom:24px!important}</style>";
 function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar, guiaHtml, topico, aula}){
   const fila = useMemo(()=>qs.slice(),[nome]);
   const [i,setI]=useState(0);
@@ -5184,6 +5193,11 @@ function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar, guiaH
   const [casado,setCasado]=useState(false);
   const [wide,setWide]=useState(typeof window!=="undefined"?window.innerWidth>=1000:true);
   useEffect(()=>{const h=()=>setWide(window.innerWidth>=1000);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
+  const casadoAtivo=!!(casado&&wide&&guiaHtml);
+  useEffect(()=>{ try{ document.body.classList.toggle("modo-casado",casadoAtivo); }catch(e){} return ()=>{ try{ document.body.classList.remove("modo-casado"); }catch(e){} }; },[casadoAtivo]);
+  /* ao abrir, encosta a grade no topo: revisão e questão começam juntas e a
+     revisão cabe inteira na janela */
+  useEffect(()=>{ if(!casadoAtivo) return; const t=setTimeout(()=>{ try{ const g=document.querySelector(".casado-grade"); if(g){ const y=g.getBoundingClientRect().top+(window.pageYOffset||0)-10; window.scrollTo(0,Math.max(0,y)); } }catch(e){} },60); return ()=>clearTimeout(t); },[casadoAtivo]);
   const deepRev = topico ? ("<scr"+"ipt>(function(){try{var W="+JSON.stringify(topico)+";function N(s){return (s||'').toString().toLowerCase().replace(/[^a-z0-9]+/g,'');}var w=N(W);var i=-1;if(typeof DATA!=='undefined'&&w){i=DATA.findIndex(function(t){var a=N(t.titulo);if(!a)return false;return a===w||a.indexOf(w)===0||w.indexOf(a)===0||a.slice(0,14)===w.slice(0,14);});}if(i>=0&&typeof state!=='undefined'&&typeof render==='function'){state.topic=i;state.tab='resumo';render();}}catch(e){}})();</scr"+"ipt>") : "";
 
   const q=fila[i];
@@ -5222,10 +5236,12 @@ function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar, guiaH
           </div>
         </div>;
         if(casado && wide && guiaHtml){
-          return <div style={{display:"flex",gap:14,alignItems:"stretch"}}>
-            <div style={{flex:"1 1 0",minWidth:0}}>{qBlock}</div>
-            <div style={{flex:"1 1 0",minWidth:0,borderRadius:12,overflow:"hidden",border:"1px solid rgba(127,127,127,.25)"}}>
-              <iframe title="Super Revisão" srcDoc={guiaHtml+deepRev} style={{width:"100%",height:"74vh",border:0,display:"block"}}/>
+          /* revisão fixa na tela inteira (altura da janela) e acompanha a rolagem
+             das questões; antes tinha 74% da altura e sobrava um vão embaixo */
+          return <div className="casado-grade">
+            <div style={{minWidth:0}}>{qBlock}</div>
+            <div className="casado-guia">
+              <iframe title="Super Revisão" srcDoc={guiaHtml+deepRev+CASADO_CSS} style={{width:"100%",height:"100%",border:0,display:"block"}}/>
             </div>
           </div>;
         }
