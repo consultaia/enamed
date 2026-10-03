@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.03";
+  window.APP_VERSION="2026.10.03b";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2746,7 +2746,7 @@ function RodizioSprint({qs, label, registrar, onVoltar}){
       <button className="btn" disabled={!feito} onClick={()=>{ if(i<total-1){setFeito(false);setI(x=>x+1);} else {setFim(true);irAoTopo();} }}>
         {i<total-1?"Próxima":"Ver resultado"}
       </button>
-      {!feito && <span className="muted" style={{fontSize:13}}>Escolha uma alternativa para avançar.</span>}
+      {!feito && <BotaoPular texto={i<total-1?"Pular →":"Pular e ver resultado"} onClick={()=>{ if(i<total-1){setI(x=>x+1);} else {setFim(true);irAoTopo();} }}/>}
     </div>
   </div>;
 }
@@ -2869,6 +2869,11 @@ function proximaRevisao(srs){
   Object.keys(srs||{}).forEach(id=>{ const t=srs[id].due?new Date(srs[id].due).getTime():0; if(t>agora && (min===null||t<min)) min=t; });
   return min;
 }
+/* Pular: avança sem responder. Não registra nada — não conta como erro,
+   não entra na revisão espaçada nem na meta. */
+function BotaoPular({onClick,texto}){
+  return <button className="btn ghost" onClick={onClick} title="Deixar esta para depois — não conta como erro">{texto||"Pular →"}</button>;
+}
 function RevisaoHoje({qs, registrar, onVoltar}){
   const [fila]=useState(()=>qs.slice(0,40));
   const [i,setI]=useState(0);
@@ -2908,8 +2913,10 @@ function RevisaoHoje({qs, registrar, onVoltar}){
     </div>
     <div className="muted" style={{fontSize:11.5,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>📅 Revisão espaçada · {temaCurto(q.tema)}</div>
     <QuestionCard q={q} indice={i} total={total} onResp={(qq,ok)=>{ if(registrar)registrar(qq,ok); setLog(l=>l.concat([{id:qq.id,tema:qq.tema,ok}])); }}/>
-    <div className="row" style={{justifyContent:"flex-end",marginTop:10}}>
-      {log.length>i && <button className="btn" onClick={()=>{ if(i+1>=total) setFim(true); else setI(i+1); }}>{i+1>=total?"Ver resultado":"Próxima →"}</button>}
+    <div className="row" style={{justifyContent:"flex-end",marginTop:10,gap:8}}>
+      {log.some(x=>x.id===q.id)
+        ? <button className="btn" onClick={()=>{ if(i+1>=total) setFim(true); else setI(i+1); }}>{i+1>=total?"Ver resultado":"Próxima →"}</button>
+        : <BotaoPular texto={i+1>=total?"Pular e encerrar":"Pular →"} onClick={()=>{ if(i+1>=total) setFim(true); else setI(i+1); }}/>}
     </div>
   </div>;
 }
@@ -5232,7 +5239,7 @@ function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar, guiaH
             <button className="btn" disabled={!feito} onClick={()=>{setFeito(false);setI(x=>x+1);}}>
               {i<fila.length-1?"Próxima":"Ver resultado"}
             </button>
-            {!feito && <span className="muted" style={{fontSize:13}}>Escolha uma alternativa para avançar.</span>}
+            {!feito && <BotaoPular texto={i<fila.length-1?"Pular →":"Pular e ver resultado"} onClick={()=>setI(x=>x+1)}/>}
           </div>
         </div>;
         if(casado && wide && guiaHtml){
@@ -5960,7 +5967,10 @@ function Treinar({pool,store,registrar,bloqueadas,isPro,acesso,onAssinar,onNovas
       {ultimaFree && feito
         ? <button className="btn" onClick={onAssinar}>Liberar todas as questões (PRO)</button>
         : i<fila.length-1
-          ? <button className="btn" disabled={!feito} onClick={()=>{setFeito(false);setI(x=>x+1);}}>Próxima</button>
+          ? <React.Fragment>
+              <button className="btn" disabled={!feito} onClick={()=>{setFeito(false);setI(x=>x+1);}}>Próxima</button>
+              {!feito && <BotaoPular onClick={()=>setI(x=>x+1)}/>}
+            </React.Fragment>
           : <button className="btn" disabled={!feito||gerando} onClick={mais}>{gerando?"Gerando mais 10...":"✨ Mais questões deste tema"}</button>}
     </div>
     {msg&&<div className="muted" style={{fontSize:13,marginTop:10,color:"var(--acc2)"}}>{msg}</div>}
@@ -6082,10 +6092,19 @@ function Diagnostico({pool,registrar,onFim,modo,questoesFixas,flag,chave}){
     }}/>
     <div className="row" style={{justifyContent:"space-between",marginTop:14}}>
       <span className="muted" style={{fontSize:12}}>{modo==="completo"?"Sem pressa: responda como numa prova.":"Responda no seu chute honesto — é só um mapa."}</span>
-      <button className="btn sm" disabled={!resp[q.id]} onClick={()=>{
-        setSel(null);
-        if(i<prova.length-1) setI(i+1); else setFim(true);
-      }}>{i<prova.length-1?"Próxima":"Ver resultado"}</button>
+      <span className="row" style={{gap:8}}>
+        {!resp[q.id] && <BotaoPular texto={i<prova.length-1?"Pular →":"Pular e ver resultado"} onClick={()=>{
+          setSel(null);
+          if(i<prova.length-1){ setI(i+1); irAoTopo(); return; }
+          const faltam=prova.filter(x=>!resp[x.id]).length;
+          if(faltam>0 && !confirm("Ficaram "+faltam+" questões sem resposta"+(chave?" (use 🔢 Escolher questão para voltar a elas)":"")+". Elas contam como erro na nota. Ver o resultado mesmo assim?")) return;
+          setFim(true);
+        }}/>}
+        <button className="btn sm" disabled={!resp[q.id]} onClick={()=>{
+          setSel(null);
+          if(i<prova.length-1) setI(i+1); else setFim(true);
+        }}>{i<prova.length-1?"Próxima":"Ver resultado"}</button>
+      </span>
     </div>
   </div>;
 }
@@ -6378,7 +6397,10 @@ function PraticaTema({t,store,registrar,isPro,onAssinar}){
     <QuestionCard q={q} indice={i} total={fila.length} onResp={(qq,ok)=>{if(registrar)registrar(qq,ok);setFeito(true);}}/>
     <div className="row" style={{marginTop:12}}>
       {i<fila.length-1
-        ? <button className="btn sm" disabled={!feito} onClick={()=>{setFeito(false);setI(i+1);}}>Próxima questão</button>
+        ? <React.Fragment>
+            <button className="btn sm" disabled={!feito} onClick={()=>{setFeito(false);setI(i+1);}}>Próxima questão</button>
+            {!feito && <BotaoPular onClick={()=>setI(i+1)}/>}
+          </React.Fragment>
         : <span className="muted" style={{fontSize:13}}>{feito?"Boa! Avance para fixar. ✓":""}</span>}
     </div>
   </div>;
