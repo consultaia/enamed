@@ -7106,7 +7106,7 @@ function Simulado({pool,registrar,isPro}){
   const [run,setRun]=useState(false);const [prova,setProva]=useState([]);const [resp,setResp]=useState({});const [fim,setFim]=useState(false);
   const alvo=isPro?4:2; // por área; PRO monta simulado maior
   const montar=()=>{let sel=[];AREAS.forEach(a=>{const p=pool.filter(q=>q.area===a.k).sort(()=>Math.random()-0.5);sel=sel.concat(p.slice(0,alvo));});setProva(sel.sort(()=>Math.random()-0.5));setResp({});setFim(false);setRun(true);};
-  const finalizar=()=>{prova.forEach(q=>{if(resp[q.id]!==undefined)registrar(q,acertouQ(q,resp[q.id]));});setFim(true);};
+  const finalizar=()=>{const faltam=prova.filter(q=>resp[q.id]===undefined).length;if(faltam>0&&!confirm("Ainda há "+faltam+" questões sem resposta, e elas contam como erro. Finalizar mesmo assim?"))return;prova.forEach(q=>{if(resp[q.id]!==undefined)registrar(q,acertouQ(q,resp[q.id]));});setFim(true);};
   if(!run)return <div className="card"><h3 style={{fontSize:17,marginBottom:8}}>Simulado no formato oficial</h3>
     <div className="muted" style={{fontSize:14,marginBottom:14,lineHeight:1.6}}>Respeita a proporção de 20/área (escalada ao banco). {isPro?"":"No plano free o simulado é reduzido — o completo é PRO."}</div>
     <button className="btn" onClick={montar}>Gerar simulado</button></div>;
@@ -7182,17 +7182,37 @@ function SimuladoEnamed({pool, registrar}){
 
 function RunnerEnamed({prova, gabModo, registrar, onVoltar}){
   const qs = prova.qs;
-  const [resp,setResp]=useState({});       // {id: idxEscolhido}
+  /* Progresso salvo no aparelho: sair da tela, trocar de aba ou o celular matar o app
+     não perde a prova. O cronômetro é medido pelo relógio (não por "tiques"), e o tempo
+     com o app fechado não conta. */
+  const chaveSim="preceptor_simenamed_"+(prova.nome||prova.tema||"");
+  const salvo=useMemo(()=>{ const v=lerJSON(chaveSim); return (v&&!v.fim&&v.resp&&typeof v.resp==="object")?v:null; },[chaveSim]);
+  const [resp,setResp]=useState(()=>salvo?salvo.resp:{});       // {id: idxEscolhido}
   const [fim,setFim]=useState(false);
-  const [seg,setSeg]=useState(0);          // cronômetro (segundos)
+  const [acum,setAcum]=useState(()=>salvo?(+salvo.seg||0):0);   // segundos já contados
+  const [inicio,setInicio]=useState(()=>Date.now());             // quando o trecho atual começou
   const [rodando,setRodando]=useState(true);
+  const [retomado,setRetomado]=useState(!!(salvo&&Object.keys(salvo.resp).length));
+  const [,tique]=useState(0);
   const L=["A","B","C","D","E"];
+  const segAgora=()=>acum+(rodando&&!fim?Math.max(0,Math.floor((Date.now()-inicio)/1000)):0);
+  const seg=segAgora();
 
   useEffect(()=>{
     if(fim||!rodando) return;
-    const t=setInterval(()=>setSeg(s=>s+1),1000);
+    const t=setInterval(()=>tique(x=>x+1),1000);
     return ()=>clearInterval(t);
   },[fim,rodando]);
+  /* grava a cada resposta e ao sair/esconder a página (ref: os ouvintes leem sempre o estado atual) */
+  const estRef=useRef({}); estRef.current={resp,seg:segAgora(),fim};
+  const gravar=()=>{ const e=estRef.current; if(e.fim||!Object.keys(e.resp||{}).length) return; gravarJSON(chaveSim,{resp:e.resp,seg:e.seg,fim:false,t:Date.now()}); };
+  useEffect(()=>{ gravar(); },[resp]);
+  useEffect(()=>{ const f=()=>gravar(); window.addEventListener("pagehide",f); document.addEventListener("visibilitychange",f);
+    return ()=>{ f(); window.removeEventListener("pagehide",f); document.removeEventListener("visibilitychange",f); }; },[chaveSim]);
+  const pausar=()=>{ setAcum(segAgora()); setRodando(false); };
+  const retomar=()=>{ setInicio(Date.now()); setRodando(true); };
+  const recomecar=()=>{ if(!confirm("Apagar as respostas desta prova e recomeçar do zero?")) return;
+    try{ PLS.del(chaveSim); }catch(e){} estRef.current={resp:{},seg:0,fim:false}; setResp({}); setAcum(0); setInicio(Date.now()); setRodando(true); setRetomado(false); irAoTopo(); };
 
   const hhmmss=(s)=>{
     const h=Math.floor(s/3600), m=Math.floor((s%3600)/60), x=s%60;
@@ -7200,14 +7220,16 @@ function RunnerEnamed({prova, gabModo, registrar, onVoltar}){
   };
 
   const responder=(q,i)=>{
-    if(fim) return;
+    if(fim||!rodando) return; // pausado não responde
     if(resp[q.id]!==undefined && gabModo==="imediato") return; // trava após responder no modo estudo
     setResp(r=>({...r,[q.id]:i}));
   };
 
   const finalizar=()=>{
+    const faltam=qs.length-Object.keys(resp).length;
+    if(faltam>0 && !confirm("Ainda há "+faltam+" questões sem resposta, e elas contam como erro. Finalizar e corrigir mesmo assim?")) return;
     qs.forEach(q=>{ if(resp[q.id]!==undefined && registrar) registrar(q, acertouQ(q,resp[q.id])); });
-    setRodando(false); setFim(true); irAoTopo();
+    estRef.current={...estRef.current,fim:true}; setAcum(segAgora()); setRodando(false); setFim(true); try{ PLS.del(chaveSim); }catch(e){} irAoTopo();
   };
 
   const respondidas=Object.keys(resp).length;
@@ -7222,10 +7244,14 @@ function RunnerEnamed({prova, gabModo, registrar, onVoltar}){
       <div className="row" style={{gap:12}}>
         <span className="pill" style={{fontFamily:"var(--mono)",fontSize:13,color:"var(--acc2)",borderColor:"var(--acc2)"}}>⏱ {hhmmss(seg)}</span>
         <span className="muted" style={{fontSize:13}}>{respondidas}/{qs.length} respondidas</span>
-        {!fim && rodando && <button className="btn ghost sm" onClick={()=>setRodando(false)}>Pausar</button>}
-        {!fim && !rodando && <button className="btn sm" onClick={()=>setRodando(true)}>Retomar</button>}
+        {!fim && rodando && <button className="btn ghost sm" onClick={pausar}>Pausar</button>}
+        {!fim && !rodando && <button className="btn sm" onClick={retomar}>Retomar</button>}
       </div>
     </div>
+    {retomado && !fim && <div className="block b-nucleo" style={{marginBottom:12}}>
+      Você voltou de onde parou: {Object.keys(resp).length} respondidas, {hhmmss(acum)} de prova. <span className="link" style={{fontSize:13}} onClick={recomecar}>Recomeçar do zero</span>
+    </div>}
+    {!fim && !rodando && <div className="block b-pega" style={{marginBottom:12}}>Prova pausada — o cronômetro está parado e as alternativas ficam travadas até você retomar.</div>}
 
     <div style={{marginBottom:10}}>
       <div className="tag" style={{color:"var(--acc)"}}>ENAMED</div>
@@ -7257,7 +7283,7 @@ function RunnerEnamed({prova, gabModo, registrar, onVoltar}){
           let c="alt";
           if(mostrarGab){ if(i===q.correta)c+=" correct"; else if(resp[q.id]===i)c+=" wrong"; else c+=" dim"; }
           else if(resp[q.id]===i) c+=" correct";
-          return <button key={i} className={c} disabled={mostrarGab} onClick={()=>responder(q,i)}>
+          return <button key={i} className={c} disabled={mostrarGab||(!fim&&!rodando)} onClick={()=>responder(q,i)}>
             <b style={{opacity:.7,marginRight:8}}>{L[i]}</b>{a}
           </button>;
         })}
@@ -7268,7 +7294,7 @@ function RunnerEnamed({prova, gabModo, registrar, onVoltar}){
     {!fim &&
       <div className="row" style={{marginTop:4,marginBottom:20}}>
         <button className="btn" onClick={finalizar}>Finalizar e corrigir</button>
-        <span className="muted" style={{fontSize:13}}>{respondidas} de {qs.length} respondidas</span>
+        <span className="muted" style={{fontSize:13}}>{respondidas} de {qs.length} respondidas · o progresso fica salvo se você sair</span>
       </div>}
   </div>;
 }
