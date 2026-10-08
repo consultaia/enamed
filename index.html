@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.06.6";
+  window.APP_VERSION="2026.10.08";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -5997,32 +5997,71 @@ function OSCEEstacao({caso, onVoltar}){
     setCarregando(false);
   };
 
+  /* Correção rígida: o examinador precisa citar o TRECHO do aluno que comprova cada item;
+     o app confere se o trecho existe mesmo nas falas do aluno. Sem evidência, item = 0.
+     Item vale 0 (não fez), 1 (parcial/genérico) ou 2 (completo e específico). */
+  const normTxt=(t)=>String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9%,.]+/g," ").replace(/\s+/g," ").trim();
+  const evidenciaValida=(ev,falaAluno)=>{
+    const e=normTxt(ev); if(e.length<6) return false;
+    if(falaAluno.indexOf(e)>=0) return true;
+    /* tolera pequenas diferenças: 80% das palavras do trecho precisam estar nas falas, em sequência aproximada */
+    const ws=e.split(" ").filter(w=>w.length>2); if(ws.length<2) return false;
+    const achou=ws.filter(w=>falaAluno.indexOf(w)>=0).length; return achou/ws.length>=0.8;
+  };
   const encerrar = async ()=>{
-    if(!workerOk){ setFase("resultado"); setResultado({itens:caso.etapas.flatMap(e=>e.checklist.map(t=>({texto:t,ok:false}))),nota:0,pct:0,feedback:"Ative a IA para correção automática."}); return; }
-    setFase("corrigindo"); setCarregando(true);
     const itens = caso.etapas.flatMap(e=>e.checklist);
+    const falasAluno = msgs.filter(m=>m.de==="aluno");
+    if(!workerOk){ setFase("resultado"); setResultado({itens:itens.map(t=>({texto:t,ok:false,nivel:0})),nota:0,pct:0,feedback:"Ative a IA para correção automática."}); return; }
+    if(falasAluno.length===0){ setFase("resultado"); setResultado({itens:itens.map(t=>({texto:t,ok:false,nivel:0})),nota:0,pct:0,feedback:"Você encerrou sem atender o paciente. No OSCE, isso zera a estação."}); return; }
+    setFase("corrigindo"); setCarregando(true);
     try{
       const contexto =
         dossie() +
-        "\n\nVocê é o EXAMINADOR de uma estação de OSCE. Analise a TRANSCRIÇÃO do atendimento do aluno e corrija o CHECKLIST abaixo. " +
-        "Para cada item, decida se o aluno CUMPRIU (com base no que ele efetivamente perguntou/fez na transcrição). Seja justo mas rigoroso: só marque como cumprido se houver evidência na transcrição.\n\n" +
+        "\n\nVocê é um EXAMINADOR RIGOROSO de OSCE de internato/residência médica. Corrija o CHECKLIST com base EXCLUSIVAMENTE no que o ALUNO disse/fez na transcrição. " +
+        "Regras de correção (siga à risca):\n" +
+        "1) Nota por item: 0 = não fez; 1 = fez de forma parcial, genérica, incompleta ou sem justificar; 2 = fez de forma completa, específica e correta.\n" +
+        "2) Só conta o que o ALUNO verbalizou. Informação que o paciente/estação deu sem o aluno pedir NÃO pontua. Pergunta genérica ('mais alguma coisa?', 'como está?', 'conte mais') NÃO cumpre item específico.\n" +
+        "3) Itens de exame físico/complementar exigem que o aluno PEÇA o exame específico; itens de hipótese exigem que ele DIGA o diagnóstico; itens de conduta exigem a medida específica (com dose/via quando o item cita dose). Citar o nome de um remédio sem dose/via quando a dose é pedida = 1.\n" +
+        "4) Conduta errada, perigosa ou contraindicada = 0 no item e registro em erros_criticos (também atraso grave, como esperar exame para tratar emergência). Simples omissão já perde o ponto do item e NÃO vai para erros_criticos, exceto deixar de estabilizar paciente instável.\n" +
+        "5) Para cada item com nota 1 ou 2, copie em 'evidencia' um trecho LITERAL (até 120 caracteres) de uma fala do ALUNO que comprova. Sem trecho literal do aluno, a nota é 0.\n" +
+        "6) Na dúvida, dê a nota MENOR. Atendimento curto ou superficial deve ter nota baixa — não seja complacente.\n\n" +
         "CHECKLIST (índice: item):\n"+itens.map((t,i)=>i+": "+t).join("\n") +
         "\n\nTRANSCRIÇÃO:\n"+transcricao(msgs) +
         "\n\nResponda ESTRITAMENTE em JSON válido, sem texto fora do JSON, no formato: " +
-        '{"cumpridos":[índices dos itens cumpridos],"feedback":"2 a 4 frases de feedback objetivo: o que faltou e como melhorar na prova"}';
-      const r=await wfetch("/tirar-duvida",{tema:"OSCE correção — "+caso.titulo, contexto, pergunta:"Corrija o checklist e devolva o JSON."});
+        '{"itens":[{"i":0,"nota":0,"evidencia":""}],"erros_criticos":["..."],"feedback":"3 a 5 frases diretas como um examinador: principais falhas, o que custou pontos e o que fazer na prova"}' +
+        " — inclua TODOS os índices de 0 a "+(itens.length-1)+".";
+      const r=await wfetch("/tirar-duvida",{tema:"OSCE correção — "+caso.titulo, contexto, pergunta:"Corrija o checklist com rigor e devolva o JSON."});
       const d=await r.json();
       if(!r.ok||d.error) throw new Error(d.error||"Falha na correção.");
       let raw=(d.resposta||"").trim().replace(/```json|```/g,"").trim();
       const ini=raw.indexOf("{"), f=raw.lastIndexOf("}");
       const parsed=JSON.parse(raw.slice(ini,f+1));
-      const setOk=new Set((parsed.cumpridos||[]).map(Number));
-      const detalhe=itens.map((t,i)=>({texto:t,ok:setOk.has(i)}));
-      const nota=detalhe.filter(x=>x.ok).length;
-      setResultado({itens:detalhe,nota,pct:Math.round(nota/itens.length*100),feedback:parsed.feedback||""});
+      const fala=normTxt(falasAluno.map(m=>m.txt).join(" \n "));
+      const porIdx={};
+      (parsed.itens||[]).forEach(x=>{ const k=Number(x&&x.i); if(k>=0&&k<itens.length) porIdx[k]=x; });
+      /* compatibilidade com resposta no formato antigo {"cumpridos":[...]} — vale só parcial */
+      const antigos=new Set((parsed.cumpridos||[]).map(Number));
+      let semEvid=0;
+      const detalhe=itens.map((t,k)=>{
+        const x=porIdx[k]; let nivel=x?Math.max(0,Math.min(2,Number(x.nota)||0)):(antigos.has(k)?1:0);
+        const ev=x&&x.evidencia?String(x.evidencia).slice(0,160):"";
+        if(nivel>0 && x && !evidenciaValida(ev,fala)){ nivel=0; semEvid++; }
+        return {texto:t,nivel,ok:nivel===2,evidencia:nivel>0?ev:""};
+      });
+      const pontos=detalhe.reduce((a,x)=>a+x.nivel,0);
+      let pct=Math.round(pontos/(2*itens.length)*100);
+      const erros=(parsed.erros_criticos||[]).filter(e=>typeof e==="string"&&e.trim()).slice(0,6);
+      pct=Math.max(0,pct-10*erros.length);
+      /* atendimento muito curto não passa: menos de 4 falas do aluno limita a nota */
+      const palavras=falasAluno.reduce((a,m)=>a+m.txt.split(/\s+/).length,0);
+      let teto=100; if(falasAluno.length<4||palavras<40) teto=25; else if(falasAluno.length<8) teto=60;
+      const limitado=pct>teto; pct=Math.min(pct,teto);
+      let fb=parsed.feedback||"";
+      if(limitado) fb+="\n\nNota limitada a "+teto+"%: o atendimento foi curto demais ("+falasAluno.length+" falas). Na prova, cada etapa (anamnese, exame, hipótese, exames, conduta) precisa ser verbalizada.";
+      if(semEvid) fb+="\n\n"+semEvid+" item(ns) zerado(s) por falta de evidência na sua fala.";
+      setResultado({itens:detalhe,nota:detalhe.filter(x=>x.ok).length,pontos,pct,feedback:fb,erros,aprovado:pct>=70});
     }catch(e){
-      // fallback: mostra o checklist para autoavaliação se a IA falhar
-      setResultado({itens:itens.map(t=>({texto:t,ok:false})),nota:0,pct:0,feedback:"Não consegui corrigir automaticamente ("+e.message+"). Confira o checklist abaixo manualmente."});
+      setResultado({itens:itens.map(t=>({texto:t,ok:false,nivel:0})),nota:0,pct:0,feedback:"Não consegui corrigir automaticamente ("+e.message+"). Confira o checklist abaixo manualmente."});
     }
     setFase("resultado"); setCarregando(false);
   };
@@ -6038,12 +6077,17 @@ function OSCEEstacao({caso, onVoltar}){
       </div>
       <div className="card" style={{marginBottom:12}}>
         <div className="row" style={{justifyContent:"space-between",alignItems:"center"}}>
-          <div><div className="kpi" style={{color:cor}}>{resultado.nota} / {resultado.itens.length}</div>
-            <div className="muted" style={{fontSize:13}}>{resultado.pct}% do checklist cumprido</div></div>
+          <div><div className="kpi" style={{color:cor}}>{resultado.pct}%</div>
+            <div className="muted" style={{fontSize:13}}>{resultado.nota} de {resultado.itens.length} itens completos{resultado.itens.some(x=>x.nivel===1)?" · "+resultado.itens.filter(x=>x.nivel===1).length+" parciais":""}{resultado.aprovado!=null?(resultado.aprovado?" · ✅ aprovado (≥ 70%)":" · ❌ abaixo do corte de 70%"):""}</div></div>
           <button className="btn ghost" onClick={()=>{setMsgs([]);setResultado(null);setFase("conversa");irAoTopo();}}>↻ Refazer</button>
         </div>
         <div className="bar" style={{marginTop:12}}><i style={{width:resultado.pct+"%",background:cor}}/></div>
       </div>
+      {resultado.erros && resultado.erros.length>0 &&
+        <div className="card" style={{marginBottom:12,borderColor:"var(--bad)"}}>
+          <div className="tag" style={{color:"var(--bad)",marginBottom:8}}>⚠️ ERROS CRÍTICOS (−10% cada)</div>
+          {resultado.erros.map((e,k)=><div key={k} style={{fontSize:14,lineHeight:1.5,margin:"4px 0"}}>• {e}</div>)}
+        </div>}
       {resultado.feedback &&
         <div className="card" style={{marginBottom:12}}>
           <div className="tag" style={{color:"var(--acc)",marginBottom:8}}>💬 EXAMINADOR</div>
@@ -6053,9 +6097,9 @@ function OSCEEstacao({caso, onVoltar}){
         <div className="tag" style={{color:"var(--muted)",marginBottom:8}}>CHECKLIST CORRIGIDO</div>
         {resultado.itens.map((it,idx)=>
           <div key={idx} className="alt" style={{display:"flex",gap:10,alignItems:"flex-start",cursor:"default",
-            ...(it.ok?{borderColor:"var(--acc)",background:"var(--okbg)",color:"var(--okink)"}:{opacity:.75})}}>
-            <span style={{flex:"0 0 auto",fontWeight:700,color:it.ok?"var(--okink)":"var(--bad)"}}>{it.ok?"✓":"✗"}</span>
-            <span style={{fontSize:14.5}}>{it.texto}</span>
+            ...(it.ok?{borderColor:"var(--acc)",background:"var(--okbg)",color:"var(--okink)"}:it.nivel===1?{borderColor:"var(--warn)"}:{opacity:.75})}}>
+            <span style={{flex:"0 0 auto",fontWeight:700,color:it.ok?"var(--okink)":it.nivel===1?"var(--warn)":"var(--bad)"}}>{it.ok?"✓":it.nivel===1?"◐":"✗"}</span>
+            <span style={{fontSize:14.5}}>{it.texto}{it.evidencia?<span className="muted" style={{display:"block",fontSize:12.5,marginTop:4,fontStyle:"italic"}}>Você disse: "{it.evidencia}"</span>:null}{it.nivel===1?<span style={{display:"block",fontSize:12,marginTop:2,color:"var(--warn)"}}>Parcial: faltou especificar ou justificar.</span>:null}</span>
           </div>
         )}
       </div>
