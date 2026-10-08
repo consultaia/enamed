@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.09.2";
+  window.APP_VERSION="2026.10.09.4";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2418,13 +2418,30 @@ function GlobalSearch(){
     }
     return out;
   },[q,pool]);
+  /* além das questões: assuntos do Estudar (ENAMED e TECM), aulas do Internato e estações de OSCE */
+  const outros=useMemo(()=>{
+    const t=nrm(q).trim(); if(t.length<2) return {assuntos:[],aulas:[],osce:[]};
+    const terms=t.split(/\s+/); const casa=h=>{ h=nrm(h); return terms.every(x=>h.indexOf(x)>=0); };
+    const assuntos=[], aulas=[], osce=[];
+    try{ CURRICULO.concat(CURRICULO_TECM).forEach(a=>{ if(assuntos.length<6&&casa(a.nome+" "+areaNome(a.area)+(CURRICULO_TECM.indexOf(a)>=0?" tecm":""))) assuntos.push({id:a.id,nome:a.nome,area:a.area,tecm:CURRICULO_TECM.indexOf(a)>=0}); }); }catch(e){}
+    try{ AULAS_N2_MODS.forEach(([k,nome])=>(AULAS_N2_TITULOS[k]||[]).forEach(([n,tit,sub])=>{ if(aulas.length<6&&casa(semN2(tit)+" "+semN2(sub||"")+" "+nome)) aulas.push({mod:k,num:n,nome:semN2(tit),modNome:nome}); })); }catch(e){}
+    try{ Object.entries(window.OSCE_BANCO||{}).forEach(([k,lista])=>(lista||[]).forEach(c=>{ if(osce.length<5&&casa(c.titulo+" "+((OSCE_TEMAS[k]||{}).nome||k)+" osce estacao")) osce.push({area:k,id:c.id,titulo:c.titulo}); })); }catch(e){}
+    return {assuntos,aulas,osce};
+  },[q]);
+  const ir=fn=>{ setOpen(false); fn(); };
+  const grupo=(titulo,itens)=>itens.length>0 && <div style={{marginBottom:12}}>
+    <div className="tag" style={{color:"var(--acc)",marginBottom:6}}>{titulo}</div>
+    {itens}
+  </div>;
+  const item=(k,ic,txt,sub,fn)=><button key={k} className="alt" onClick={()=>ir(fn)} style={{textAlign:"left",display:"block",width:"100%",marginBottom:6,padding:"9px 12px"}}>
+    <b style={{fontSize:14}}>{ic} {txt}</b>{sub&&<span className="muted" style={{fontSize:12}}> · {sub}</span>}</button>;
   useEffect(()=>{ if(!open){ setQ(""); setSel(null); } },[open]);
   return <React.Fragment>
-    <button className="fab-busca" onClick={()=>setOpen(true)} title="Buscar questões" aria-label="Buscar" style={{position:"fixed",right:18,bottom:18,zIndex:9998,width:52,height:52,borderRadius:"50%",border:"1px solid var(--acc)",background:"var(--acc)",color:"#fff",fontSize:22,cursor:"pointer",boxShadow:"0 4px 14px rgba(0,0,0,.25)"}}>🔍</button>
+    <button className="fab-busca" onClick={()=>setOpen(true)} title="Buscar assuntos, aulas, OSCE e questões" aria-label="Buscar" style={{position:"fixed",right:18,bottom:18,zIndex:9998,width:52,height:52,borderRadius:"50%",border:"1px solid var(--acc)",background:"var(--acc)",color:"#fff",fontSize:22,cursor:"pointer",boxShadow:"0 4px 14px rgba(0,0,0,.25)"}}>🔍</button>
     {open&&<div onClick={()=>setOpen(false)} style={{position:"fixed",inset:0,zIndex:9999,background:"rgba(0,0,0,.55)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"6vh 12px 12px"}}>
       <div className="card" onClick={e=>e.stopPropagation()} style={{width:"100%",maxWidth:720,maxHeight:"84vh",overflow:"auto",padding:14}}>
         <div className="row" style={{gap:8,marginBottom:10}}>
-          <input autoFocus value={q} onChange={e=>{setQ(e.target.value);setSel(null);}} placeholder="Buscar por tema, enunciado, área…" style={{flex:1,padding:"10px 12px",fontSize:15,borderRadius:8,border:"1px solid var(--acc)",background:"var(--bg)",color:"inherit"}}/>
+          <input autoFocus value={q} onChange={e=>{setQ(e.target.value);setSel(null);}} placeholder="Buscar assunto, aula, OSCE ou questão…" style={{flex:1,padding:"10px 12px",fontSize:15,borderRadius:8,border:"1px solid var(--acc)",background:"var(--bg)",color:"inherit"}}/>
           <button className="btn ghost sm" onClick={()=>setOpen(false)}>Fechar</button>
         </div>
         {sel? <div>
@@ -2432,7 +2449,13 @@ function GlobalSearch(){
             <QuestionCard key={sel.id} q={sel} onResp={()=>{}} indice={0} total={1}/>
           </div>
         : <div>
-            <div className="muted" style={{fontSize:13,marginBottom:8}}>{q.trim().length<2? ("Digite ao menos 2 letras para buscar entre "+pool.length+" questões.") : (res.length+" resultado(s)"+(res.length>=80?"+":""))}</div>
+            {q.trim().length>=2 && <React.Fragment>
+              {grupo("📚 Assuntos do Estudar",outros.assuntos.map(a=>item("a"+a.id,"📚",a.nome,(a.tecm?"TECM · ":"")+areaNome(a.area),()=>abrirAssuntoTECM(a.id))))}
+              {grupo("📘 Aulas do Internato",outros.aulas.map(a=>item("n"+a.mod+a.num,"📘",a.nome,a.modNome,()=>abrirAulaTECM(a.mod,a.num))))}
+              {grupo("🩺 Estações de OSCE",outros.osce.map(c=>item("o"+c.id,"🩺",c.titulo,((OSCE_TEMAS[c.area]||{}).nome||c.area)+(window.__PRO?"":" · PRO"),()=>abrirEstacaoOSCE(c.area,c.id))))}
+              {res.length>0 && <div className="tag" style={{color:"var(--acc)",marginBottom:6}}>✍️ Questões</div>}
+            </React.Fragment>}
+            <div className="muted" style={{fontSize:13,marginBottom:8}}>{q.trim().length<2? ("Digite ao menos 2 letras: acha assuntos, aulas, estações de OSCE e "+pool.length+" questões.") : (res.length+" questão(ões)"+(res.length>=80?"+":""))}</div>
             {res.map(x=><button key={x.id} onClick={()=>setSel(x)} className="alt" style={{textAlign:"left",display:"block",width:"100%",marginBottom:8}}>
               <div className="row" style={{gap:6,marginBottom:4,flexWrap:"wrap"}}>
                 <span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(x.area)}</span>
@@ -3069,6 +3092,45 @@ function CaminhoSetup({inicial,meta,onSalvar,onCancelar}){
 }
 
 /* ---- 5) o cartão no Início ---- */
+/* Início: para quem escolheu o objetivo Internato, o próximo tema com aula e bloco de questões
+   a um toque; para os demais, um lembrete (dispensável) de que a aba Internato existe. */
+function aulaDoTopicoN2(mod,h,nome){ const lista=AULAS_N2_TITULOS[mod+"_"+h]||[]; const n=_nTema(nome); if(!n) return null;
+  return lista.find(x=>_nTema(x[1])===n)||lista.find(x=>{ const k=_nTema(x[1]); return k.length>=6&&(k.indexOf(n)===0||n.indexOf(k)===0); })||null; }
+function InternatoProximo({uid,pool,log,abrirInternato}){
+  const cam=lerJSON(caminhoKey(uid));
+  const [oculto,setOculto]=useState(()=>{ try{ return localStorage.getItem("preceptor_dica_internato")==="1"; }catch(e){ return false; } });
+  const camK=cam?(cam.objetivo+"|"+cam.modulo+"|"+cam.metade):"";
+  const prox=useMemo(()=>{ try{
+    if(!cam||cam.objetivo!=="internato"||!cam.modulo) return null; const h=cam.metade||"A";
+    const blocos=blocosMetade(pool||[],cam.modulo,h); if(!blocos.length) return null;
+    const pref="Internato — "+MOD_TEMA[cam.modulo]+" "+h+" · "; const hist={};
+    (log||[]).forEach(x=>{ const t=""+(x.tema||""); if(t.indexOf(pref)===0){ const k=t.slice(pref.length); const o=hist[k]=hist[k]||{n:0,ok:0}; o.n++; if(x.ok) o.ok++; } });
+    const pct=b=>hist[b.nome]?hist[b.nome].ok/hist[b.nome].n:null;
+    const nunca=blocos.find(b=>!hist[b.nome]);
+    const b=nunca||blocos.slice().sort((a,c)=>pct(a)-pct(c))[0];
+    return {mod:cam.modulo,h,b,aula:aulaDoTopicoN2(cam.modulo,h,b.nome),nunca:!!nunca,feitos:blocos.filter(x=>hist[x.nome]).length,total:blocos.length,
+      pct:pct(b)==null?null:Math.round(pct(b)*100)};
+  }catch(e){ return null; } },[camK,pool&&pool.length,log&&log.length]);
+  if(prox) return <div className="card" style={{marginBottom:16,borderColor:"var(--acc)"}}>
+    <div className="tag" style={{color:"var(--acc)"}}>🩺 SEU INTERNATO · {(MOD_TEMA[prox.mod]||prox.mod).toUpperCase()} {prox.h}</div>
+    <b style={{fontSize:17,display:"block",marginTop:4}}>{prox.nunca?"Próximo tema":"Tema para reforçar"}: {prox.b.nome}</b>
+    <div className="muted" style={{fontSize:13,marginTop:4}}>{prox.nunca?(prox.feitos+" de "+prox.total+" temas já treinados."):("Todos os "+prox.total+" temas treinados — este é o seu acerto mais baixo ("+prox.pct+"%).")}</div>
+    <div className="row" style={{gap:8,marginTop:12,flexWrap:"wrap"}}>
+      {prox.aula && <button className="btn sm ghost" onClick={()=>abrirAulaTECM(prox.mod+"_"+prox.h,prox.aula[0])}>📘 Aula do tema</button>}
+      <button className="btn sm" onClick={()=>abrirInternato({modulo:prox.mod,metade:prox.h,topico:prox.b.nome,modo:"bloco"})}>✍️ Questões do tema ({prox.b.n})</button>
+      <button className="btn sm ghost" onClick={()=>abrirInternato({modulo:prox.mod,metade:prox.h})}>Abrir o Internato →</button>
+    </div>
+  </div>;
+  if(oculto||(cam&&cam.objetivo&&cam.objetivo!=="internato"&&!cam.misto)) return null;
+  return <div className="card" style={{marginBottom:16,padding:"12px 14px"}}>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"flex-start",gap:10}}>
+      <div style={{minWidth:0}}><b style={{fontSize:14.5}}>🩺 Está no internato?</b>
+        <div className="muted" style={{fontSize:13,marginTop:4,lineHeight:1.5}}>Na aba Internato tem questões por disciplina (A e B), Super Revisão, modo rodízio e estações de OSCE.</div></div>
+      <button className="btn ghost sm" aria-label="Dispensar" onClick={()=>{ setOculto(true); try{ localStorage.setItem("preceptor_dica_internato","1"); }catch(e){} }}>✕</button>
+    </div>
+    <button className="btn sm" style={{marginTop:10}} onClick={()=>abrirInternato(null)}>Ir para o Internato →</button>
+  </div>;
+}
 function PlanoSemana({uid,store,srs,pool,temasFracos,meta,isPro,acoes:exec}){
   const [caminho,setCaminho]=useState(()=>lerJSON(caminhoKey(uid)));
   const [plano,setPlano]=useState(()=>lerJSON(planoKey(uid)));
@@ -3394,6 +3456,7 @@ function Shell({session}){
     window.__REGISTRAR_ERRO=(q,motivo)=>{ const row={user_id:uid,questao_id:q.id,area:q.area,tema:q.tema,motivo,criado_em:new Date().toISOString()}; setCaderno(c=>[row,...c].slice(0,400)); try{ sb.from("caderno_erros").insert(row).then(()=>{},()=>{}); }catch(e){} };
   }catch(e){} },[isPro,acesso,uid]);
 
+  useEffect(()=>{ marcIniciar(uid); },[uid]);
   /* reenvia a fila quando a conexão volta ou quando o app retorna do segundo plano */
   useEffect(()=>{
     const tentar=()=>{ if(navigator.onLine!==false) obEnviar(sb,uid,setPendentes); };
@@ -3601,6 +3664,7 @@ function Shell({session}){
           </div>
         </div>;
       })()}
+      <InternatoProximo uid={uid} pool={questoes} log={log} abrirInternato={abrirInternato}/>
       <PlanoSemana uid={uid} store={store} srs={srs} pool={poolVisivel} temasFracos={temasFracos} meta={meta} isPro={isPro}
         acoes={{revisar:()=>setRevisando(true), diag:(m)=>{setRevisando(false);setDiag(m);}, assunto:abrirAssunto, internato:abrirInternato,
           treinar:(qs,l)=>{ try{ window.__TREINAR_GEMEAS&&window.__TREINAR_GEMEAS(qs,l); }catch(e){} }, assinar:()=>setShowAssinar(true)}}/>
@@ -3728,6 +3792,18 @@ function dadosGuia(mod){
       D=JSON.parse(h.slice(i+13,j)); } }catch(e){ D=null; }
   __dadosGuia[mod]=D; return D;
 }
+/* Atalho do Estudar para as questões da aba Internato (módulo e metade, ou só a aba). */
+function irQuestoesInternato(mod){ try{ if(mod){ const [m,h]=mod.split("_"); window.__INTERNATO_PENDENTE={modulo:m,metade:h||"A"}; }
+  window.__SET_TAB&&window.__SET_TAB("internato"); irAoTopo(); }catch(e){} }
+function AtalhoQuestoesInternato({mod,nome}){
+  return <div className="card" onClick={()=>irQuestoesInternato(mod)} style={{cursor:"pointer",padding:"12px 14px",margin:"0 0 14px",borderColor:"var(--acc)"}}>
+    <div className="row" style={{gap:10,alignItems:"center",justifyContent:"space-between"}}>
+      <div style={{minWidth:0}}><b style={{fontSize:14.5}}>✍️ Ir para as questões{nome?" de "+nome:" do Internato"}</b>
+        <div className="muted" style={{fontSize:12,marginTop:3}}>Na aba 🩺 Internato: questões por tema, Super Revisão e modo rodízio.</div></div>
+      <span style={{flex:"none",fontWeight:800,color:"var(--acc)"}}>→</span>
+    </div>
+  </div>;
+}
 function AulasInternato({modInicial,numInicial,onVoltar,registrar}){
   const [mod,setMod]=useState(modInicial||null);
   const [num,setNum]=useState(numInicial!=null?numInicial:null);
@@ -3805,7 +3881,7 @@ function AulasInternato({modInicial,numInicial,onVoltar,registrar}){
         {qs.map((q,k)=><div key={q.id} style={{marginBottom:12}}>
           <QuestionCard q={q} indice={k} total={qs.length} onResp={(qq,ok)=>{ if(registrar) registrar(qq,ok); }}/>
         </div>)}
-        <div style={{marginTop:6}}><span className="link" style={{fontSize:13}} onClick={()=>abrirNoInternato(item[1])}>Mais questões e o resumo deste tema →</span></div>
+        <div style={{marginTop:6}}><button className="btn ghost sm" onClick={()=>abrirNoInternato(item[1])}>✍️ Mais questões e o resumo deste tema →</button></div>
       </div>}
 
       {/* ETAPA 3 — FIXE */}
@@ -3835,6 +3911,7 @@ function AulasInternato({modInicial,numInicial,onVoltar,registrar}){
       <h2 style={{fontSize:22,marginTop:4}}>{nomeMod}</h2>
       <div className="muted" style={{fontSize:13,marginTop:4}}>Cada aula explica o assunto e mostra como a prova costuma cobrar: aula, como pensar, prática e fixação.</div>
     </div>
+    <AtalhoQuestoesInternato mod={mod} nome={nomeMod}/>
     {lista.map(([n,t,sub])=><div key={n} className="card" onClick={()=>abrir(n)} style={{cursor:"pointer",marginBottom:10,padding:"12px 14px"}}>
       <div className="row" style={{gap:10,alignItems:"flex-start"}}>
         <span className="pill" style={{flex:"none"}}>{n}</span>
@@ -3859,11 +3936,12 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
   const caminho=k=>CURRICULO.filter(t=>t.area===k).sort((a,b)=>b.yield-a.yield);
   const abrir=t=>{ if(!liberado(t)){onAssinar();return;} setAberto(t.id); irAoTopo(); };
   useEffect(()=>{ try{ window.__ABRIR_ASSUNTO=(id)=>{ const t=assuntoPorId(id); if(!t) return;
-    if(!liberado(t)){onAssinar();return;} setAreaSel(t.area); setAberto(t.id); irAoTopo(); };
+    if(!liberado(t)){onAssinar();return;} setN2Mod(null); setN2Num(null); setAreaSel(t.area); setAberto(t.id); irAoTopo(); };
+    window.__ABRIR_AULA_N2=(mod,num)=>{ setN2Num(num); setN2Mod(mod); irAoTopo(); };
     /* pedido vindo de outra aba (Início, plano da semana): a Trilha acabou de montar */
     if(window.__ASSUNTO_PENDENTE){ const id=window.__ASSUNTO_PENDENTE; window.__ASSUNTO_PENDENTE=null; window.__ABRIR_ASSUNTO(id); }
     if(window.__AULA_N2_PENDENTE){ const p=window.__AULA_N2_PENDENTE; window.__AULA_N2_PENDENTE=null; setN2Num(p.num); setN2Mod(p.mod); }
-  }catch(e){} return ()=>{ try{ window.__ABRIR_ASSUNTO=null; }catch(e){} }; },[isPro]);
+  }catch(e){} return ()=>{ try{ window.__ABRIR_ASSUNTO=null; window.__ABRIR_AULA_N2=null; }catch(e){} }; },[isPro]);
 
   /* ---------- aulas do Internato (N2) lidas dentro do Estudar ---------- */
   if(n2Mod) return <AulasInternato key={n2Mod+"|"+(n2Num||"")} modInicial={n2Mod} numInicial={n2Num} registrar={registrar} onVoltar={()=>{ setN2Mod(null); setN2Num(null); irAoTopo(); }}/>;
@@ -3999,6 +4077,7 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
     <div style={{marginTop:26}}>
       <h3 style={{fontSize:18,marginBottom:4}}>📘 Aulas do Internato</h3>
       <div className="muted" style={{fontSize:13,marginBottom:12}}>{Object.values(AULAS_N2_TITULOS).reduce((a,l)=>a+l.length,0)} aulas narrativas: o assunto explicado e como a prova costuma cobrar.</div>
+      <AtalhoQuestoesInternato/>
       <div className="grid" style={{gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
         {AULAS_N2_MODS.filter(([k])=>(AULAS_N2_TITULOS[k]||[]).length).map(([k,nome,ic])=>
           <div key={k} className="card" onClick={()=>{ setN2Mod(k); irAoTopo(); }} style={{cursor:"pointer",padding:"12px 14px"}}>
@@ -4213,7 +4292,14 @@ function CalculadoraTECM(){
 const TECM_MAPA = [{"k":"0:0","assuntos":["tecm-pos-pcr"],"aulas":[["UESM_A",1]],"palavras":["pcr","rcp","fibrilacao ventricular","assistolia","atividade eletrica sem pulso","desfibrilacao","pos-parada"],"cobertura":"boa","falta":""},{"k":"0:1","assuntos":["cm-sca"],"aulas":[["UESM_B",4]],"palavras":["iamcsst","supra","troponina","angioplastia","trombolise","iamssst"],"cobertura":"boa","falta":""},{"k":"0:2","assuntos":["tecm-scc"],"aulas":[],"palavras":["angina estavel","coronariopatia cronica","teste ergometrico","cintilografia","angiotomografia","revascularizacao","isquemia"],"cobertura":"boa","falta":""},{"k":"0:3","assuntos":["tecm-cardio-oncologia"],"aulas":[],"palavras":["cardiotoxicidade","antraciclina","trastuzumabe","quimioterapia","fracao de ejecao","cardio-oncologia"],"cobertura":"boa","falta":""},{"k":"0:4","assuntos":["tecm-cardiomiopatias"],"aulas":[],"palavras":["cardiomiopatia hipertrofica","cardiomiopatia dilatada","restritiva","amiloidose","morte subita","miocardiopatia"],"cobertura":"boa","falta":""},{"k":"0:5","assuntos":["tecm-chagas"],"aulas":[],"palavras":["chagas","cruzi","benznidazol","megaesofago","cardiopatia chagasica","bloqueio de ramo direito"],"cobertura":"boa","falta":""},{"k":"0:6","assuntos":["cm-fa"],"aulas":[["UESM_B",7]],"palavras":["fibrilacao atrial","cha2ds2-vasc","has-bled","anticoagulacao","doac","cardioversao"],"cobertura":"boa","falta":""},{"k":"0:7","assuntos":["cm-has"],"aulas":[["CM_B",2]],"palavras":["hipertensao","has","anti-hipertensivo","mapa","pressao arterial","meta pressorica"],"cobertura":"boa","falta":""},{"k":"0:8","assuntos":["cm-ic"],"aulas":[["CM_B",1],["UESM_B",6]],"palavras":["insuficiencia cardiaca","icfer","sglt2","sacubitril","bnp","stevenson"],"cobertura":"boa","falta":""},{"k":"0:9","assuntos":["tecm-dislipidemias"],"aulas":[["CM_A",11],["APS_A",12]],"palavras":["dislipidemia","ldl","estatina","ezetimiba","ipcsk9","aterosclerose","risco cardiovascular"],"cobertura":"boa","falta":""},{"k":"0:10","assuntos":["tecm-perioperatorio-checkup","cir-posop"],"aulas":[["CIR_A",5]],"palavras":["perioperatorio","risco cirurgico","lee","rcri","capacidade funcional","check-up"],"cobertura":"boa","falta":""},{"k":"0:11","assuntos":["tecm-dm-risco-cv","cm-dm2"],"aulas":[["CM_A",2]],"palavras":["diabetes","risco cardiovascular","sglt2","glp-1","hba1c","estratificacao de risco"],"cobertura":"boa","falta":""},{"k":"0:12","assuntos":["tecm-miocardite-pericardite"],"aulas":[["CM_A",4]],"palavras":["pericardite","miocardite","tamponamento","colchicina","ressonancia cardiaca","derrame pericardico"],"cobertura":"boa","falta":""},{"k":"0:13","assuntos":["tecm-valvopatias"],"aulas":[["CM_B",1],["CM_A",4]],"palavras":["valvopatia","estenose aortica","insuficiencia mitral","estenose mitral","tavi","sopro","insuficiencia aortica"],"cobertura":"boa","falta":""},{"k":"1:0","assuntos":["tecm-asma-grave","cm-asma-dpoc"],"aulas":[["CM_A",1]],"palavras":["asma","gina","corticoide inalatorio","broncodilatador","crise asmatica","espirometria"],"cobertura":"boa","falta":""},{"k":"1:1","assuntos":["tecm-dpoc","cm-asma-dpoc"],"aulas":[["CM_A",1],["UESM_A",5]],"palavras":["dpoc","gold","exacerbacao","espirometria","oxigenoterapia","vni"],"cobertura":"boa","falta":""},{"k":"1:2","assuntos":["tecm-fpi"],"aulas":[],"palavras":["fibrose pulmonar","intersticial","fpi","pirfenidona","nintedanibe","tcar"],"cobertura":"boa","falta":""},{"k":"1:3","assuntos":["cm-tev"],"aulas":[["CM_B",8],["CIR_B",9]],"palavras":["tep","embolia pulmonar","wells","d-dimero","angiotomografia","anticoagulacao","trombolise"],"cobertura":"boa","falta":""},{"k":"1:4","assuntos":["tecm-hipertensao-pulmonar"],"aulas":[],"palavras":["hipertensao pulmonar","cateterismo direito","psap","sildenafil","bosentana","cor pulmonale"],"cobertura":"boa","falta":""},{"k":"1:5","assuntos":["tecm-cancer-pulmao-rastreio"],"aulas":[],"palavras":["cancer de pulmao","nodulo pulmonar","tomografia de baixa dose","rastreamento","tabagismo","adenocarcinoma"],"cobertura":"boa","falta":""},{"k":"2:0","assuntos":["cm-drc"],"aulas":[["CM_A",8]],"palavras":["doenca renal cronica","tfg","albuminuria","kdigo","dialise","ckd-epi"],"cobertura":"boa","falta":""},{"k":"2:1","assuntos":["tecm-glomerulopatias"],"aulas":[["CM_A",9]],"palavras":["glomerulopatia","sindrome nefrotica","sindrome nefritica","gnrp","proteinuria","biopsia renal","hematuria dismorfica"],"cobertura":"boa","falta":""},{"k":"2:2","assuntos":["tecm-nefropatia-diabetica","cm-drc","cm-dm2"],"aulas":[["CM_A",8],["CM_A",2]],"palavras":["nefropatia diabetica","doenca renal do diabetes","albuminuria","ieca","sglt2","finerenona"],"cobertura":"boa","falta":""},{"k":"2:3","assuntos":["cm-acidobase"],"aulas":[["UESM_A",11]],"palavras":["acidose","alcalose","anion gap","gasometria","winter","bicarbonato"],"cobertura":"boa","falta":""},{"k":"2:4","assuntos":["tecm-has-secundaria-resistente","cm-has"],"aulas":[["CM_B",2]],"palavras":["hipertensao secundaria","hiperaldosteronismo","feocromocitoma","renovascular","estenose de arteria renal","hipertensao resistente","hipocalemia"],"cobertura":"boa","falta":""},{"k":"3:0","assuntos":["tecm-obesidade"],"aulas":[["APS_A",12]],"palavras":["obesidade","imc","circunferencia abdominal","bariatrica","leptina","sobrepeso"],"cobertura":"boa","falta":""},{"k":"3:1","assuntos":["cm-dm2"],"aulas":[["CM_A",2]],"palavras":["diabetes","hba1c","glicemia de jejum","totg","metformina","sbd"],"cobertura":"boa","falta":""},{"k":"3:2","assuntos":["tecm-agonistas-glp1-tirzepatida","cm-dm2"],"aulas":[["CM_A",2]],"palavras":["glp-1","tirzepatida","semaglutida","liraglutida","incretina","obesidade"],"cobertura":"boa","falta":""},{"k":"3:3","assuntos":["tecm-sindrome-metabolica"],"aulas":[["CM_A",11]],"palavras":["sindrome metabolica","idf","circunferencia abdominal","triglicerides","hdl","resistencia insulinica"],"cobertura":"boa","falta":""},{"k":"4:0","assuntos":["tecm-drge-barrett"],"aulas":[["CM_B",5]],"palavras":["drge","dispepsia","ibp","pylori","sinais de alarme","endoscopia","barrett"],"cobertura":"boa","falta":""},{"k":"4:1","assuntos":["tecm-hepatites-b-c","cm-hepatites"],"aulas":[],"palavras":["hepatite b","hbsag","hepatite c","anti-hcv","carga viral","tenofovir","hbeag"],"cobertura":"boa","falta":""},{"k":"4:2","assuntos":["tecm-masld"],"aulas":[],"palavras":["esteatose","masld","nafld","fib-4","elastografia","esteato-hepatite"],"cobertura":"boa","falta":""},{"k":"4:3","assuntos":["cm-cirrose"],"aulas":[["CM_A",6],["CM_B",7],["CIR_A",6]],"palavras":["cirrose","ascite","pbe","encefalopatia hepatica","varizes","hepatocarcinoma","gasa"],"cobertura":"boa","falta":""},{"k":"4:4","assuntos":["tecm-dii"],"aulas":[["CM_B",6]],"palavras":["crohn","retocolite","doenca inflamatoria intestinal","mesalazina","infliximabe","colite"],"cobertura":"boa","falta":""},{"k":"4:5","assuntos":["tecm-diarreia-sii","cm-sibo"],"aulas":[],"palavras":["intestino irritavel","roma iv","diarreia cronica","sibo","diarreia aguda","calprotectina"],"cobertura":"boa","falta":""},{"k":"4:6","assuntos":["tecm-hemorragia-digestiva"],"aulas":[["CM_B",7]],"palavras":["hemorragia digestiva","blatchford","rockall","forrest","endoscopia","melena","hematoquezia"],"cobertura":"boa","falta":""},{"k":"4:7","assuntos":["cir-colorretal","mfc-rastreio"],"aulas":[["CIR_A",9],["APS_A",11]],"palavras":["cancer colorretal","colonoscopia","polipo","sangue oculto","rastreamento","adenoma"],"cobertura":"boa","falta":""},{"k":"5:0","assuntos":["tecm-neoplasias-mieloproliferativas"],"aulas":[],"palavras":["mielofibrose","jak2","mieloproliferativa","esplenomegalia","dacriocitos","ruxolitinibe"],"cobertura":"boa","falta":""},{"k":"5:1","assuntos":["tecm-anemia-falciforme","cm-anemias"],"aulas":[["PED_B",8],["CM_B",9]],"palavras":["falciforme","hidroxiureia","vaso-oclusiva","sindrome toracica aguda","hemoglobina s"],"cobertura":"boa","falta":""},{"k":"5:2","assuntos":["tecm-von-willebrand-hemofilia"],"aulas":[],"palavras":["von willebrand","hemofilia","fator viii","ttpa","desmopressina","coagulopatia"],"cobertura":"boa","falta":""},{"k":"5:3","assuntos":["tecm-mieloma-multiplo"],"aulas":[["CM_B",10]],"palavras":["mieloma multiplo","crab","proteina monoclonal","eletroforese","bence jones","plasmocito","lesao litica"],"cobertura":"boa","falta":""},{"k":"5:4","assuntos":["tecm-llc-lmc"],"aulas":[["CM_B",10]],"palavras":["llc","lmc","bcr-abl","imatinibe","filadelfia","linfocitose","leucemia cronica"],"cobertura":"boa","falta":""},{"k":"5:5","assuntos":["tecm-hallmarks-cancer"],"aulas":[],"palavras":["hallmarks","oncogene","supressor tumoral","angiogenese","apoptose","carcinogenese"],"cobertura":"boa","falta":""},{"k":"5:6","assuntos":["go-rastreio","mfc-rastreio"],"aulas":[["GO_A",7],["APS_A",11]],"palavras":["mamografia","psa","rastreamento","cancer de mama","cancer de prostata","birads"],"cobertura":"boa","falta":""},{"k":"5:7","assuntos":["tecm-terapia-alvo-imunoterapia"],"aulas":[],"palavras":["imunoterapia","checkpoint","pd-1","terapia-alvo","anticorpo monoclonal","imunomediado","inibidor de tirosina-quinase"],"cobertura":"boa","falta":""},{"k":"6:0","assuntos":["tecm-endocardite-meningite-tropicais","cm-pac","cm-tuberculose","cm-hiv-ist"],"aulas":[["CM_B",11],["CM_B",4],["CM_A",5]],"palavras":["endocardite","meningite","micose","parasitose","leishmaniose","malaria","leptospirose"],"cobertura":"boa","falta":""},{"k":"6:1","assuntos":["tecm-antimicrobianos","cm-sepse","cm-itu","cm-pac"],"aulas":[],"palavras":["antimicrobiano","antibiotico","stewardship","carbapenem","multirresistente","descalonamento"],"cobertura":"boa","falta":""},{"k":"6:2","assuntos":["tecm-infeccao-dispositivos"],"aulas":[["CIR_B",6]],"palavras":["cateter venoso central","infeccao de corrente sanguinea","dispositivo","pav","sonda vesical","biofilme","protese"],"cobertura":"boa","falta":""},{"k":"6:3","assuntos":["tecm-iras"],"aulas":[],"palavras":["infeccao hospitalar","ccih","higiene das maos","precaucao","isolamento","iras"],"cobertura":"boa","falta":""},{"k":"6:4","assuntos":["tecm-vacinas-adulto-crie","ped-vacinas","mfc-raiva"],"aulas":[["APS_B",10],["PED_A",1]],"palavras":["vacina","imunizacao","calendario vacinal","crie","hepatite b","pneumococica"],"cobertura":"boa","falta":""},{"k":"6:5","assuntos":["tecm-imunossuprimido-nao-hiv","cm-hiv-ist"],"aulas":[["CM_A",5]],"palavras":["imunossuprimido","transplante","neutropenia febril","hiv","oportunista","asplenia"],"cobertura":"boa","falta":""},{"k":"7:0","assuntos":["tecm-artrite-reumatoide"],"aulas":[["CM_B",12]],"palavras":["artrite reumatoide","anti-ccp","fator reumatoide","metotrexato","sinovite","biologico"],"cobertura":"boa","falta":""},{"k":"7:1","assuntos":["tecm-les"],"aulas":[["CM_A",9]],"palavras":["lupus","fan","anti-dna","anti-sm","complemento","nefrite lupica"],"cobertura":"boa","falta":""},{"k":"7:2","assuntos":["tecm-fibromialgia"],"aulas":[],"palavras":["fibromialgia","dor difusa","pontos dolorosos","amitriptilina","duloxetina"],"cobertura":"boa","falta":""},{"k":"7:3","assuntos":["cm-espondiloartrites"],"aulas":[],"palavras":["artrite reativa","reiter","uretrite","conjuntivite","espondiloartrite","hla-b27"],"cobertura":"boa","falta":""},{"k":"7:4","assuntos":["tecm-gota"],"aulas":[["CM_B",12]],"palavras":["gota","acido urico","alopurinol","colchicina","tofo","febuxostate"],"cobertura":"boa","falta":""},{"k":"7:5","assuntos":["tecm-vasculites"],"aulas":[],"palavras":["vasculite","arterite temporal","anca","takayasu","poliarterite","granulomatose"],"cobertura":"boa","falta":""},{"k":"8:0","assuntos":["tecm-epilepsia-adulto","ped-epilepsia"],"aulas":[["PED_B",4]],"palavras":["epilepsia","crise convulsiva","anticonvulsivante","valproato","levetiracetam","estado de mal epileptico"],"cobertura":"boa","falta":""},{"k":"8:1","assuntos":["cm-avc"],"aulas":[["UESM_B",12]],"palavras":["avc","trombolise","alteplase","trombectomia","nihss","ait"],"cobertura":"boa","falta":""},{"k":"8:2","assuntos":["tecm-sono-tratamento-demencias"],"aulas":[["UESM_B",8],["APS_A",7]],"palavras":["demencia","alzheimer","delirium","insonia","apneia do sono","anticolinesterasico"],"cobertura":"boa","falta":""},{"k":"8:3","assuntos":[],"aulas":[["CM_B",3]],"palavras":["cefaleia","enxaqueca","tensional","salvas","sinais de alarme","triptano"],"cobertura":"boa","falta":""},{"k":"8:4","assuntos":["tecm-coma","cir-tce"],"aulas":[],"palavras":["coma","glasgow","herniacao","morte encefalica","reflexos de tronco","pupilas"],"cobertura":"boa","falta":""},{"k":"8:5","assuntos":["tecm-puncao-lombar"],"aulas":[["PED_B",3]],"palavras":["puncao lombar","liquor","meningite","hipertensao intracraniana","pleocitose"],"cobertura":"boa","falta":""},{"k":"9:0","assuntos":[],"aulas":[["APS_A",7]],"palavras":["avaliacao geriatrica ampla","katz","lawton","meem","gds","fragilidade"],"cobertura":"boa","falta":""},{"k":"9:1","assuntos":["tecm-sindromes-geriatricas"],"aulas":[["APS_A",7],["APS_A",8],["UESM_B",8]],"palavras":["sindromes geriatricas","quedas","incontinencia","delirium","imobilidade","iatrogenia"],"cobertura":"boa","falta":""},{"k":"9:2","assuntos":["tecm-polifarmacia"],"aulas":[],"palavras":["polifarmacia","beers","stopp/start","deprescricao","cascata iatrogenica","iatrogenia"],"cobertura":"boa","falta":""},{"k":"9:3","assuntos":["tecm-idoso-metas-osteoporose","cm-has","cm-dm2"],"aulas":[["APS_B",8],["APS_A",6]],"palavras":["idoso","metas individualizadas","hipertensao","diabetes","multimorbidade","senescencia"],"cobertura":"boa","falta":""},{"k":"9:4","assuntos":["tecm-cuidados-paliativos-fim-de-vida","mfc-etica"],"aulas":[["UESM_A",7]],"palavras":["cuidados paliativos","opioide","morfina","fim de vida","pps","sedacao paliativa"],"cobertura":"boa","falta":""},{"k":"9:5","assuntos":["tecm-nutricao-terapia-sarcopenia"],"aulas":[["CIR_A",4],["UESM_B",1]],"palavras":["desnutricao","sarcopenia","nutricao enteral","parenteral","realimentacao","mna"],"cobertura":"boa","falta":""},{"k":"9:6","assuntos":["tecm-vacinacao-idoso"],"aulas":[["APS_B",10],["APS_A",10]],"palavras":["vacinacao","idoso","influenza","pneumococica","herpes zoster","vsr"],"cobertura":"boa","falta":""},{"k":"9:7","assuntos":["tecm-ccl-diferencial-demencias"],"aulas":[["UESM_B",8],["APS_A",7]],"palavras":["transtorno cognitivo","comprometimento cognitivo leve","demencia","meem","alzheimer"],"cobertura":"boa","falta":""},{"k":"10:0","assuntos":["tecm-insuf-respiratoria-sdra"],"aulas":[["UESM_A",5],["UESM_A",6]],"palavras":["insuficiencia respiratoria","vni","ventilacao mecanica","sdra","intubacao","hipoxemia"],"cobertura":"boa","falta":""},{"k":"10:1","assuntos":["cm-sepse"],"aulas":[["UESM_B",3],["UESM_B",9]],"palavras":["sepse","choque septico","qsofa","lactato","noradrenalina","antibiotico"],"cobertura":"boa","falta":""},{"k":"10:2","assuntos":["cm-sepse"],"aulas":[["UESM_B",3],["UESM_B",9],["UESM_B",7]],"palavras":["choque","instavel","hipotensao","vasopressor","perfusao","lactato"],"cobertura":"boa","falta":""},{"k":"10:3","assuntos":["cir-trauma","cir-tce","cir-abdome-trauma"],"aulas":[["CIR_B",1]],"palavras":["politrauma","atls","abcde","choque hemorragico","fast","transfusao"],"cobertura":"boa","falta":""},{"k":"10:4","assuntos":["tecm-emergencias-eletrolitos-eme-aorta","cm-drc","cm-has"],"aulas":[["CM_A",8],["CM_B",2],["UESM_B",7]],"palavras":["hipercalemia","hiponatremia","emergencia hipertensiva","estado de mal","arritmia","disseccao de aorta"],"cobertura":"boa","falta":""},{"k":"11:0","assuntos":["tv-saudemental"],"aulas":[["UESM_A",10]],"palavras":["esquizofrenia","psicose","antipsicotico","clozapina","alucinacao","delirio"],"cobertura":"boa","falta":""},{"k":"11:1","assuntos":["tv-saudemental"],"aulas":[["UESM_B",2],["UESM_A",8]],"palavras":["depressao","bipolar","litio","antidepressivo","mania","estabilizador de humor"],"cobertura":"boa","falta":""},{"k":"11:2","assuntos":["tv-saudemental"],"aulas":[["UESM_B",1]],"palavras":["ansiedade","panico","tag","isrs","benzodiazepinico","toc"],"cobertura":"boa","falta":""},{"k":"11:3","assuntos":["tecm-abstinencia-alcoolica","tv-substancias"],"aulas":[["UESM_B",8],["UESM_A",9]],"palavras":["abstinencia alcoolica","delirium tremens","wernicke","tiamina","ciwa","benzodiazepinico"],"cobertura":"boa","falta":""},{"k":"12:0","assuntos":["tecm-ulceras-pe-diabetico"],"aulas":[["CIR_B",8],["CIR_B",9]],"palavras":["ulcera venosa","ulcera arterial","pe diabetico","itb","neuropatica","terapia compressiva"],"cobertura":"boa","falta":""},{"k":"12:1","assuntos":["tecm-dermato-grave"],"aulas":[],"palavras":["stevens-johnson","necrolise epidermica","dress","purpura fulminans","eritrodermia","farmacodermia"],"cobertura":"boa","falta":""},{"k":"12:2","assuntos":["tecm-perda-visual-glaucoma"],"aulas":[],"palavras":["perda visual","glaucoma agudo","oclusao da arteria central","retina","descolamento","neurite optica"],"cobertura":"boa","falta":""},{"k":"12:3","assuntos":["tecm-celulite-orbitaria-retinopatias"],"aulas":[],"palavras":["celulite orbitaria","pre-septal","retinopatia diabetica","retinopatia hipertensiva","proptose"],"cobertura":"boa","falta":""},{"k":"12:4","assuntos":["tecm-infeccoes-orl-adulto"],"aulas":[["PED_A",8]],"palavras":["otite","sinusite","amigdalite","faringite","abscesso periamigdaliano","centor"],"cobertura":"boa","falta":""},{"k":"12:5","assuntos":["tecm-orl-epistaxe-vertigem-saos"],"aulas":[],"palavras":["epistaxe","vertigem","vppb","dix-hallpike","apneia do sono","perda auditiva"],"cobertura":"boa","falta":""},{"k":"13:0","assuntos":["go-hemorragias"],"aulas":[["GO_B",10]],"palavras":["gravidez ectopica","beta-hcg","metotrexato","ultrassom transvaginal","salpingectomia"],"cobertura":"boa","falta":""},{"k":"13:1","assuntos":["go-corrimentos"],"aulas":[["GO_B",3]],"palavras":["doenca inflamatoria pelvica","dip","ceftriaxona","doxiciclina","abscesso tubo-ovariano"],"cobertura":"boa","falta":""},{"k":"13:2","assuntos":["go-sua"],"aulas":[["GO_B",4]],"palavras":["sangramento uterino anormal","palm-coein","menorragia","mioma","endometrio"],"cobertura":"boa","falta":""},{"k":"14:0","assuntos":["mfc-atributos","tv-sus"],"aulas":[["APS_B",1],["APS_A",3]],"palavras":["atencao primaria","pnab","estrategia saude da familia","sus","lei 8080","nasf"],"cobertura":"boa","falta":""},{"k":"14:1","assuntos":["mfc-vigilancia","mfc-indicadores","mfc-estudos"],"aulas":[["APS_A",4],["APS_B",3]],"palavras":["vigilancia","notificacao","incidencia","prevalencia","sinan","epidemiologia"],"cobertura":"boa","falta":""},{"k":"14:2","assuntos":[],"aulas":[["APS_B",7],["APS_B",8]],"palavras":["condicoes cronicas","macc","linha de cuidado","dcnt","autocuidado","modelo de atencao"],"cobertura":"boa","falta":""},{"k":"14:3","assuntos":["tecm-rue-urgencia-sus"],"aulas":[],"palavras":["rede de urgencia","samu","upa","classificacao de risco","manchester","acolhimento"],"cobertura":"boa","falta":""},{"k":"14:4","assuntos":["tecm-pcdt-rename-af"],"aulas":[],"palavras":["pcdt","rename","componente especializado","protocolo clinico","assistencia farmaceutica","medicamentos"],"cobertura":"boa","falta":""},{"k":"14:5","assuntos":["mfc-etica"],"aulas":[["APS_A",2],["APS_B",4]],"palavras":["etica","sigilo","codigo de etica medica","consentimento","atestado","declaracao de obito"],"cobertura":"boa","falta":""},{"k":"14:6","assuntos":["tv-saudemental","tv-substancias"],"aulas":[],"palavras":["saude mental","caps","raps","matriciamento","depressao","aps"],"cobertura":"boa","falta":""}];
 const nrmTECM=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
 function abrirAssuntoTECM(id){ try{ window.__ASSUNTO_PENDENTE=id; if(window.__ABRIR_ASSUNTO){ window.__ABRIR_ASSUNTO(id); window.__ASSUNTO_PENDENTE=null; } window.__SET_TAB&&window.__SET_TAB("trilha"); irAoTopo(); }catch(e){} }
-function abrirAulaTECM(mod,num){ try{ window.__AULA_N2_PENDENTE={mod,num}; window.__SET_TAB&&window.__SET_TAB("trilha"); irAoTopo(); }catch(e){} }
+function abrirAulaTECM(mod,num){ try{ if(window.__ABRIR_AULA_N2) window.__ABRIR_AULA_N2(mod,num); else window.__AULA_N2_PENDENTE={mod,num};
+  window.__SET_TAB&&window.__SET_TAB("trilha"); irAoTopo(); }catch(e){} }
+/* Abre uma estação do banco (busca, atalhos): funciona com a aba Internato e o OSCE já abertos ou não. */
+function abrirEstacaoOSCE(area,id){ try{ window.__OSCE_AREA=area; window.__OSCE_CASO=id||null;
+  if(window.__OSCE_ABRIR_CASO){ window.__OSCE_ABRIR_CASO(); }
+  else if(window.__INTERNATO_ABRIR_OSCE){ window.__INTERNATO_ABRIR_OSCE(); }
+  else { window.__OSCE_ABRIR=true; }
+  window.__SET_TAB&&window.__SET_TAB("internato"); irAoTopo(); }catch(e){} }
 function ProgramaTECM({qs}){
   const [feito,setFeito]=useState(()=>{try{return JSON.parse(localStorage.getItem("preceptor_tecm_programa")||"{}")}catch(e){return {}}});
   const [aberto,setAberto]=useState(null);
@@ -5646,13 +5732,93 @@ function ImgQuestao({src}){
   if(!src) return null;
   return <div style={{margin:"8px 0 10px"}}><img src={src} alt="Imagem da questão" loading="lazy" style={{maxWidth:"100%",maxHeight:520,borderRadius:10,border:"1px solid var(--line)",display:"block",background:"#fff"}}/></div>;
 }
+/* Questões marcadas (⭐) com anotação pessoal. Ficam no aparelho e, se a tabela
+   questoes_marcadas existir no Supabase, sincronizam entre aparelhos (sem ela, segue só local). */
+const MARC={uid:null,dados:{},ouv:new Set()};
+function marcChave(){ return "preceptor_marcadas_"+(MARC.uid||"anon"); }
+function marcGravarLocal(){ try{ localStorage.setItem(marcChave(),JSON.stringify(MARC.dados)); }catch(e){} }
+function marcAvisar(){ MARC.ouv.forEach(f=>{ try{ f(); }catch(e){} }); }
+function marcSnap(q){ return {id:q.id,area:q.area,tema:q.tema,transv:q.transv||[],dif:q.dif,enun:q.enun,alts:q.alts,correta:q.correta,coment:q.coment,imagem:q.imagem||null,anulada:!!q.anulada}; }
+function marcEnviar(id){ try{ if(!sb||!MARC.uid) return; const d=MARC.dados[id];
+  if(d) sb.from("questoes_marcadas").upsert({user_id:MARC.uid,questao_id:id,nota:d.nota||"",atualizado_em:new Date(d.t).toISOString()},{onConflict:"user_id,questao_id"}).then(()=>{},()=>{});
+  else sb.from("questoes_marcadas").delete().eq("user_id",MARC.uid).eq("questao_id",id).then(()=>{},()=>{}); }catch(e){} }
+function marcIniciar(uid){
+  MARC.uid=uid||null; try{ MARC.dados=JSON.parse(localStorage.getItem(marcChave())||"{}")||{}; }catch(e){ MARC.dados={}; } marcAvisar();
+  if(!sb||!uid) return;
+  sb.from("questoes_marcadas").select("questao_id,nota,atualizado_em").eq("user_id",uid).then(r=>{
+    if(!r||r.error||!Array.isArray(r.data)) return; const remotos=new Set();
+    r.data.forEach(x=>{ remotos.add(x.questao_id); const t=Date.parse(x.atualizado_em)||0, l=MARC.dados[x.questao_id];
+      if(!l) MARC.dados[x.questao_id]={nota:x.nota||"",t};
+      else if((l.t||0)<t) MARC.dados[x.questao_id]={...l,nota:x.nota||"",t}; });
+    Object.keys(MARC.dados).forEach(id=>{ if(!remotos.has(id)) marcEnviar(id); });
+    marcGravarLocal(); marcAvisar(); },()=>{});
+}
+function marcDefinir(q,marcar,nota){
+  const id=q.id;
+  if(marcar){ const ant=MARC.dados[id]||{}; MARC.dados[id]={nota:nota!=null?nota:(ant.nota||""),t:Date.now(),q:marcSnap(q)}; }
+  else delete MARC.dados[id];
+  marcGravarLocal(); marcAvisar(); marcEnviar(id);
+}
+function useMarcadas(){ const [,f]=useState(0); useEffect(()=>{ const g=()=>f(x=>x+1); MARC.ouv.add(g); return ()=>{ MARC.ouv.delete(g); }; },[]); return MARC.dados; }
+function MarcarQuestao({q}){
+  const dados=useMarcadas(); const m=dados[q.id];
+  return <button className="btn ghost sm" title={m?"Desmarcar":"Marcar para revisar depois"} aria-label={m?"Desmarcar questão":"Marcar questão"}
+    onClick={()=>marcDefinir(q,!m)} style={{padding:"2px 9px",fontSize:15,lineHeight:1.3,color:m?"var(--gold,#e6b450)":"inherit",borderColor:m?"var(--gold,#e6b450)":undefined}}>{m?"★":"☆"}</button>;
+}
+function NotaQuestao({q}){
+  const dados=useMarcadas(); const m=dados[q.id];
+  const [txt,setTxt]=useState(m?(m.nota||""):"");
+  useEffect(()=>{ setTxt(m?(m.nota||""):""); },[q.id,!!m]);
+  if(!m) return null;
+  const salvar=()=>{ if((m.nota||"")!==txt) marcDefinir(q,true,txt.slice(0,2000)); };
+  return <details open={!!m.nota} style={{marginTop:10}}>
+    <summary className="muted" style={{fontSize:13,cursor:"pointer"}}>📝 Sua anotação{m.nota?"":" (opcional)"}</summary>
+    <textarea value={txt} onChange={e=>setTxt(e.target.value)} onBlur={salvar} rows={3} maxLength={2000}
+      placeholder="Ex.: confundi critério de Light com gradiente; revisar dose de ataque…" style={{width:"100%",marginTop:6,fontSize:14}}/>
+    <div className="muted" style={{fontSize:11}}>Salva ao sair do campo · aparece em Praticar → ⭐ Marcadas.</div>
+  </details>;
+}
+function Marcadas({pool}){
+  const dados=useMarcadas();
+  const [aberta,setAberta]=useState(null);
+  const porId=useMemo(()=>{ const m={}; (window.__ALLQ||[]).concat(pool||[]).forEach(x=>{ if(x&&x.id) m[x.id]=x; }); return m; },[pool]);
+  const itens=Object.entries(dados).map(([id,d])=>({id,d,q:porId[id]||d.q||null})).filter(x=>x.q).sort((a,b)=>(b.d.t||0)-(a.d.t||0));
+  const fora=Object.keys(dados).length-itens.length;
+  if(aberta){ const it=itens.find(x=>x.id===aberta); if(it) return <div>
+    <button className="btn ghost sm" style={{marginBottom:10}} onClick={()=>setAberta(null)}>← Marcadas</button>
+    <QuestionCard key={it.id} q={it.q} indice={0} total={1} onResp={()=>{}}/>
+  </div>; }
+  if(!itens.length) return <div className="card" style={{textAlign:"center",padding:"30px 20px"}}>
+    <div style={{fontSize:30}}>☆</div>
+    <b style={{display:"block",marginTop:6}}>Nenhuma questão marcada ainda</b>
+    <div className="muted" style={{fontSize:13,marginTop:6,lineHeight:1.5}}>Toque na ☆ no canto de qualquer questão para guardá-la aqui. Dá para escrever uma anotação sua em cada uma.</div>
+    {fora>0 && <div className="muted" style={{fontSize:12,marginTop:8}}>{fora} marcada(s) em outro aparelho ainda carregando.</div>}
+  </div>;
+  return <div>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap",marginBottom:12}}>
+      <div><b style={{fontSize:16}}>⭐ Minhas marcadas</b><div className="muted" style={{fontSize:13,marginTop:2}}>{itens.length} questão(ões) · {itens.filter(x=>x.d.nota).length} com anotação</div></div>
+      <button className="btn sm" onClick={()=>window.__TREINAR_GEMEAS&&window.__TREINAR_GEMEAS(itens.map(x=>x.q),"Minhas marcadas")}>Refazer as {itens.length}</button>
+    </div>
+    {itens.map(({id,d,q})=><div key={id} className="card" style={{marginBottom:10,padding:"12px 14px"}}>
+      <div className="row" style={{gap:6,flexWrap:"wrap",marginBottom:6}}>
+        <span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(q.area)}</span><span className="pill">{q.tema}</span>
+      </div>
+      <div style={{fontSize:13.5,opacity:.9,cursor:"pointer"}} onClick={()=>setAberta(id)}>{(q.enun||"").slice(0,170)}{(q.enun||"").length>170?"…":""}</div>
+      {d.nota && <div className="block b-mne" style={{marginTop:8,fontSize:13.5,whiteSpace:"pre-wrap"}}>📝 {d.nota}</div>}
+      <div className="row" style={{gap:8,marginTop:8}}>
+        <button className="btn ghost sm" onClick={()=>setAberta(id)}>Abrir</button>
+        <button className="btn ghost sm" onClick={()=>marcDefinir(q,false)}>Desmarcar</button>
+      </div>
+    </div>)}
+  </div>;
+}
 function QuestionCard({q,onResp,indice,total,selInicial}){
   const ini=(selInicial==null)?null:selInicial;
   const [sel,setSel]=useState(ini);useEffect(()=>setSel((selInicial==null)?null:selInicial),[q.id,selInicial]);const L=["A","B","C","D","E"];
   return <div className="card">
     <div className="row" style={{justifyContent:"space-between",marginBottom:10}}>
       <div className="row" style={{gap:8}}><span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(q.area)}</span><span className="pill">{q.tema}</span>{(q.transv||[]).map(t=><span key={t} className="pill" style={{color:"var(--acc2)"}}>{t}</span>)}</div>
-      {total>1&&<span className="muted" style={{fontSize:13}}>{indice+1}/{total}</span>}</div>
+      <div className="row" style={{gap:8,flex:"none",alignItems:"center"}}>{total>1&&<span className="muted" style={{fontSize:13}}>{indice+1}/{total}</span>}<MarcarQuestao q={q}/></div></div>
     <div style={{fontSize:15.5,lineHeight:1.6,marginBottom:6}}>{q.enun}</div>
     <ImgQuestao src={q.imagem}/>
     {q.anulada&&<div style={{display:"inline-block",fontSize:12,fontWeight:600,color:"var(--warn)",border:"1px solid var(--warn)",borderRadius:6,padding:"2px 8px",marginBottom:8}}>⚠️ ANULADA pelo INEP — não pontua</div>}
@@ -5673,6 +5839,7 @@ function QuestionCard({q,onResp,indice,total,selInicial}){
     {sel!==null&&<QuestoesGemeas q={q}/>}
     {sel!==null&&!q.anulada&&sel!==q.correta&&<RevisarAssunto q={q}/>}
     {sel!==null&&<ReportarErroQuestao q={q} sel={sel}/>}
+    <NotaQuestao q={q}/>
   </div>;
 }
 /* Errou? Um toque leva à teoria do tema: assunto do Estudar (ENAMED/TECM) ou aula do Internato. */
@@ -5945,6 +6112,8 @@ function Internato({pool, registrar}){
   /* Uma videoaula do YouTube por tema (tabela videoaulas_internato). Carrega uma
      vez por sessão; se a tabela não existir, segue sem vídeos e sem erro. */
   /* atalho vindo do plano da semana: abre direto o bloco, a Super Revisão do tema ou o rodízio */
+  useEffect(()=>{ window.__INTERNATO_ABRIR_OSCE=()=>{ setOsce(true); irAoTopo(); };
+    return ()=>{ window.__INTERNATO_ABRIR_OSCE=null; }; },[]);
   useEffect(()=>{ const p=window.__INTERNATO_PENDENTE; if(!p) return; window.__INTERNATO_PENDENTE=null;
     try{ setModulo(p.modulo); setHalf(p.metade||"A");
       if(p.modo==="rodizio") setRodizio(true);
@@ -6667,9 +6836,14 @@ function GeradorOSCE({areaInicial,onAbrir}){
     </div>}
   </div>;
 }
+function osceCasoPedido(){ try{ const id=window.__OSCE_CASO; window.__OSCE_CASO=null; if(!id||!window.__PRO) return null;
+  return Object.values(window.OSCE_BANCO||{}).flat().find(c=>c&&c.id===id)||null; }catch(e){ return null; } }
 function OSCE({onVoltar}){
-  const [caso,setCaso]=useState(null);
+  const [caso,setCaso]=useState(osceCasoPedido);
   const [areaSel,setAreaSel]=useState(()=>{ try{ const a=window.__OSCE_AREA; if(a&&OSCE_TEMAS[a]){ window.__OSCE_AREA=null; return a; } }catch(e){} return "CM"; });
+  useEffect(()=>{ window.__OSCE_ABRIR_CASO=()=>{ const a=window.__OSCE_AREA; if(a&&OSCE_TEMAS[a]){ window.__OSCE_AREA=null; setAreaSel(a); }
+      const c=osceCasoPedido(); if(c) setCaso(c); irAoTopo(); };
+    return ()=>{ window.__OSCE_ABRIR_CASO=null; }; },[]);
   const [,reavaliar]=useState(0);
   if(caso) return <OSCEEstacao caso={caso} onVoltar={()=>setCaso(null)}/>;
   if(!window.__PRO) return <div>
@@ -6934,7 +7108,7 @@ function OSCEEstacao({caso, onVoltar}){
 /* =================== PRATICAR (hub: treinar + simulado + foto) =================== */
 function Praticar(props){
   const [modo,setModo]=useState("treinar");
-  const sub=[["treinar","Questões"],["simulado","Simulado"],["enamed","Simulado ENAMED"],["raiox","🔎 Raio-X da banca"],["resolver","Resolver por foto"]];
+  const sub=[["treinar","Questões"],["marcadas","⭐ Marcadas"],["simulado","Simulado"],["enamed","Simulado ENAMED"],["raiox","🔎 Raio-X da banca"],["resolver","Resolver por foto"]];
   return <div>
     <div className="card" style={{marginBottom:14,background:"var(--panel2)"}}>
       <div className="row" style={{justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
@@ -6950,6 +7124,7 @@ function Praticar(props){
       {props.metaHoje && <span title="Meta de hoje" style={{marginLeft:"auto",fontFamily:"var(--mono)",fontSize:13,color:props.metaHoje.batida?"var(--gold,#e6b450)":"var(--acc)"}}>🎯 {Math.min(props.metaHoje.feito,props.metaHoje.alvo)}/{props.metaHoje.alvo}{props.metaHoje.batida?" ✓":""}</span>}
     </div>
     {modo==="treinar" && <Treinar {...props} onNovasQuestoes={props.onNovasQuestoes}/>}
+    {modo==="marcadas" && <Marcadas pool={props.pool}/>}
     {modo==="simulado" && (props.acesso ? <Simulado pool={props.pool} registrar={props.registrar} isPro={props.acesso}/> : <TravaFree titulo="Simulado é PRO" texto="Monte provas no formato oficial (20 por área) com nota e correção comentada." onAssinar={props.onAssinar}/>)}
     {modo==="enamed" && <SimuladoEnamed pool={props.pool} registrar={props.registrar}/>}
     {modo==="raiox" && <RaioXBanca pool={props.acesso?(window.__ALLQ||props.pool):props.pool}/>}
