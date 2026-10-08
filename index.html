@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.09.2";
+  window.APP_VERSION="2026.10.09.3";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -3728,6 +3728,18 @@ function dadosGuia(mod){
       D=JSON.parse(h.slice(i+13,j)); } }catch(e){ D=null; }
   __dadosGuia[mod]=D; return D;
 }
+/* Atalho do Estudar para as questões da aba Internato (módulo e metade, ou só a aba). */
+function irQuestoesInternato(mod){ try{ if(mod){ const [m,h]=mod.split("_"); window.__INTERNATO_PENDENTE={modulo:m,metade:h||"A"}; }
+  window.__SET_TAB&&window.__SET_TAB("internato"); irAoTopo(); }catch(e){} }
+function AtalhoQuestoesInternato({mod,nome}){
+  return <div className="card" onClick={()=>irQuestoesInternato(mod)} style={{cursor:"pointer",padding:"12px 14px",margin:"0 0 14px",borderColor:"var(--acc)"}}>
+    <div className="row" style={{gap:10,alignItems:"center",justifyContent:"space-between"}}>
+      <div style={{minWidth:0}}><b style={{fontSize:14.5}}>✍️ Ir para as questões{nome?" de "+nome:" do Internato"}</b>
+        <div className="muted" style={{fontSize:12,marginTop:3}}>Na aba 🩺 Internato: questões por tema, Super Revisão e modo rodízio.</div></div>
+      <span style={{flex:"none",fontWeight:800,color:"var(--acc)"}}>→</span>
+    </div>
+  </div>;
+}
 function AulasInternato({modInicial,numInicial,onVoltar,registrar}){
   const [mod,setMod]=useState(modInicial||null);
   const [num,setNum]=useState(numInicial!=null?numInicial:null);
@@ -3805,7 +3817,7 @@ function AulasInternato({modInicial,numInicial,onVoltar,registrar}){
         {qs.map((q,k)=><div key={q.id} style={{marginBottom:12}}>
           <QuestionCard q={q} indice={k} total={qs.length} onResp={(qq,ok)=>{ if(registrar) registrar(qq,ok); }}/>
         </div>)}
-        <div style={{marginTop:6}}><span className="link" style={{fontSize:13}} onClick={()=>abrirNoInternato(item[1])}>Mais questões e o resumo deste tema →</span></div>
+        <div style={{marginTop:6}}><button className="btn ghost sm" onClick={()=>abrirNoInternato(item[1])}>✍️ Mais questões e o resumo deste tema →</button></div>
       </div>}
 
       {/* ETAPA 3 — FIXE */}
@@ -3835,6 +3847,7 @@ function AulasInternato({modInicial,numInicial,onVoltar,registrar}){
       <h2 style={{fontSize:22,marginTop:4}}>{nomeMod}</h2>
       <div className="muted" style={{fontSize:13,marginTop:4}}>Cada aula explica o assunto e mostra como a prova costuma cobrar: aula, como pensar, prática e fixação.</div>
     </div>
+    <AtalhoQuestoesInternato mod={mod} nome={nomeMod}/>
     {lista.map(([n,t,sub])=><div key={n} className="card" onClick={()=>abrir(n)} style={{cursor:"pointer",marginBottom:10,padding:"12px 14px"}}>
       <div className="row" style={{gap:10,alignItems:"flex-start"}}>
         <span className="pill" style={{flex:"none"}}>{n}</span>
@@ -3999,6 +4012,7 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
     <div style={{marginTop:26}}>
       <h3 style={{fontSize:18,marginBottom:4}}>📘 Aulas do Internato</h3>
       <div className="muted" style={{fontSize:13,marginBottom:12}}>{Object.values(AULAS_N2_TITULOS).reduce((a,l)=>a+l.length,0)} aulas narrativas: o assunto explicado e como a prova costuma cobrar.</div>
+      <AtalhoQuestoesInternato/>
       <div className="grid" style={{gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
         {AULAS_N2_MODS.filter(([k])=>(AULAS_N2_TITULOS[k]||[]).length).map(([k,nome,ic])=>
           <div key={k} className="card" onClick={()=>{ setN2Mod(k); irAoTopo(); }} style={{cursor:"pointer",padding:"12px 14px"}}>
