@@ -21,11 +21,10 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.08.2";
+  window.APP_VERSION="2026.10.08.3";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
-  window.SUPORTE_WHATSAPP="55XXXXXXXXXXX"; // ⚠️ troque pelo seu WhatsApp: DDI+DDD+número, só dígitos (ex.: "5571999999999")
   window.__PWA_PROMPT=null;
   window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); window.__PWA_PROMPT=e; });
   window.addEventListener("appinstalled", function(){ window.__PWA_PROMPT=null; try{localStorage.setItem("preceptor_pwa_instalado","1");}catch(x){} });
@@ -2373,7 +2372,7 @@ function App(){
   if(booting) return <div className="center"><div className="muted">Carregando...</div></div>;
   if(!session) return <Auth/>;
   if(recuperando) return <NovaSenha onOk={()=>{ try{sessionStorage.removeItem("preceptor_pw_rec");}catch(e){} setRecuperando(false); }}/>;
-  return <React.Fragment><Shell session={session}/><GlobalSearch/></React.Fragment>;
+  return <Shell session={session}/>;
 }
 
 function SetupAviso(){
@@ -3035,6 +3034,8 @@ function Shell({session}){
   useEffect(()=>{ try{ window.__PRECO={valor:precoValor,txt:precoTxt,fundador,antesCorte,dataCorteTxt,valorNovoTxt,meses:PC.MESES}; }catch(e){} },[precoValor,fundador,antesCorte]);
   const isAdmin = !!(session&&session.user&&session.user.email===ADMIN_EMAIL);
   useEffect(()=>{ try{ window.__PRO=!!isPro; window.__ACESSO=!!acesso; window.__ABRIR_ASSINAR=()=>setShowAssinar(true); window.__SET_TAB=(t)=>{ setDiag(null); setRevisando(false); setTab(t); }; window.__SET_DIAG=(m)=>{setRevisando(false);setDiag(m);setTab("trilha");irAoTopo();};
+    /* reconfere a assinatura PAGA (o teste grátis não libera a IA) */
+    window.__RECONFERIR_PRO=async()=>{ let ok=false; try{ ok=await recarregarAssinatura(); }catch(e){} if(ok) window.__PRO=true; return ok; };
     window.__RECONFERIR_ACESSO=async()=>{ let ok=false; try{ ok=(await recarregarAssinatura())||trialAtivo; }catch(e){} return ok; };
     window.__REINICIAR_APP=atualizarApp;
     window.__REGISTRAR_ERRO=(q,motivo)=>{ const row={user_id:uid,questao_id:q.id,area:q.area,tema:q.tema,motivo,criado_em:new Date().toISOString()}; setCaderno(c=>[row,...c].slice(0,400)); try{ sb.from("caderno_erros").insert(row).then(()=>{},()=>{}); }catch(e){} };
@@ -3111,6 +3112,45 @@ function Shell({session}){
   const bloqueadasFree = questoes.length - poolFree.length;
 
   if(loading) return <div className="center"><div className="muted">Sincronizando seu progresso...</div></div>;
+
+  /* Sem acesso (teste de 24h acabou ou assinatura venceu): o app fica bloqueado.
+     Só dá para assinar, conferir um pagamento já feito ou falar com o suporte. */
+  if(!acesso && !isAdmin){
+    const est=calcEstimativa(log);
+    return <div>
+      <div className="row" style={{justifyContent:"space-between",alignItems:"flex-start"}}>
+        <div>
+          <div className="tag" style={{color:"var(--acc)"}}>PRECEPTOR <span title="Versão da plataforma" style={{opacity:.5,fontWeight:400,letterSpacing:0,fontSize:11}}>v{window.APP_VERSION}</span></div>
+          <h1 style={{fontSize:28,marginTop:6}}>Olá{session.user.user_metadata&&session.user.user_metadata.nome?", "+session.user.user_metadata.nome:""}</h1>
+        </div>
+        <div className="row" style={{marginTop:8,justifyContent:"flex-end",gap:12}}>
+          <span className="link" style={{fontSize:13}} onClick={()=>setTema(tema==="escuro"?"claro":"escuro")}>{tema==="escuro"?"☀ Claro":"🌙 Escuro"}</span>
+          <span className="link" style={{fontSize:13}} onClick={()=>sb.auth.signOut()}>Sair</span>
+        </div>
+      </div>
+      <div className="card" style={{marginTop:16,borderColor:"var(--gold)"}}>
+        <div className="tag" style={{color:"var(--gold)"}}>{primeiraPaga?"SUA ASSINATURA VENCEU":"SEU TESTE GRÁTIS TERMINOU"}</div>
+        <h2 style={{fontSize:21,marginTop:6,lineHeight:1.3}}>Para continuar estudando, assine o Preceptor</h2>
+        <div style={{fontSize:14,lineHeight:1.55,marginTop:8}}>
+          {log.length>0?<span>Você já respondeu <b>{log.length}</b> {log.length===1?"questão":"questões"}{est!=null?<span> e sua nota estimada chegou a <b>{est}%</b></span>:null}. </span>:null}
+          Seu progresso fica guardado na sua conta e volta inteiro quando você assinar.
+        </div>
+        <div className="muted" style={{fontSize:13,marginTop:8,lineHeight:1.5}}>Libera os {CURRICULO.length} assuntos da Trilha, {questoes.length}+ questões, provas oficiais, simulados, Internato, flashcards, seu progresso e a IA (OSCE, tira-dúvida, resolver por foto).</div>
+        <div className="row" style={{gap:10,marginTop:14,flexWrap:"wrap",alignItems:"center"}}>
+          <button className="btn" onClick={()=>setShowAssinar(true)}>{primeiraPaga?"Renovar":"Assinar"} · {precoTxt} / 6 meses</button>
+          <button className="btn ghost sm" onClick={async()=>{ let ok=false; try{ ok=await recarregarAssinatura(); }catch(e){}
+            if(!ok) alert("Ainda não encontrei seu pagamento. Se acabou de pagar, espere 1 minuto e toque de novo — ou fale com o suporte aqui embaixo."); }}>Já paguei — conferir</button>
+        </div>
+        {antesCorte&&!fundador&&<div style={{fontSize:12.5,marginTop:10}}><b style={{color:"var(--gold)"}}>🏅 Preço fundador:</b> assinando até <b>{dataCorteTxt}</b>, você renova sempre por {precoTxt}.</div>}
+        <div className="muted" style={{fontSize:12,marginTop:8}}>Pix, liberação na hora, sem renovação automática.</div>
+      </div>
+      <div style={{marginTop:18}}>
+        <div className="tag" style={{color:"var(--muted)",marginBottom:8}}>💬 FALE COM O SUPORTE</div>
+        <Suporte uid={uid}/>
+      </div>
+      {showAssinar && <Assinar uid={uid} email={session.user.email} venceu={!!primeiraPaga&&!isPro} onClose={()=>setShowAssinar(false)} onVerificar={recarregarAssinatura}/>}
+    </div>;
+  }
 
   return <div>
     {marco && <CelebraMarco marco={marco} uid={uid} onFechar={()=>setMarco(null)}/>}
@@ -3275,6 +3315,7 @@ function Shell({session}){
       {tab==="flash" && (acesso ? <Flashcards cards={FLASHCARDS} curriculo={CURRICULO} sb={sb} uid={uid}/> : <TravaFree titulo="Flashcards é PRO" texto="Revise todos os assuntos em cartões rápidos, com baralho diário e sequência de dias estudados." onAssinar={()=>setShowAssinar(true)}/>)}
       {tab==="dash" && (acesso ? <Dash store={store} temasFracos={temasFracos} onRefazer={()=>setDiag("rapido")}/> : <TravaFree titulo="Meu progresso é PRO" texto="Veja seu acerto por área, os temas onde mais erra e o quanto já dominou da trilha." onAssinar={()=>setShowAssinar(true)}/>)}
     </div>}
+    {acesso && <GlobalSearch/>}
   </div>;
 }
 
@@ -4104,8 +4145,6 @@ function Suporte({uid}){
     setChecando(false);
   };
   const reiniciar=()=>{ try{ window.__REINICIAR_APP&&window.__REINICIAR_APP(); }catch(e){} };
-  const waNum=(window.SUPORTE_WHATSAPP||"").replace(/\D/g,"");
-  const waLink=(waNum&&waNum.indexOf("X")<0)?("https://wa.me/"+waNum+"?text="+encodeURIComponent("Oi! Preciso de ajuda no Preceptor.\n\nCategoria: "+SUPORTE_CATS[categoria]+"\nMensagem: "+msg+"\n\n(v"+(window.APP_VERSION||"")+")")):null;
   return <div style={{display:"grid",gap:14}}>
     <div className="card">
       <b style={{fontSize:16}}>💬 Fale com o Suporte</b>
@@ -4126,7 +4165,6 @@ function Suporte({uid}){
       <div className="muted" style={{fontSize:11,marginTop:6}}>Envio junto, automaticamente: versão do app, seu plano e o navegador — pra eu entender mais rápido, sem te perguntar de novo.</div>
       <div className="row" style={{gap:10,marginTop:12,flexWrap:"wrap"}}>
         <button className="btn sm" onClick={enviar} disabled={enviando||!msg.trim()}>{enviando?"Enviando…":"Enviar mensagem"}</button>
-        {waLink && <a className="btn ghost sm" href={waLink} target="_blank" rel="noopener noreferrer" style={{textDecoration:"none"}}>Chamar no WhatsApp</a>}
       </div>
       {erroEnvio && <div style={{fontSize:13,marginTop:10,color:"var(--bad)"}}>{erroEnvio}</div>}
       {enviado && <div style={{fontSize:13,marginTop:10,color:"var(--acc)"}}>✓ Recebi sua mensagem. Costumo responder rápido — a resposta aparece aqui embaixo, nesta mesma aba.</div>}
@@ -5938,10 +5976,11 @@ Object.keys(window.OSCE_BANCO).forEach(k=>{
 function OSCE({onVoltar}){
   const [caso,setCaso]=useState(null);
   const [areaSel,setAreaSel]=useState(()=>{ try{ const a=window.__OSCE_AREA; if(a&&OSCE_TEMAS[a]){ window.__OSCE_AREA=null; return a; } }catch(e){} return "CM"; });
+  const [,reavaliar]=useState(0);
   if(caso) return <OSCEEstacao caso={caso} onVoltar={()=>setCaso(null)}/>;
   if(!window.__PRO) return <div>
     <button className="btn ghost sm" onClick={onVoltar}>← Voltar</button>
-    <div className="lock" style={{marginTop:12,textAlign:"left"}}><b>Estações OSCE com IA são exclusivas do PRO</b><div className="muted" style={{fontSize:13,marginTop:6}}>Paciente simulado que responde ao seu atendimento e examinador que pontua o checklist. {((window.__PRECO||{}).txt||"R$ 49,90")} por 6 meses, Pix, sem renovação automática.</div><button className="btn sm" style={{marginTop:10}} onClick={async()=>{ const ok=window.__RECONFERIR_ACESSO?await window.__RECONFERIR_ACESSO():false; if(!ok) window.__ABRIR_ASSINAR&&window.__ABRIR_ASSINAR(); }}>Liberar a IA</button></div>
+    <div className="lock" style={{marginTop:12,textAlign:"left"}}><b>Estações OSCE com IA são exclusivas do PRO</b><div className="muted" style={{fontSize:13,marginTop:6}}>Paciente simulado que responde ao seu atendimento e examinador que pontua o checklist. {((window.__PRECO||{}).txt||"R$ 49,90")} por 6 meses, Pix, sem renovação automática.</div><button className="btn sm" style={{marginTop:10}} onClick={async()=>{ const ok=window.__RECONFERIR_PRO?await window.__RECONFERIR_PRO():false; if(ok) reavaliar(x=>x+1); else window.__ABRIR_ASSINAR&&window.__ABRIR_ASSINAR(); }}>Liberar a IA</button></div>
   </div>;
   const casosArea = window.OSCE_BANCO[areaSel]||[];
   return <div>
@@ -6544,7 +6583,7 @@ function SimuladoEnamed({pool, registrar}){
   }
 
   if(provas.length===0){
-    return <div className="card muted">Nenhum simulado ENAMED encontrado no banco. Importe as questões (tema "ENAMED — Simulado N").</div>;
+    return <div className="card muted">Os simulados ENAMED não estão disponíveis no momento. Se o problema continuar, fale com o suporte.</div>;
   }
 
   return <div>
