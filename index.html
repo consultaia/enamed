@@ -3344,7 +3344,8 @@ const AULAS_N2_MODS = [["CM_A","Clínica Médica A","🩺"],["CM_B","Clínica M�
 /* As aulas só usam <b> e <i>: vira elemento React; qualquer outra marcação vira texto. */
 function htmlAula(s){
   const raiz=[], pilha=[{tag:null,filhos:raiz}], re=/<(\/?)(b|i|strong|em)\s*>/gi; let pos=0, m, k=0;
-  const txt=t=>t.replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&amp;/g,"&");
+  /* só some com marcação HTML conhecida: "<5 anos" e "PA <130" são texto médico */
+  const txt=t=>t.replace(TAGS_AULA,"").replace(/&nbsp;/g," ").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&amp;/g,"&");
   const add=t=>{ if(t) pilha[pilha.length-1].filhos.push(txt(t)); };
   const fecha=()=>{ const n=pilha.pop(); pilha[pilha.length-1].filhos.push(React.createElement(n.tag,{key:"h"+(k++)},...n.filhos)); };
   while((m=re.exec(String(s||"")))){ add(String(s).slice(pos,m.index)); pos=re.lastIndex;
@@ -3353,7 +3354,8 @@ function htmlAula(s){
   add(String(s||"").slice(pos)); while(pilha.length>1) fecha();
   return raiz;
 }
-const textoAula=s=>String(s||"").replace(/<[^>]+>/g,"").replace(/&nbsp;/g," ").replace(/&amp;/g,"&");
+const TAGS_AULA=/<\/?(b|i|strong|em|u|br|p|div|span|sup|sub|small|mark)(\s[^<>]*)?\/?>/gi;
+const textoAula=s=>String(s||"").replace(TAGS_AULA,"").replace(/&nbsp;/g," ").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&amp;/g,"&");
 /* Na aba Estudar as aulas não citam a N2 (isso fica só na aba Internato). */
 function semN2(s){ return String(s==null?"":s)
   .replace(/\b(Das|das|Nas|nas|Pelas|pelas|As|as)\s+N2s?\b/g,"$1 provas")
