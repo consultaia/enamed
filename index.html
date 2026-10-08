@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.08.9";
+  window.APP_VERSION="2026.10.09";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -5660,6 +5660,54 @@ function QuestionCard({q,onResp,indice,total,selInicial}){
     {sel!==null&&!q.anulada&&sel!==q.correta&&<MotivoErro q={q}/>}
     {sel!==null&&<IAnaQuestao q={q} sel={sel}/>}
     {sel!==null&&<QuestoesGemeas q={q}/>}
+    {sel!==null&&!q.anulada&&sel!==q.correta&&<RevisarAssunto q={q}/>}
+    {sel!==null&&<ReportarErroQuestao q={q} sel={sel}/>}
+  </div>;
+}
+/* Errou? Um toque leva à teoria do tema: assunto do Estudar (ENAMED/TECM) ou aula do Internato. */
+function alvoTeoria(q){
+  try{
+    const t=CURRICULO.find(x=>(x.questoes||[]).indexOf(q.id)>=0)||CURRICULO_TECM.find(x=>(x.questoes||[]).indexOf(q.id)>=0);
+    if(t) return {tipo:"assunto",id:t.id,nome:t.nome};
+    const m=/^Internato\s*—\s*(.+?)\s+([AB])\s*·\s*(.+)$/.exec(String(q.tema||""));
+    if(m){ const mod=Object.keys(MOD_TEMA).find(k=>_nTema(MOD_TEMA[k])===_nTema(m[1])); const lista=mod?(AULAS_N2_TITULOS[mod+"_"+m[2]]||[]):[];
+      const n=_nTema(m[3]); const a=lista.find(x=>_nTema(x[1])===n)||lista.find(x=>{ const k=_nTema(x[1]); return k.length>=6&&(k.indexOf(n)===0||n.indexOf(k)===0); });
+      if(a) return {tipo:"aula",mod:mod+"_"+m[2],num:a[0],nome:semN2(a[1])}; }
+    const t2=assuntoDoTema(q.area,q.tema,window.__ALLQ||[]);
+    if(t2) return {tipo:"assunto",id:t2.id,nome:t2.nome};
+  }catch(e){}
+  return null;
+}
+function RevisarAssunto({q}){
+  const alvo=useMemo(()=>alvoTeoria(q),[q.id]);
+  if(!alvo) return null;
+  return <div className="row" style={{marginTop:10,gap:8,alignItems:"center",flexWrap:"wrap"}}>
+    <button className="btn ghost sm" onClick={()=>{ if(alvo.tipo==="aula") abrirAulaTECM(alvo.mod,alvo.num); else abrirAssuntoTECM(alvo.id); }}>📚 Revisar o assunto: {alvo.nome}</button>
+    <span className="muted" style={{fontSize:12}}>o erro vira aprendizado quando você volta à teoria</span>
+  </div>;
+}
+/* Aluno aponta gabarito/comentário/enunciado com problema: cai no Suporte do admin com o id da questão. */
+function ReportarErroQuestao({q,sel}){
+  const [aberto,setAberto]=useState(false), [motivo,setMotivo]=useState("gabarito"), [txt,setTxt]=useState(""), [st,setSt]=useState("");
+  const MOT={gabarito:"Gabarito parece errado",comentario:"Comentário errado ou incompleto",enunciado:"Enunciado ou alternativas com problema",desatualizada:"Conteúdo desatualizado",outro:"Outro"};
+  const enviar=async()=>{ setSt("enviando");
+    try{ const {data}=await sb.auth.getSession(); const uid=data&&data.session&&data.session.user&&data.session.user.id; if(!uid) throw new Error("sem sessão");
+      const L5=["A","B","C","D","E"];
+      const {error}=await sb.from("suporte").insert({user_id:uid,categoria:"duvida",mensagem:"[ERRO EM QUESTÃO] "+MOT[motivo]+" · "+q.id+(txt.trim()?" — "+txt.trim():""),
+        contexto:{tipo:"erro_questao",questao_id:q.id,tema:q.tema||"",area:q.area||"",marcada:L5[sel]||sel,gabarito:L5[q.correta]||q.correta,motivo,versao:window.APP_VERSION||""}});
+      if(error) throw error; setSt("ok"); setTxt(""); }
+    catch(e){ setSt("erro:"+((e&&e.message)||"falha")); } };
+  if(st==="ok") return <div className="muted" style={{fontSize:12.5,marginTop:10}}>✓ Obrigado! O aviso chegou para revisão desta questão.</div>;
+  if(!aberto) return <div style={{marginTop:10}}><span className="link muted" style={{fontSize:12.5}} onClick={()=>setAberto(true)}>⚑ Reportar erro nesta questão</span></div>;
+  return <div className="block b-metodo" style={{marginTop:10}}>
+    <b style={{fontSize:13.5}}>O que está errado?</b>
+    <select value={motivo} onChange={e=>setMotivo(e.target.value)} style={{marginTop:8}}>{Object.entries(MOT).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select>
+    <textarea rows="2" placeholder="Se puder, conte o porquê (opcional) — ex.: a diretriz X diz que…" value={txt} onChange={e=>setTxt(e.target.value)} style={{marginTop:8}}/>
+    <div className="row" style={{gap:8,marginTop:8}}>
+      <button className="btn sm" disabled={st==="enviando"} onClick={enviar}>{st==="enviando"?"Enviando…":"Enviar"}</button>
+      <button className="btn ghost sm" onClick={()=>{ setAberto(false); setSt(""); }}>Cancelar</button>
+    </div>
+    {st.indexOf("erro:")===0 && <div style={{fontSize:12.5,marginTop:8,color:"var(--bad)"}}>Não consegui enviar agora ({st.slice(5)}). Tente de novo.</div>}
   </div>;
 }
 /* ═══════ MENU NO RODAPÉ (celular e tablet, < 1100px) ═══════
@@ -6755,7 +6803,7 @@ function OSCEEstacao({caso, onVoltar}){
 
   /* -------- conversa (paciente simulado) -------- */
   return <div>
-    <button className="btn ghost sm" onClick={onVoltar}>← Estações</button>
+    <button className="btn ghost sm" onClick={()=>{ if(msgs.length>0&&!confirm("Sair da estação? A conversa com o paciente será perdida.")) return; onVoltar(); }}>← Estações</button>
     <div style={{margin:"14px 0 6px"}}>
       <div className="tag" style={{color:caso.cor}}>ESTAÇÃO OSCE · {caso.titulo.toUpperCase()}</div>
       <h2 style={{fontSize:20,marginTop:4}}>Paciente simulado</h2>
