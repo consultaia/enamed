@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.08.3";
+  window.APP_VERSION="2026.10.08.4";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -3334,10 +3334,95 @@ function prioridade(top,store,acertoArea){
   if(aa!==null&&aa<0.6)motivos.push("acerta so "+Math.round(aa*100)+"% em "+areaNome(top.area));
   return {score,nivel,motivos};
 }
+/* =================== AULAS DO INTERNATO (N2) NA ABA ESTUDAR ===================
+   As mesmas aulas narrativas da aba Internato (AULAS_N2_GZ), lidas aqui sem abrir o guia.
+   Títulos por módulo: [número do tópico, título, subtítulo] — vêm do DATA de cada Super Revisão. */
+const AULAS_N2_TITULOS = {"CM_A":[[1,"Asma e DPOC","Espirometria · GOLD A/B/E · exacerbação"],[2,"Diabetes mellitus","Diagnóstico · tipos · tratamento · complicações"],[3,"Arboviroses: dengue, zika, chikungunya, febre amarela","Sinais de alarme · hidratação · diferenciais"],[4,"Pericárdio, miocardites e endocardites","Pericardite · tamponamento · Duke"],[5,"HIV e criptococose","Diagnóstico · TARV para todos · neurocriptococose"],[6,"Cirrose e complicações","Ascite/GASA · PBE · encefalopatia · SHR"],[7,"Doenças eritematodescamativas","Psoríase · dermatite atópica"],[8,"Injúria renal aguda e doença renal crônica","KDIGO · pré/renal/pós · diálise"],[9,"Doenças glomerulares e tubulointersticiais","Nefrítica × nefrótica · GNRP · nefrite intersticial"],[10,"ITU e nefrolitíase","Cistite × pielonefrite · bacteriúria assintomática · cólica renal"],[11,"Síndrome metabólica e dislipidemias","Critérios · risco cardiovascular · estatina"],[12,"Doenças da hipófise e da tireoide","TSH · nódulos · prolactinoma"]],"CM_B":[[1,"Insuficiência cardíaca e valvopatias","ESC 2026 · FMT · Stevenson · valvopatias"],[2,"HAS e emergências hipertensivas","Urgência × emergência · lesão de órgão-alvo · HAS secundária"],[3,"Cefaleias","Sinais de alarme · enxaqueca · tensional · em salvas"],[4,"Tuberculose e hanseníase","BAAR · RIPE · formas · Hansen"],[5,"DRGE e dispepsia","Sinais de alarme · IBP · H. pylori"],[6,"Doenças inflamatórias intestinais","Crohn × retocolite ulcerativa"],[7,"Hemorragias digestivas","Alta × baixa · ressuscitação · EDA"],[8,"TVP e tromboembolismo pulmonar","Wells · D-dímero · anticoagulação"],[9,"Anemias","Ferropriva · doença crônica · hemolíticas"],[10,"Neoplasias hematológicas","Linfoma × leucemia · triagem inicial"],[11,"Pneumonias","PAC · CURB-65 · atípicas · vírus"],[12,"Poliartrites: artrite reumatoide e osteoartrite","Inflamatória × mecânica · FR/anti-CCP"]],"CIR_A":[[1,"Abdome agudo inflamatório","Apendicite · diverticulite · colecistite · classificação do abdome agudo"],[2,"Hérnias de parede abdominal","Anatomia · inguinal × femoral · classificação · complicações"],[3,"Complicações pós-operatórias e infecção","Febre pós-operatória · ISC · deiscência · fístula · classificação de feridas"],[4,"Resposta endócrino-metabólica ao trauma","Fases de Cuthbertson · hormônios · citocinas · jejum × trauma"],[5,"Cuidados pré-operatórios e risco cirúrgico","ASA · risco cardíaco · jejum · anticoagulantes · diabetes"],[6,"Afecções hepáticas","Cistos · hemangioma · HNF × adenoma · abscessos · hipertensão portal"],[7,"Afecções da árvore biliar","Colelitíase · coledocolitíase · colangite · Charcot e Reynolds"],[8,"Afecções do pâncreas","Pancreatite aguda e crônica · pseudocisto · câncer de pâncreas"],[9,"Câncer de cólon e reto","Rastreamento · pólipos · estadiamento · reto × cólon · seguimento"],[10,"Derrame pleural e toracocentese","Luz de Light · transudato × exsudato · técnica · complicações"],[11,"Fios, suturas e feridas","Absorvíveis × inabsorvíveis · mono × multifilamentar · nós · retirada"],[12,"Doenças orificiais","Hemorroidas · fissura · fístula · abscesso · regra de Goodsall"]],"CIR_B":[[1,"ATLS — atendimento inicial ao trauma","ABCDE · exame secundário · choque · transfusão maciça"],[2,"Cicatrização de feridas","Fases · fechamento · fatores · cicatriz patológica"],[3,"Via aérea cirúrgica","Cricotireoidostomia · indicações · traqueostomia · contraindicações"],[4,"Trauma torácico","Pneumotórax · hemotórax · tórax instável · tamponamento"],[5,"Trauma abdominal e pélvico","FAST · contuso × penetrante · fratura de pelve · lavado"],[6,"Acesso venoso central","Sítios · indicações · técnica · complicações"],[7,"Queimaduras e síndrome compartimental","Regra dos 9 · Parkland · escarotomia · fasciotomia"],[8,"Doença arterial: DAOP, oclusão aguda e aneurisma de aorta","DAOP · oclusão arterial aguda · aneurisma de aorta"],[9,"Insuficiência venosa crônica e TVP","Varizes · úlcera venosa · TVP · TEP · profilaxia"],[10,"Noções de anestesia periférica","Anestésicos locais · doses máximas · toxicidade · bloqueios"],[11,"Urgências urológicas","Torção testicular · priapismo · urolitíase · retenção · Fournier"],[12,"Abdome agudo em pediatria","Intussuscepção · vólvulo · estenose hipertrófica · apendicite"]],"GO_A":[[1,"Assistência pré-natal","Consultas · exames · vacinas · suplementação"],[2,"O parto: mecanismos, períodos e manobras","Partograma · distocias · fórcipe"],[3,"Modificações no organismo materno","Cardiovascular · hematológico · renal · respiratório"],[4,"Amenorreia primária e secundária","Compartimentos · investigação · causas"],[5,"Síndrome dos ovários policísticos","Rotterdam · metabólico · indução de ovulação"],[6,"Climatério e menopausa","Terapia hormonal · janela · contraindicações"],[7,"Neoplasias mamárias e rastreio","BI-RADS · nódulo · descarga papilar"],[8,"Incontinência urinária e distopias genitais","Esforço × urgência · POP-Q · tratamento"],[9,"Pré-natal de alto risco: diabetes e gemelaridade","DMG · corionicidade · complicações"],[10,"Prematuridade e amniorrexe prematura","Tocólise · corticoide · RPMO"],[11,"Restrição de crescimento fetal (CIUR)","Simétrico × assimétrico · Doppler · momento do parto"],[12,"Infecções na gestação","Toxoplasmose · CMV · rubéola · herpes · sífilis"]],"GO_B":[[1,"Anticoncepção","Critérios de elegibilidade · LARC · emergência"],[2,"HPV, neoplasias cervicais e rastreio","DNA-HPV 2024 · colposcopia · conduta"],[3,"Doença inflamatória pélvica","Critérios mínimos · esquemas · sequelas"],[4,"Sangramento uterino anormal","PALM-COEIN · investigação · tratamento"],[5,"Endometriose","Dor cíclica · ultrassom com preparo · tratamento"],[6,"Vulvovaginites e cervicites","pH · KOH · tratamento na gestante"],[7,"Infecções sexualmente transmissíveis","Úlceras · corrimentos · sífilis"],[8,"Síndromes hipertensivas da gestação","Pré-eclâmpsia · sulfato · HELLP"],[9,"Vitalidade fetal","Cardiotocografia · perfil biofísico · Doppler"],[10,"Sangramentos da primeira metade","Abortamento · ectópica · molar"],[11,"Sangramentos da segunda metade","DPP · placenta prévia · rotura · vasa prévia"],[12,"Puerpério","Involução · hemorragia · infecção · lactação"]],"PED_A":[[1,"Imunizações","Calendário · atraso · imunossuprimidos"],[2,"Diarreia aguda, desidratação e parasitoses","Planos A, B e C · zinco · parasitoses"],[3,"Aleitamento, introdução alimentar e alergia alimentar","Contraindicações · introdução · fissuras"],[4,"Infecções congênitas","Quem calcifica onde · quando tratar"],[5,"Icterícia neonatal","Kramer · fototerapia · Kasai"],[6,"Assistência ao RN na sala de parto ≥ 34 semanas","Reanimação ≥ 34 semanas · MR SOPA · saturação"],[7,"Anafilaxia e dermatite atópica","Adrenalina IM · emoliente · eczema herpético"],[8,"Infecção de vias aéreas superiores","Resfriado · otite · sinusite · faringite · crupe"],[9,"Doenças exantemáticas","Padrões que decidem o diagnóstico"],[10,"Infecção do trato urinário","Coleta estéril · imagem · bacteriúria"],[11,"Crescimento e desenvolvimento até 5 anos","Marcos · curvas · sinais de alerta"],[12,"GNDA e síndrome nefrótica","Complemento · corticoide · quando biopsiar"]],"PED_B":[[1,"Suporte básico e avançado de vida","PALS · ritmos · doses que salvam"],[2,"Asma na criança e rinite alérgica","Via aérea única · degraus · crise"],[3,"Meningites e meningoencefalites","Líquor · empírico · dexametasona"],[4,"Convulsões na criança","Crise febril · primeira crise · status"],[5,"Pneumonia adquirida na comunidade e bronquiolite","Taquipneia · suporte · gravidade"],[6,"TDAH e autismo","TEA · TDAH · manejo da crise de desregulação"],[7,"Patologias dermatológicas","Impetigo · SSSS · escabiose · tinea · pitiríase · molusco"],[8,"Anemias: ferropriva, megaloblástica e falciforme","VCM · reticulócitos · falciforme"],[9,"Sepse em pediatria","Hora de ouro · fluido · amina certa"],[10,"Febre reumática","Jones · profilaxia · o que dura quanto"],[11,"Crescimento e desenvolvimento puberal do adolescente","Tanner · telarca · adrenarca · análogo de GnRH"],[12,"Febre sem sinais localizatórios","Lactente febril · estratificação · sinais de alarme"]],"APS_A":[[1,"Saúde-doença e níveis de prevenção","Níveis de prevenção · modelos · ANS"],[2,"Ética médica","Princípios · sigilo · autonomia · publicidade"],[3,"SUS e Leis Orgânicas (8080/8142)","Princípios · Lei 8.080 · Lei 8.142 · financiamento"],[4,"Vigilância em saúde e epidemiológica","Tipos de vigilância · SINAN · cadeia epidemiológica"],[5,"Transições epidemiológica, demográfica e nutricional","Transição demográfica · epidemiológica · nutricional"],[6,"Fisiologia do envelhecimento","Senescência × senilidade · alterações · envelhecimento ativo"],[7,"Avaliação global do idoso","AGA · MEEM · GDS · Katz e Lawton · gigantes"],[8,"Instabilidade postural e quedas","Fatores de risco · avaliação · prevenção"],[9,"Violência e maus-tratos contra o idoso","Tipos · sinais de alerta · Estatuto do Idoso · notificação"],[10,"Síndrome gripal","Influenza · antiviral · vacinação · SRAG"],[11,"Rastreamento na APS I — neoplasias","Mama · colo · colorretal · princípios do rastreio"],[12,"Rastreamento na APS II — HAS, DM, dislipidemia, obesidade","HAS · DM · dislipidemia · obesidade · tabagismo"]],"APS_B":[[1,"APS e Estratégia Saúde da Família","Atributos · equipe · promoção da saúde"],[2,"Medicina de Família e Mais Médicos","MFC · Mais Médicos · atribuições"],[3,"Métodos diagnósticos e estudos epidemiológicos","Sensibilidade · VPP · incidência · tipos de estudo"],[4,"Medicina legal","Atestado · declaração de óbito · prontuário · perícia"],[5,"MBE, revisão sistemática e meta-análise","Níveis de evidência · forest plot · heterogeneidade"],[6,"Visitas e atenção domiciliar","Visita domiciliar · modalidades AD1-AD3 · cuidador"],[7,"Complexidade, integralidade e DCNT","Modelos de atenção · linhas de cuidado · autocuidado"],[8,"DM e HAS centradas na pessoa","Metas individualizadas · entrevista motivacional · inércia"],[9,"Violência contra a criança e o adolescente","Sinais de alerta · notificação · ECA · rede"],[10,"Vacinação","Calendário · contraindicações · eventos adversos"],[11,"Violência sexual e autoprovocada + notificação","Atendimento · profilaxias · SINAN · prazos"],[12,"Saúde do trabalhador + CAT","CAT · nexo causal · afastamento · RENAST"]],"UESM_A":[[1,"Suporte básico e avançado de vida: BLS e ACLS","RCP · ritmos · pós-parada"],[2,"Lesão renal aguda","KDIGO · pré-renal × NTA · diálise"],[3,"Psicopatologia e exame do estado mental","Funções psíquicas · sintomas · síndromes"],[4,"Síndrome respiratória aguda grave","SRAG · notificação · manejo"],[5,"Insuficiência respiratória e ventilação mecânica","Tipo I × II · VNI · parâmetros · desmame"],[6,"Vias aéreas: básica e avançada","Extraglótica · sequência rápida · via aérea difícil"],[7,"Cuidados paliativos e manejo da dor","Escada analgésica · opioides · fim de vida"],[8,"Psicofarmacologia: antidepressivos","Classes · latência · efeitos · síndrome serotoninérgica"],[9,"Emergências em psiquiatria","Risco de autoagressão · agitação · surto psicótico"],[10,"Esquizofrenia e outros transtornos psicóticos","Critérios · antipsicóticos · diferenciais"],[11,"Distúrbios do equilíbrio acidobásico","Passo a passo · ânion gap · compensação"],[12,"Intoxicações exógenas agudas","Síndromes tóxicas · antídotos · descontaminação"]],"UESM_B":[[1,"Transtornos de ansiedade e alimentares","Pânico · TAG · TOC · anorexia · bulimia"],[2,"Transtornos do humor","Depressão maior · bipolar · estabilizadores"],[3,"Choque séptico e hipovolêmico","Hora de ouro · classes de Tatum · lactato"],[4,"Síndromes coronarianas agudas","Com e sem supra · tempos · antitrombóticos"],[5,"Transtornos de personalidade","Clusters A, B e C · manejo · borderline"],[6,"IC descompensada e edema agudo de pulmão","Stevenson · nitrato · VNI"],[7,"Arritmias cardíacas","Instável × estável · cardioversão · FA"],[8,"Transtornos mentais orgânicos","Delirium · demências · Alzheimer · Parkinson"],[9,"Drogas vasoativas","Receptores · escolha por cenário · diluição"],[10,"Animais peçonhentos e choque anafilático","Ofídico · escorpião · aranha · adrenalina"],[11,"Cetoacidose diabética","Critérios · hidratação · potássio · resolução"],[12,"Acidente vascular encefálico","Janelas · trombólise · hemorrágico"]]};
+const AULAS_N2_MODS = [["CM_A","Clínica Médica A","🩺"],["CM_B","Clínica Médica B","🩺"],["CIR_A","Cirurgia A","🔪"],["CIR_B","Cirurgia B","🔪"],
+  ["GO_A","Ginecologia e Obstetrícia A","🤰"],["GO_B","Ginecologia e Obstetrícia B","🤰"],["PED_A","Pediatria A","🧸"],["PED_B","Pediatria B","🧸"],
+  ["APS_A","Atenção Primária A","🏥"],["APS_B","Atenção Primária B","🏥"],["UESM_A","Urgência e Saúde Mental A","🚑"],["UESM_B","Urgência e Saúde Mental B","🚑"]];
+/* As aulas só usam <b> e <i>: vira elemento React; qualquer outra marcação vira texto. */
+function htmlAula(s){
+  const raiz=[], pilha=[{tag:null,filhos:raiz}], re=/<(\/?)(b|i|strong|em)\s*>/gi; let pos=0, m, k=0;
+  const txt=t=>t.replace(/<[^>]*>/g,"").replace(/&nbsp;/g," ").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&amp;/g,"&");
+  const add=t=>{ if(t) pilha[pilha.length-1].filhos.push(txt(t)); };
+  const fecha=()=>{ const n=pilha.pop(); pilha[pilha.length-1].filhos.push(React.createElement(n.tag,{key:"h"+(k++)},...n.filhos)); };
+  while((m=re.exec(String(s||"")))){ add(String(s).slice(pos,m.index)); pos=re.lastIndex;
+    const t=m[2].toLowerCase(), tag=t==="strong"?"b":t==="em"?"i":t;
+    if(!m[1]) pilha.push({tag,filhos:[]}); else if(pilha.length>1) fecha(); }
+  add(String(s||"").slice(pos)); while(pilha.length>1) fecha();
+  return raiz;
+}
+const textoAula=s=>String(s||"").replace(/<[^>]+>/g,"").replace(/&nbsp;/g," ").replace(/&amp;/g,"&");
+function AulasInternato({modInicial,onVoltar}){
+  const [mod,setMod]=useState(modInicial||null);
+  const [num,setNum]=useState(null);
+  const [aulas,setAulas]=useState(null);
+  const [erro,setErro]=useState(false);
+  useEffect(()=>{ if(!mod) return; let vivo=true; setAulas(null); setErro(false);
+    carregarAulasN2(mod).then(a=>{ if(!vivo) return; if(a) setAulas(a); else setErro(true); });
+    return ()=>{ vivo=false; }; },[mod]);
+  const nomeMod=(AULAS_N2_MODS.find(x=>x[0]===mod)||[])[1]||mod;
+  const lista=AULAS_N2_TITULOS[mod]||[];
+  const abrirNoInternato=(titulo)=>{ try{ const [m,h]=mod.split("_");
+    window.__INTERNATO_PENDENTE={modulo:m,metade:h,topico:titulo,modo:"guia"}; window.__SET_TAB&&window.__SET_TAB("internato"); irAoTopo(); }catch(e){} };
+
+  /* ---- lendo uma aula ---- */
+  if(mod && num!=null){
+    const i=lista.findIndex(x=>x[0]===num), item=lista[i]||[num,"Aula "+num,""];
+    const secs=(aulas&&aulas[String(num)])||[];
+    const ir=d=>{ const p=lista[i+d]; if(p){ setNum(p[0]); irAoTopo(); } };
+    return <div>
+      <button className="btn ghost sm" onClick={()=>{ setNum(null); irAoTopo(); }}>← Aulas de {nomeMod}</button>
+      <div style={{margin:"14px 0 12px"}}>
+        <div className="tag" style={{color:"var(--acc)"}}>AULA DO INTERNATO · {nomeMod.toUpperCase()} · TÓPICO {num}</div>
+        <h2 style={{fontSize:22,margin:"6px 0 4px"}}>{item[1]}</h2>
+        {item[2] && <div className="muted" style={{fontSize:13}}>{item[2]}</div>}
+      </div>
+      {erro && <div className="card muted">Não consegui abrir esta aula neste aparelho. Atualize o navegador ou use a aba Internato.</div>}
+      {!erro && !aulas && <div className="card muted">Carregando a aula…</div>}
+      {aulas && secs.length>0 && <OuvirTexto paragrafos={secs.flatMap(s=>[s.h].concat(s.p||[]).map(textoAula))} rotulo="Ouvir a aula"/>}
+      {aulas && secs.map((s,k)=><div key={k} className="card" style={{marginBottom:12}}>
+        <h3 style={{fontSize:17,marginBottom:8}}>{textoAula(s.h)}</h3>
+        {(s.p||[]).map((p,j)=><p key={j} style={{fontSize:15,lineHeight:1.65,margin:"0 0 10px"}}>{htmlAula(p)}</p>)}
+        {s.caso && <div className="block b-nucleo"><b>📋 Caso para fixar: </b>{htmlAula(s.caso)}</div>}
+        {s.prova && <div className="block b-pega"><b>🎯 Como a prova cobra: </b>{htmlAula(s.prova)}</div>}
+        {s.pense && <details className="block b-mne" style={{cursor:"pointer"}}>
+          <summary><b>🧠 Pare e pense:</b> {htmlAula(s.pense.q)} <span className="muted" style={{fontSize:12}}>(pense antes — toque para ver a resposta)</span></summary>
+          <div style={{marginTop:8}}>{htmlAula(s.pense.r)}</div></details>}
+      </div>)}
+      {aulas && secs.length===0 && <div className="card muted">Esta aula ainda não está disponível.</div>}
+      <div className="row" style={{justifyContent:"space-between",gap:10,marginTop:16,flexWrap:"wrap"}}>
+        <button className="btn ghost sm" disabled={i<=0} onClick={()=>ir(-1)}>← Anterior</button>
+        <button className="btn sm" onClick={()=>abrirNoInternato(item[1])}>Resumo e questões deste tema →</button>
+        <button className="btn ghost sm" disabled={i<0||i>=lista.length-1} onClick={()=>ir(1)}>Próxima →</button>
+      </div>
+    </div>;
+  }
+
+  /* ---- tópicos de um módulo ---- */
+  if(mod) return <div>
+    <button className="btn ghost sm" onClick={()=>{ if(modInicial) onVoltar(); else { setMod(null); irAoTopo(); } }}>← Voltar</button>
+    <div style={{margin:"14px 0 14px"}}>
+      <div className="tag" style={{color:"var(--acc)"}}>AULAS DO INTERNATO (N2)</div>
+      <h2 style={{fontSize:22,marginTop:4}}>{nomeMod}</h2>
+      <div className="muted" style={{fontSize:13,marginTop:4}}>Cada aula explica o assunto e mostra como a prova costuma cobrar.</div>
+    </div>
+    {lista.map(([n,t,sub])=><div key={n} className="card" onClick={()=>{ setNum(n); irAoTopo(); }} style={{cursor:"pointer",marginBottom:10,padding:"12px 14px"}}>
+      <div className="row" style={{gap:10,alignItems:"flex-start"}}>
+        <span className="pill" style={{flex:"none"}}>{n}</span>
+        <div style={{minWidth:0}}><b style={{fontSize:14.5}}>{t}</b>{sub && <div className="muted" style={{fontSize:12,marginTop:3}}>{sub}</div>}</div>
+      </div>
+    </div>)}
+  </div>;
+
+  return null;
+}
 function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeTopico,onAssinar,temasFracos,uid}){
   const fracosSet=new Set((temasFracos||[]).map(x=>x.split("||")[1]));
   const [areaSel,setAreaSel]=useState(null); // area escolhida
   const [aberto,setAberto]=useState(null);   // assunto em estudo
+  const [n2Mod,setN2Mod]=useState(null);     // módulo das aulas do Internato aberto aqui
   const yc=y=>y>=3?"var(--gold)":y===2?"var(--acc2)":"var(--muted)";
   const yl=y=>y>=3?"ALTO RENDIMENTO":y===2?"IMPORTANTE":"COMPLEMENTAR";
   const liberado=t=>isPro||t.id===freeTopico;
@@ -3350,6 +3435,9 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
     /* pedido vindo de outra aba (Início, plano da semana): a Trilha acabou de montar */
     if(window.__ASSUNTO_PENDENTE){ const id=window.__ASSUNTO_PENDENTE; window.__ASSUNTO_PENDENTE=null; window.__ABRIR_ASSUNTO(id); }
   }catch(e){} return ()=>{ try{ window.__ABRIR_ASSUNTO=null; }catch(e){} }; },[isPro]);
+
+  /* ---------- aulas do Internato (N2) lidas dentro do Estudar ---------- */
+  if(n2Mod) return <AulasInternato key={n2Mod} modInicial={n2Mod} onVoltar={()=>{ setN2Mod(null); irAoTopo(); }}/>;
 
   /* ---------- ESTADO 3: estudando um assunto (tela cheia) ---------- */
   if(aberto){
@@ -3476,6 +3564,19 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
           <div style={{marginTop:12}}><span className="btn sm" style={{display:"inline-block"}}>{feitos>0?"Continuar ›":"Começar ›"}</span></div>
         </div>;
       })}
+    </div>
+
+    <div style={{marginTop:26}}>
+      <h3 style={{fontSize:18,marginBottom:4}}>📘 Aulas do Internato (N2)</h3>
+      <div className="muted" style={{fontSize:13,marginBottom:12}}>{Object.values(AULAS_N2_TITULOS).reduce((a,l)=>a+l.length,0)} aulas narrativas: o assunto explicado e como a prova costuma cobrar.</div>
+      <div className="grid" style={{gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
+        {AULAS_N2_MODS.filter(([k])=>(AULAS_N2_TITULOS[k]||[]).length).map(([k,nome,ic])=>
+          <div key={k} className="card" onClick={()=>{ setN2Mod(k); irAoTopo(); }} style={{cursor:"pointer",padding:"12px 14px"}}>
+            <div style={{fontSize:20}}>{ic}</div>
+            <b style={{fontSize:14.5,display:"block",marginTop:4}}>{nome}</b>
+            <div className="muted" style={{fontSize:12,marginTop:3}}>{(AULAS_N2_TITULOS[k]||[]).length} aulas</div>
+          </div>)}
+      </div>
     </div>
 
     {!isPro && <div className="lock" style={{marginTop:18,textAlign:"left"}}>
