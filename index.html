@@ -21,11 +21,10 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.08";
+  window.APP_VERSION="2026.10.08.3";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
-  window.SUPORTE_WHATSAPP="55XXXXXXXXXXX"; // ⚠️ troque pelo seu WhatsApp: DDI+DDD+número, só dígitos (ex.: "5571999999999")
   window.__PWA_PROMPT=null;
   window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); window.__PWA_PROMPT=e; });
   window.addEventListener("appinstalled", function(){ window.__PWA_PROMPT=null; try{localStorage.setItem("preceptor_pwa_instalado","1");}catch(x){} });
@@ -34,6 +33,9 @@
   // para todos os usuários — sem precisar limpar cache.
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
+      // Na 1ª visita ainda não há SW no controle: o "controllerchange" da instalação
+      // não pode recarregar a página (o aluno perderia o cadastro que está digitando).
+      var tinhaControle = !!navigator.serviceWorker.controller;
       navigator.serviceWorker.register("sw.js").then(function (reg) {
         // Verifica se há versão nova periodicamente e ao focar a aba.
         function checkUpdate(){ reg.update().catch(function(){}); }
@@ -43,7 +45,7 @@
         // Quando um SW novo assume o controle, recarrega a página uma vez.
         var recarregou = false;
         navigator.serviceWorker.addEventListener("controllerchange", function () {
-          if (recarregou) return;
+          if (recarregou || !tinhaControle) return;
           recarregou = true;
           window.location.reload();
         });
@@ -2101,7 +2103,7 @@ function GlobalSearch(){
         </div>
         {sel? <div>
             <button className="btn ghost sm" style={{marginBottom:8}} onClick={()=>setSel(null)}>← Resultados</button>
-            <QuestionCard q={sel} onResp={()=>{}} indice={0} total={1}/>
+            <QuestionCard key={sel.id} q={sel} onResp={()=>{}} indice={0} total={1}/>
           </div>
         : <div>
             <div className="muted" style={{fontSize:13,marginBottom:8}}>{q.trim().length<2? ("Digite ao menos 2 letras para buscar entre "+pool.length+" questões.") : (res.length+" resultado(s)"+(res.length>=80?"+":""))}</div>
@@ -2156,6 +2158,17 @@ function obGravar(uid,arr){
   }
   try{ PLS.set("preceptor_ob_estouro_"+uid,String(arr.length)); }catch(e){}
 }
+/* Busca todas as páginas de uma consulta (o Supabase corta em 1000 linhas). */
+async function todasAsLinhas(consulta){
+  let all=[], from=0; const step=1000;
+  for(;;){
+    const {data,error}=await consulta().range(from,from+step-1);
+    if(error) return all.length?{data:all}:{data:null,error};
+    all=all.concat(data||[]);
+    if(!data||data.length<step) return {data:all};
+    from+=step;
+  }
+}
 function obEnfileirar(uid,item){ const a=obLer(uid); a.push(item); obGravar(uid,a); return a.length; }
 var __obEmCurso={};
 async function obEnviar(sb,uid,aoMudar){
@@ -2170,7 +2183,9 @@ async function obEnviar(sb,uid,aoMudar){
   for(const it of fila){
     let ok=true, err=null;
     try{
-      if(it.r){ const {error}=await sb.from("respostas").insert(it.r); if(error){ ok=false; err=error; } }
+      if(it.r){ const {error}=await sb.from("respostas").insert(it.r);
+        /* resposta gravada (ou já existente): tira do item, para o reenvio mandar só o SRS */
+        if(!error || String(error.code||"")==="23505") delete it.r; else { ok=false; err=error; } }
       if(ok&&it.s){ const {error}=await sb.from("srs").upsert(it.s); if(error){ ok=false; err=error; } }
     }catch(e){ ok=false; err=e; }
     if(ok) continue;
@@ -2331,7 +2346,7 @@ function RodizioSprint({qs, label, registrar, onVoltar, sessaoMeta}){
     <div className="muted" style={{fontSize:11.5,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>🏁 Rodízio {label} · rodada {rodada}</div>
     {retomado&&<AvisoRetomado onRecomecar={()=>{ setRodada(1); reiniciar(qs||[]); sessaoApagar(chaveS); }}/>}
     <MapaQuestoes fila={fila} i={i} resp={resp} onIr={setI}/>
-    <QuestionCard q={q} indice={i} total={total} selInicial={resp[q.id]&&typeof resp[q.id].sel==="number"?resp[q.id].sel:null}
+    <QuestionCard key={q.id} q={q} indice={i} total={total} selInicial={resp[q.id]&&typeof resp[q.id].sel==="number"?resp[q.id].sel:null}
       onResp={(qq,ok,esc)=>{ if(registrar)registrar(qq,ok); setLog(l=>l.concat([{id:qq.id,tema:qq.tema,ok:ok}])); setResp(r=>({...r,[qq.id]:{ok,sel:typeof esc==="number"?esc:null}})); }}/>
     <div className="row" style={{marginTop:14}}>
       <button className="btn" disabled={!feito} onClick={()=>{ if(i<total-1){setI(x=>x+1);} else {setFim(true);irAoTopo();} }}>
@@ -2348,15 +2363,16 @@ function App(){
   useEffect(()=>{
     if(!CONFIGURADO){setBooting(false);return;}
     sb.auth.getSession().then(({data})=>{AUTH_TOKEN=(data.session&&data.session.access_token)||"";setSession(data.session);setBooting(false);});
-    const {data:sub}=sb.auth.onAuthStateChange((_e,s)=>{AUTH_TOKEN=(s&&s.access_token)||"";setSession(s);if(_e==="PASSWORD_RECOVERY")setRecuperando(true);});
+    const {data:sub}=sb.auth.onAuthStateChange((_e,s)=>{AUTH_TOKEN=(s&&s.access_token)||"";setSession(s);if(_e==="PASSWORD_RECOVERY"){ try{sessionStorage.setItem("preceptor_pw_rec","1");}catch(x){} setRecuperando(true); }});
     return ()=>sub.subscription.unsubscribe();
   },[]);
-  const [recuperando,setRecuperando]=useState(false);
+  /* lembrado na aba: se a página recarregar antes da senha nova, o aluno volta a esta tela */
+  const [recuperando,setRecuperando]=useState(()=>{ try{ return sessionStorage.getItem("preceptor_pw_rec")==="1"; }catch(e){ return false; } });
   if(!CONFIGURADO) return <SetupAviso/>;
   if(booting) return <div className="center"><div className="muted">Carregando...</div></div>;
   if(!session) return <Auth/>;
-  if(recuperando) return <NovaSenha onOk={()=>setRecuperando(false)}/>;
-  return <React.Fragment><Shell session={session}/><GlobalSearch/></React.Fragment>;
+  if(recuperando) return <NovaSenha onOk={()=>{ try{sessionStorage.removeItem("preceptor_pw_rec");}catch(e){} setRecuperando(false); }}/>;
+  return <Shell session={session}/>;
 }
 
 function SetupAviso(){
@@ -2503,7 +2519,7 @@ function RevisaoHoje({qs, registrar, onVoltar}){
       <div style={{width:Math.round(i/Math.max(1,total)*100)+"%",height:"100%",background:"var(--acc)",transition:"width .3s"}}/>
     </div>
     <div className="muted" style={{fontSize:11.5,textTransform:"uppercase",letterSpacing:".05em",marginBottom:6}}>📅 Revisão espaçada · {temaCurto(q.tema)}</div>
-    <QuestionCard q={q} indice={i} total={total} onResp={(qq,ok)=>{ if(registrar)registrar(qq,ok); setLog(l=>l.concat([{id:qq.id,tema:qq.tema,ok}])); }}/>
+    <QuestionCard key={q.id} q={q} indice={i} total={total} onResp={(qq,ok)=>{ if(registrar)registrar(qq,ok); setLog(l=>l.concat([{id:qq.id,tema:qq.tema,ok}])); }}/>
     <div className="row" style={{justifyContent:"flex-end",marginTop:10,gap:8}}>
       {log.some(x=>x.id===q.id)
         ? <button className="btn" onClick={()=>{ if(i+1>=total) setFim(true); else setI(i+1); }}>{i+1>=total?"Ver resultado":"Próxima →"}</button>
@@ -2957,9 +2973,9 @@ function Shell({session}){
     setLoading(true);
     const [q,r,d,s,a,st,mt,md,va,stq,cad,pp]=await Promise.all([
       (async()=>{let all=[],from=0;const step=1000;for(;;){const{data,error}=await sb.from("questoes").select("*").order("id",{ascending:true}).range(from,from+step-1);if(error||!data||!data.length)break;all=all.concat(data);if(data.length<step)break;from+=step;}return{data:all};})(),
-      sb.from("respostas").select("*").eq("user_id",uid),
+      todasAsLinhas(()=>sb.from("respostas").select("*").eq("user_id",uid)),
       sb.from("dominio").select("*").eq("user_id",uid),
-      sb.from("srs").select("*").eq("user_id",uid),
+      todasAsLinhas(()=>sb.from("srs").select("*").eq("user_id",uid).order("questao_id",{ascending:true})),
       sb.from("assinaturas").select("*").eq("user_id",uid).order("criado_em",{ascending:false}).limit(1),
       sb.from("streak").select("dias_seguidos,ultimo_dia").eq("user_id",uid).maybeSingle().then(r=>r,()=>({data:null})),
       sb.from("meta_diaria").select("meta,modo,area_foco").eq("user_id",uid).maybeSingle().then(r=>r,()=>({data:null})),
@@ -2978,8 +2994,9 @@ function Shell({session}){
     qs=embaralharLista(qs);
     try{window.ENAMED_OFICIAL=embaralharLista(window.ENAMED_OFICIAL||[]);}catch(_e){}
     try{window.__ALLQ=qs.concat(window.ENAMED_OFICIAL||[]);}catch(_e){} setQuestoes(qs);
+    const fila=obLer(uid);
     await obEnviar(sb,uid,setPendentes);
-    const fila=obLer(uid); setPendentes(fila.length);
+    setPendentes(obLer(uid).length);
     const doServidor=(r.data||[]).map(x=>({id:x.questao_id,area:x.area,tema:x.tema,ok:x.acertou,dia:dataLocal(x.criado_em||x.created_at)}));
     /* respostas que ainda não subiram entram no desempenho do mesmo jeito */
     setLog(doServidor.concat(fila.filter(i=>i&&i.log).map(i=>i.log)));
@@ -3017,6 +3034,8 @@ function Shell({session}){
   useEffect(()=>{ try{ window.__PRECO={valor:precoValor,txt:precoTxt,fundador,antesCorte,dataCorteTxt,valorNovoTxt,meses:PC.MESES}; }catch(e){} },[precoValor,fundador,antesCorte]);
   const isAdmin = !!(session&&session.user&&session.user.email===ADMIN_EMAIL);
   useEffect(()=>{ try{ window.__PRO=!!isPro; window.__ACESSO=!!acesso; window.__ABRIR_ASSINAR=()=>setShowAssinar(true); window.__SET_TAB=(t)=>{ setDiag(null); setRevisando(false); setTab(t); }; window.__SET_DIAG=(m)=>{setRevisando(false);setDiag(m);setTab("trilha");irAoTopo();};
+    /* reconfere a assinatura PAGA (o teste grátis não libera a IA) */
+    window.__RECONFERIR_PRO=async()=>{ let ok=false; try{ ok=await recarregarAssinatura(); }catch(e){} if(ok) window.__PRO=true; return ok; };
     window.__RECONFERIR_ACESSO=async()=>{ let ok=false; try{ ok=(await recarregarAssinatura())||trialAtivo; }catch(e){} return ok; };
     window.__REINICIAR_APP=atualizarApp;
     window.__REGISTRAR_ERRO=(q,motivo)=>{ const row={user_id:uid,questao_id:q.id,area:q.area,tema:q.tema,motivo,criado_em:new Date().toISOString()}; setCaderno(c=>[row,...c].slice(0,400)); try{ sb.from("caderno_erros").insert(row).then(()=>{},()=>{}); }catch(e){} };
@@ -3061,9 +3080,9 @@ function Shell({session}){
     obEnviar(sb,uid,setPendentes);
     // streak diário (conta 1x por dia, na primeira questão respondida)
     try{
-      const hoje=new Date().toISOString().slice(0,10);
+      const hoje=dataLocal();
       if(!streak||streak.ultimo_dia!==hoje){
-        const ontem=new Date(Date.now()-86400000).toISOString().slice(0,10);
+        const ontem=dataLocal(Date.now()-86400000);
         const dias=(streak&&streak.ultimo_dia===ontem)?(streak.dias_seguidos||0)+1:1;
         const novo={dias_seguidos:dias,ultimo_dia:hoje};
         setStreak(novo); try{localStorage.setItem("enamed_streak",JSON.stringify(novo))}catch(e){}
@@ -3093,6 +3112,45 @@ function Shell({session}){
   const bloqueadasFree = questoes.length - poolFree.length;
 
   if(loading) return <div className="center"><div className="muted">Sincronizando seu progresso...</div></div>;
+
+  /* Sem acesso (teste de 24h acabou ou assinatura venceu): o app fica bloqueado.
+     Só dá para assinar, conferir um pagamento já feito ou falar com o suporte. */
+  if(!acesso && !isAdmin){
+    const est=calcEstimativa(log);
+    return <div>
+      <div className="row" style={{justifyContent:"space-between",alignItems:"flex-start"}}>
+        <div>
+          <div className="tag" style={{color:"var(--acc)"}}>PRECEPTOR <span title="Versão da plataforma" style={{opacity:.5,fontWeight:400,letterSpacing:0,fontSize:11}}>v{window.APP_VERSION}</span></div>
+          <h1 style={{fontSize:28,marginTop:6}}>Olá{session.user.user_metadata&&session.user.user_metadata.nome?", "+session.user.user_metadata.nome:""}</h1>
+        </div>
+        <div className="row" style={{marginTop:8,justifyContent:"flex-end",gap:12}}>
+          <span className="link" style={{fontSize:13}} onClick={()=>setTema(tema==="escuro"?"claro":"escuro")}>{tema==="escuro"?"☀ Claro":"🌙 Escuro"}</span>
+          <span className="link" style={{fontSize:13}} onClick={()=>sb.auth.signOut()}>Sair</span>
+        </div>
+      </div>
+      <div className="card" style={{marginTop:16,borderColor:"var(--gold)"}}>
+        <div className="tag" style={{color:"var(--gold)"}}>{primeiraPaga?"SUA ASSINATURA VENCEU":"SEU TESTE GRÁTIS TERMINOU"}</div>
+        <h2 style={{fontSize:21,marginTop:6,lineHeight:1.3}}>Para continuar estudando, assine o Preceptor</h2>
+        <div style={{fontSize:14,lineHeight:1.55,marginTop:8}}>
+          {log.length>0?<span>Você já respondeu <b>{log.length}</b> {log.length===1?"questão":"questões"}{est!=null?<span> e sua nota estimada chegou a <b>{est}%</b></span>:null}. </span>:null}
+          Seu progresso fica guardado na sua conta e volta inteiro quando você assinar.
+        </div>
+        <div className="muted" style={{fontSize:13,marginTop:8,lineHeight:1.5}}>Libera os {CURRICULO.length} assuntos da Trilha, {questoes.length}+ questões, provas oficiais, simulados, Internato, flashcards, seu progresso e a IA (OSCE, tira-dúvida, resolver por foto).</div>
+        <div className="row" style={{gap:10,marginTop:14,flexWrap:"wrap",alignItems:"center"}}>
+          <button className="btn" onClick={()=>setShowAssinar(true)}>{primeiraPaga?"Renovar":"Assinar"} · {precoTxt} / 6 meses</button>
+          <button className="btn ghost sm" onClick={async()=>{ let ok=false; try{ ok=await recarregarAssinatura(); }catch(e){}
+            if(!ok) alert("Ainda não encontrei seu pagamento. Se acabou de pagar, espere 1 minuto e toque de novo — ou fale com o suporte aqui embaixo."); }}>Já paguei — conferir</button>
+        </div>
+        {antesCorte&&!fundador&&<div style={{fontSize:12.5,marginTop:10}}><b style={{color:"var(--gold)"}}>🏅 Preço fundador:</b> assinando até <b>{dataCorteTxt}</b>, você renova sempre por {precoTxt}.</div>}
+        <div className="muted" style={{fontSize:12,marginTop:8}}>Pix, liberação na hora, sem renovação automática.</div>
+      </div>
+      <div style={{marginTop:18}}>
+        <div className="tag" style={{color:"var(--muted)",marginBottom:8}}>💬 FALE COM O SUPORTE</div>
+        <Suporte uid={uid}/>
+      </div>
+      {showAssinar && <Assinar uid={uid} email={session.user.email} venceu={!!primeiraPaga&&!isPro} onClose={()=>setShowAssinar(false)} onVerificar={recarregarAssinatura}/>}
+    </div>;
+  }
 
   return <div>
     {marco && <CelebraMarco marco={marco} uid={uid} onFechar={()=>setMarco(null)}/>}
@@ -3149,7 +3207,7 @@ function Shell({session}){
               const ids=(fracos||[]).map(f=>f.area+"||"+f.tema);
               setTemasFracos(ids); setJaFezDiag(true);
               try{localStorage.setItem("enamed_fracos",JSON.stringify(ids));localStorage.setItem("enamed_diag_feito","1");}catch(e){}
-              try{PLS.set("preceptor_diag_em",new Date().toISOString().slice(0,10));}catch(e){}
+              try{PLS.set("preceptor_diag_em",dataLocal());}catch(e){}
               setDiag(null); setTab("trilha");
             }}/>
         </div>
@@ -3168,11 +3226,11 @@ function Shell({session}){
       {(()=>{
         const venc=questoesVencidas(poolVisivel,srs); const n=venc.length;
         const prox=proximaRevisao(srs);
-        const hoje=new Date().toISOString().slice(0,10);
-        const ontem=new Date(Date.now()-86400000).toISOString().slice(0,10);
+        const hoje=dataLocal();
+        const ontem=dataLocal(Date.now()-86400000);
         const dias=(streak&&(streak.ultimo_dia===hoje||streak.ultimo_dia===ontem))?(streak.dias_seguidos||0):0;
         const feitoHoje=!!(streak&&streak.ultimo_dia===hoje);
-        const proxTxt=prox?(new Date(prox).toISOString().slice(0,10)===hoje?"ainda hoje":new Date(prox).toISOString().slice(0,10)===new Date(Date.now()+86400000).toISOString().slice(0,10)?"amanhã":"em "+Math.ceil((prox-Date.now())/86400000)+" dias"):null;
+        const proxTxt=prox?(dataLocal(prox)===hoje?"ainda hoje":dataLocal(prox)===dataLocal(Date.now()+86400000)?"amanhã":"em "+Math.ceil((prox-Date.now())/86400000)+" dias"):null;
         return <div className="card" style={{marginBottom:16,borderColor:n>0?"var(--warn)":"var(--line)"}}>
           <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
             <div style={{minWidth:0}}>
@@ -3257,6 +3315,7 @@ function Shell({session}){
       {tab==="flash" && (acesso ? <Flashcards cards={FLASHCARDS} curriculo={CURRICULO} sb={sb} uid={uid}/> : <TravaFree titulo="Flashcards é PRO" texto="Revise todos os assuntos em cartões rápidos, com baralho diário e sequência de dias estudados." onAssinar={()=>setShowAssinar(true)}/>)}
       {tab==="dash" && (acesso ? <Dash store={store} temasFracos={temasFracos} onRefazer={()=>setDiag("rapido")}/> : <TravaFree titulo="Meu progresso é PRO" texto="Veja seu acerto por área, os temas onde mais erra e o quanto já dominou da trilha." onAssinar={()=>setShowAssinar(true)}/>)}
     </div>}
+    {acesso && <GlobalSearch/>}
   </div>;
 }
 
@@ -3483,14 +3542,15 @@ function MetaConfig({meta,onSalvar,onFechar}){
   const [m,setM]=useState({...META_PADRAO,...meta});
   const opts=[10,20,30,50];
   const custom=!opts.includes(parseInt(m.meta));
+  const [txt,setTxt]=useState(custom?String(m.meta):"");
   const cada=Math.ceil((parseInt(m.meta)||20)/AREAS.length);
   return <div className="card" style={{marginBottom:16,borderColor:"var(--acc)"}}>
     <div className="row" style={{justifyContent:"space-between",alignItems:"center"}}><b style={{fontSize:16}}>Meta diária</b><span className="link" style={{fontSize:13}} onClick={onFechar}>Fechar</span></div>
     <div className="muted" style={{fontSize:13,margin:"6px 0 12px"}}>Quantas questões você quer responder por dia? Bater a meta conta um dia perfeito — a ofensiva continua valendo com 1 questão.</div>
     <label>Questões por dia</label>
     <div className="row" style={{gap:8,flexWrap:"wrap",alignItems:"center"}}>
-      {opts.map(n=><button key={n} className={"btn "+(parseInt(m.meta)===n?"":"ghost")+" sm"} onClick={()=>setM({...m,meta:n})}>{n}</button>)}
-      <input type="number" min="1" max="500" value={custom?m.meta:""} placeholder="outro" style={{width:90,margin:0}} onChange={e=>setM({...m,meta:Math.max(1,parseInt(e.target.value)||1)})}/>
+      {opts.map(n=><button key={n} className={"btn "+(parseInt(m.meta)===n?"":"ghost")+" sm"} onClick={()=>{ setM({...m,meta:n}); setTxt(""); }}>{n}</button>)}
+      <input type="number" min="1" max="500" value={txt} placeholder="outro" style={{width:90,margin:0}} onChange={e=>{ setTxt(e.target.value); const v=parseInt(e.target.value); if(v>0) setM({...m,meta:Math.min(500,v)}); }}/>
     </div>
     <label style={{marginTop:12}}>Como contar</label>
     <div className="row" style={{gap:8,flexWrap:"wrap"}}>
@@ -4062,6 +4122,7 @@ function Suporte({uid}){
   const [msg,setMsg]=useState("");
   const [enviando,setEnviando]=useState(false);
   const [enviado,setEnviado]=useState(false);
+  const [erroEnvio,setErroEnvio]=useState("");
   const [meus,setMeus]=useState([]);
   const [checando,setChecando]=useState(false);
   const [checkMsg,setCheckMsg]=useState("");
@@ -4071,7 +4132,10 @@ function Suporte({uid}){
   const enviar=async()=>{
     if(!msg.trim()) return;
     setEnviando(true);
-    try{ await sb.from("suporte").insert({user_id:uid,categoria,mensagem:msg.trim(),contexto:contexto()}); setMsg(""); setEnviado(true); carregar(); setTimeout(()=>setEnviado(false),5000); }catch(e){}
+    setErroEnvio("");
+    try{ const {error}=await sb.from("suporte").insert({user_id:uid,categoria,mensagem:msg.trim(),contexto:contexto()}); if(error) throw error;
+      setMsg(""); setEnviado(true); carregar(); setTimeout(()=>setEnviado(false),5000); }
+    catch(e){ setErroEnvio("Não consegui enviar agora ("+((e&&e.message)||"sem conexão")+"). Sua mensagem continua aí — tente de novo."); }
     setEnviando(false);
   };
   const reconferir=async()=>{
@@ -4081,8 +4145,6 @@ function Suporte({uid}){
     setChecando(false);
   };
   const reiniciar=()=>{ try{ window.__REINICIAR_APP&&window.__REINICIAR_APP(); }catch(e){} };
-  const waNum=(window.SUPORTE_WHATSAPP||"").replace(/\D/g,"");
-  const waLink=(waNum&&waNum.indexOf("X")<0)?("https://wa.me/"+waNum+"?text="+encodeURIComponent("Oi! Preciso de ajuda no Preceptor.\n\nCategoria: "+SUPORTE_CATS[categoria]+"\nMensagem: "+msg+"\n\n(v"+(window.APP_VERSION||"")+")")):null;
   return <div style={{display:"grid",gap:14}}>
     <div className="card">
       <b style={{fontSize:16}}>💬 Fale com o Suporte</b>
@@ -4103,8 +4165,8 @@ function Suporte({uid}){
       <div className="muted" style={{fontSize:11,marginTop:6}}>Envio junto, automaticamente: versão do app, seu plano e o navegador — pra eu entender mais rápido, sem te perguntar de novo.</div>
       <div className="row" style={{gap:10,marginTop:12,flexWrap:"wrap"}}>
         <button className="btn sm" onClick={enviar} disabled={enviando||!msg.trim()}>{enviando?"Enviando…":"Enviar mensagem"}</button>
-        {waLink && <a className="btn ghost sm" href={waLink} target="_blank" rel="noopener noreferrer" style={{textDecoration:"none"}}>Chamar no WhatsApp</a>}
       </div>
+      {erroEnvio && <div style={{fontSize:13,marginTop:10,color:"var(--bad)"}}>{erroEnvio}</div>}
       {enviado && <div style={{fontSize:13,marginTop:10,color:"var(--acc)"}}>✓ Recebi sua mensagem. Costumo responder rápido — a resposta aparece aqui embaixo, nesta mesma aba.</div>}
     </div>
     {meus.length>0 && <div className="card">
@@ -4130,7 +4192,8 @@ function AdminSuporte(){
   const responder=async(id,status)=>{
     const texto=(rascunho[id]||"").trim(); if(!texto) return;
     setEnviando(en=>({...en,[id]:true}));
-    try{ await sb.rpc("admin_suporte_responder",{p_id:id,p_resposta:texto,p_status:status}); setRascunho(r=>({...r,[id]:""})); carregar(); }catch(e){}
+    try{ const {error}=await sb.rpc("admin_suporte_responder",{p_id:id,p_resposta:texto,p_status:status}); if(error) throw error; setRascunho(r=>({...r,[id]:""})); carregar(); }
+    catch(e){ alert("A resposta não foi enviada: "+((e&&e.message)||e)+". O rascunho foi mantido."); }
     setEnviando(en=>({...en,[id]:false}));
   };
   const SUPORTE_CATS_L={bug:"Bug técnico",cobranca:"Cobrança/assinatura",duvida:"Dúvida sobre conteúdo",sugestao:"Sugestão",outro:"Outro"};
@@ -4239,14 +4302,18 @@ function Dash({store,temasFracos,onRefazer}){
    "Gabarito: C", "letra D") NÃO são embaralhadas, para o comentário nunca
    apontar para a alternativa errada.                                       */
 const RX_COMENT_LETRA=/(?:alternativ[ao]s?|assertiv[ao]s?|letra|op[çc][ãa]o|op[çc][õo]es|gabarito|item|corret[ao]|incorret[ao])\s*(?:é|eh|:|-|–|"|“|')?\s*\(?\s*[A-E](?![0-9A-Za-zÀ-ÿ])|(?:^|[\s"“'(])[A-E]\s*[\)\.]\s+[A-ZÀ-Ý]/m;
+/* complemento: palavra-chave em qualquer caixa ("Gabarito: C", "LETRA B", "Resposta: D", "a letra b") */
+const RX_COMENT_LETRA2=/(?:[Aa]lternativ|ALTERNATIV|[Aa]ssertiv|ASSERTIV|[Ll]etra|LETRA|[Gg]abarito|GABARITO|[Rr]esposta|RESPOSTA|[Oo]p[çc][ãa]o|OP[ÇC][ÃA]O|[Cc]orret|CORRET|[Ii]ncorret|INCORRET)[a-zA-ZçãõÇÃÕ]*\s*(?:é|eh|:|-|–|"|“|')?\s*(?:a\s+)?\(?\s*[A-E](?![0-9A-Za-zÀ-ÿ])|\b[Ll]etra\s+[a-e]\b/;
 function __hashId(str){ let h=2166136261>>>0; str=String(str||""); for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,16777619)>>>0; } return h>>>0; }
 function __rng(seed){ let a=seed>>>0; return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+/* Questão anulada conta como acerto (o INEP dá o ponto a todos). */
+function acertouQ(q,escolha){ return q&&q.anulada ? true : escolha===q.correta; }
 function embaralharQ(q){
   try{
     if(!q||!Array.isArray(q.alts)||q.alts.length<2) return q;
     if(q.__emb) return q;
     if(q.anulada||!(q.correta>=0)) return q;
-    if(q.coment&&RX_COMENT_LETRA.test(String(q.coment))) return q;   // comentário cita letra: preserva a ordem
+    if(q.coment&&(RX_COMENT_LETRA.test(String(q.coment))||RX_COMENT_LETRA2.test(String(q.coment)))) return q;   // comentário cita letra: preserva a ordem
     const n=q.alts.length, idx=q.alts.map((_,i)=>i), rnd=__rng(__hashId(q.id));
     for(let i=n-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); const t=idx[i]; idx[i]=idx[j]; idx[j]=t; }
     if(idx.every((v,i)=>v===i)) return {...q,__emb:true};
@@ -4487,7 +4554,7 @@ function decidirProximoPasso({store,srs,poolVisivel,temasFracos,metaProg,acertoA
     botao:"Estudar "+prox.nome};
   if(metaProg && !metaProg.batida) return {tipo:"praticar",
     titulo:"Tudo revisado e nenhum assunto pendente",
-    porque:"Faltam "+Math.max(0,(metaProg.alvo||0)-(metaProg.feitas||0))+" questões para bater sua meta de hoje.",
+    porque:"Faltam "+Math.max(0,(metaProg.alvo||0)-(metaProg.feito||0))+" questões para bater sua meta de hoje.",
     botao:"Praticar questões"};
   return {tipo:"praticar", titulo:"Você está em dia",
     porque:"Nada vencido, nenhum assunto pela metade e meta batida. Treinar questões mantém o ritmo.",
@@ -4498,7 +4565,7 @@ function ProximoPasso({session,uid,store,srs,poolVisivel,temasFracos,metaProg,ac
   const [apelido,setApelido]=useState(()=>lerApelido(uid));
   const [perguntar,setPerguntar]=useState(()=>!lerApelido(uid));
   const diasFora=useMemo(()=>{
-    const hoje=new Date().toISOString().slice(0,10);
+    const hoje=dataLocal();
     const ant=PLS.get(ultimaVisitaKey(uid));
     PLS.set(ultimaVisitaKey(uid),hoje);
     if(!ant) return -1;
@@ -4603,7 +4670,7 @@ function MensagemDoDia({uid}){
         </div>
       </div>; })}
     <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
-      <button className="btn" onClick={()=>definir({off:false,k:((pref&&pref.k)||["D"])})}>Salvar</button>
+      <button className="btn" onClick={()=>definir({off:false,k:((pref&&pref.k&&pref.k.length)?pref.k:["D"])})}>Salvar</button>
       <button className="btn ghost" onClick={()=>definir({off:true})}>Desligar mensagens</button>
     </div>
   </div>;
@@ -4844,7 +4911,7 @@ function ParagrafoLido({ativo,children,style}){
 
 function Pomodoro(){
   const KEY="preceptor_pomo";
-  const hoje=()=>new Date().toISOString().slice(0,10);
+  const hoje=()=>dataLocal();
   const PADRAO={modo:"foco",fim:0,rodando:false,ciclos:0,dia:hoje(),cfg:{foco:25,pausa:5,longa:15,ate:4}};
   const carregar=()=>{ try{ const v=JSON.parse(PLS.get(KEY)||"null");
     if(v&&v.cfg){ return v.dia===hoje()?v:{...v,dia:hoje(),ciclos:0}; } }catch(e){} return PADRAO; };
@@ -4919,7 +4986,11 @@ function Pomodoro(){
     o.start(); o.stop(c.currentTime+0.95);
     setTimeout(()=>{try{c.close()}catch(e){}},1400);
   }catch(e){} };
-  const avisar=(txt)=>{ try{ if(window.Notification&&Notification.permission==="granted") new Notification("Preceptor",{body:txt}); }catch(e){} };
+  /* No Android (e no app instalado) "new Notification" é proibido: a notificação precisa sair pelo service worker. */
+  const avisar=(txt)=>{ try{ if(!(window.Notification&&Notification.permission==="granted")) return;
+    const direto=()=>{ try{ new Notification("Preceptor",{body:txt}); }catch(e){} };
+    if(navigator.serviceWorker&&navigator.serviceWorker.controller) navigator.serviceWorker.ready.then(r=>r.showNotification("Preceptor",{body:txt,icon:"icon-192.png"})).catch(direto);
+    else direto(); }catch(e){} };
 
   const MIN=(m)=>m*60000;
   const durAtual = ()=>MIN(st.cfg[st.modo==="foco"?"foco":(st.modo==="longa"?"longa":"pausa")]);
@@ -5217,9 +5288,11 @@ function carregarAulasN2(mod){
   }
   return __aulasN2[mod];
 }
-try{ window.addEventListener("message",ev=>{ const d=ev&&ev.data; if(!d||d.tipo!=="preceptor:pedir-aulas") return; const src=ev.source;
+/* true só quando a mensagem vem de um iframe do próprio app (guia da Super Revisão) */
+function msgDeGuia(ev){ try{ return !!ev&&Array.prototype.some.call(document.querySelectorAll("iframe"),f=>f.contentWindow===ev.source); }catch(e){ return false; } }
+try{ window.addEventListener("message",ev=>{ const d=ev&&ev.data; if(!d||d.tipo!=="preceptor:pedir-aulas"||!msgDeGuia(ev)) return; const src=ev.source;
   carregarAulasN2(String(d.mod||"")).then(a=>{ if(a&&src){ try{ src.postMessage({tipo:"preceptor:aulas",aulas:a},"*"); }catch(e){} } }); }); }catch(e){}
-function ponteAulasN2(mod){ return "<scr"+"ipt>try{window.parent.postMessage({tipo:'preceptor:pedir-aulas',mod:"+JSON.stringify(mod)+"},'*');}catch(e){}</scr"+"ipt>"; }
+function ponteAulasN2(mod){ return "<scr"+"ipt>try{window.addEventListener('message',function(e){if(e.source!==window.parent&&e.source!==window){e.stopImmediatePropagation();}},true);}catch(e){}try{window.parent.postMessage({tipo:'preceptor:pedir-aulas',mod:"+JSON.stringify(mod)+"},'*');}catch(e){}</scr"+"ipt>"; }
 function Internato({pool, registrar}){
   /* Recebe as respostas dadas dentro do guia (iframe) e registra como qualquer outra:
      entra no desempenho, na revisão espaçada, na meta do dia e na sequência. */
@@ -5227,7 +5300,7 @@ function Internato({pool, registrar}){
     const aoReceber=(ev)=>{
       try{
         const d=ev&&ev.data;
-        if(!d||d.tipo!=="preceptor:resp"||!d.mod) return;
+        if(!d||d.tipo!=="preceptor:resp"||!d.mod||!msgDeGuia(ev)) return;
         const pref=String(d.mod).split("_")[0];
         const id="srev_"+d.mod+"_t"+d.num+"_q"+d.qi;
         registrar({id:id, area:SREV_AREA[pref]||pref, tema:String(d.tema||"Super Revisão")}, !!d.ok);
@@ -5271,7 +5344,7 @@ function Internato({pool, registrar}){
   if(superrev){
     const g=SUPERREV[modulo+"|"+half];
     const marcaMod = "<scr"+"ipt>window.__SREV_MOD="+JSON.stringify(modulo+"_"+half)+";</scr"+"ipt>"+ponteAulasN2(modulo+"_"+half);
-  const deep = revTopico ? ("<scr"+"ipt>(function(){try{var W="+JSON.stringify(revTopico)+";function N(s){return (s||'').toString().toLowerCase().replace(/[^a-z0-9]+/g,'');}var w=N(W);var i=-1;if(typeof DATA!=='undefined'&&w){i=DATA.findIndex(function(t){var a=N(t.titulo);if(!a)return false;return a===w||a.indexOf(w)===0||w.indexOf(a)===0||a.slice(0,14)===w.slice(0,14);});}if(i>=0&&typeof state!=='undefined'&&typeof render==='function'){state.topic=i;state.tab='resumo';render();}}catch(e){}})();</scr"+"ipt>") : "";
+  const deep = revTopico ? ("<scr"+"ipt>(function(){try{var W="+JSON.stringify(revTopico).replace(/</g,"\\u003c")+";function N(s){return (s||'').toString().toLowerCase().replace(/[^a-z0-9]+/g,'');}var w=N(W);var i=-1;if(typeof DATA!=='undefined'&&w){i=DATA.findIndex(function(t){var a=N(t.titulo);if(!a)return false;return a===w||a.indexOf(w)===0||w.indexOf(a)===0||a.slice(0,14)===w.slice(0,14);});}if(i>=0&&typeof state!=='undefined'&&typeof render==='function'){state.topic=i;state.tab='resumo';render();}}catch(e){}})();</scr"+"ipt>") : "";
     return <div>
       <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:8}}>
         <button className="btn ghost sm" onClick={()=>setSuperrev(false)}>← Voltar</button>
@@ -5459,7 +5532,7 @@ function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar, guiaH
   /* ao abrir, encosta a grade no topo: revisão e questão começam juntas e a
      revisão cabe inteira na janela */
   useEffect(()=>{ if(!casadoAtivo) return; const t=setTimeout(()=>{ try{ const g=document.querySelector(".casado-grade"); if(g){ const y=g.getBoundingClientRect().top+(window.pageYOffset||0)-10; window.scrollTo(0,Math.max(0,y)); } }catch(e){} },60); return ()=>clearTimeout(t); },[casadoAtivo]);
-  const deepRev = topico ? ("<scr"+"ipt>(function(){try{var W="+JSON.stringify(topico)+";function N(s){return (s||'').toString().toLowerCase().replace(/[^a-z0-9]+/g,'');}var w=N(W);var i=-1;if(typeof DATA!=='undefined'&&w){i=DATA.findIndex(function(t){var a=N(t.titulo);if(!a)return false;return a===w||a.indexOf(w)===0||w.indexOf(a)===0||a.slice(0,14)===w.slice(0,14);});}if(i>=0&&typeof state!=='undefined'&&typeof render==='function'){state.topic=i;state.tab='resumo';render();}}catch(e){}})();</scr"+"ipt>") : "";
+  const deepRev = topico ? ("<scr"+"ipt>(function(){try{var W="+JSON.stringify(topico).replace(/</g,"\\u003c")+";function N(s){return (s||'').toString().toLowerCase().replace(/[^a-z0-9]+/g,'');}var w=N(W);var i=-1;if(typeof DATA!=='undefined'&&w){i=DATA.findIndex(function(t){var a=N(t.titulo);if(!a)return false;return a===w||a.indexOf(w)===0||w.indexOf(a)===0||a.slice(0,14)===w.slice(0,14);});}if(i>=0&&typeof state!=='undefined'&&typeof render==='function'){state.topic=i;state.tab='resumo';render();}}catch(e){}})();</scr"+"ipt>") : "";
 
   const q=fila[i];
   const fim = i>=fila.length;
@@ -5490,7 +5563,7 @@ function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar, guiaH
           </div>
         </div>
       : (()=>{ const qBlock=<div>
-          <QuestionCard q={q} indice={i} total={fila.length} selInicial={resp[q.id]&&typeof resp[q.id].sel==="number"?resp[q.id].sel:null}
+          <QuestionCard key={q.id} q={q} indice={i} total={fila.length} selInicial={resp[q.id]&&typeof resp[q.id].sel==="number"?resp[q.id].sel:null}
             onResp={(qq,ok,esc)=>{ if(registrar)registrar(qq,ok); setResp(r=>({...r,[qq.id]:{ok,sel:typeof esc==="number"?esc:null}})); }}/>
           <div className="row" style={{marginTop:14}}>
             <button className="btn" disabled={!feito} onClick={()=>setI(x=>x+1)}>
@@ -5505,7 +5578,7 @@ function RunnerInternato({nome, qs, label, registrar, onVoltar, onRevisar, guiaH
           return <div className="casado-grade">
             <div style={{minWidth:0}}>{qBlock}</div>
             <div className="casado-guia">
-              <iframe title="Super Revisão" srcDoc={guiaHtml+deepRev+CASADO_CSS+(sessaoMeta&&sessaoMeta.modulo?ponteAulasN2(sessaoMeta.modulo+"_"+sessaoMeta.metade):"")} style={{width:"100%",height:"100%",border:0,display:"block"}}/>
+              <iframe title="Super Revisão" srcDoc={guiaHtml+deepRev+CASADO_CSS+(sessaoMeta&&sessaoMeta.modulo?("<scr"+"ipt>window.__SREV_MOD="+JSON.stringify(sessaoMeta.modulo+"_"+sessaoMeta.metade)+";</scr"+"ipt>"+ponteAulasN2(sessaoMeta.modulo+"_"+sessaoMeta.metade)):"")} style={{width:"100%",height:"100%",border:0,display:"block"}}/>
             </div>
           </div>;
         }
@@ -5903,10 +5976,11 @@ Object.keys(window.OSCE_BANCO).forEach(k=>{
 function OSCE({onVoltar}){
   const [caso,setCaso]=useState(null);
   const [areaSel,setAreaSel]=useState(()=>{ try{ const a=window.__OSCE_AREA; if(a&&OSCE_TEMAS[a]){ window.__OSCE_AREA=null; return a; } }catch(e){} return "CM"; });
+  const [,reavaliar]=useState(0);
   if(caso) return <OSCEEstacao caso={caso} onVoltar={()=>setCaso(null)}/>;
   if(!window.__PRO) return <div>
     <button className="btn ghost sm" onClick={onVoltar}>← Voltar</button>
-    <div className="lock" style={{marginTop:12,textAlign:"left"}}><b>Estações OSCE com IA são exclusivas do PRO</b><div className="muted" style={{fontSize:13,marginTop:6}}>Paciente simulado que responde ao seu atendimento e examinador que pontua o checklist. {((window.__PRECO||{}).txt||"R$ 49,90")} por 6 meses, Pix, sem renovação automática.</div><button className="btn sm" style={{marginTop:10}} onClick={async()=>{ const ok=window.__RECONFERIR_ACESSO?await window.__RECONFERIR_ACESSO():false; if(!ok) window.__ABRIR_ASSINAR&&window.__ABRIR_ASSINAR(); }}>Liberar a IA</button></div>
+    <div className="lock" style={{marginTop:12,textAlign:"left"}}><b>Estações OSCE com IA são exclusivas do PRO</b><div className="muted" style={{fontSize:13,marginTop:6}}>Paciente simulado que responde ao seu atendimento e examinador que pontua o checklist. {((window.__PRECO||{}).txt||"R$ 49,90")} por 6 meses, Pix, sem renovação automática.</div><button className="btn sm" style={{marginTop:10}} onClick={async()=>{ const ok=window.__RECONFERIR_PRO?await window.__RECONFERIR_PRO():false; if(ok) reavaliar(x=>x+1); else window.__ABRIR_ASSINAR&&window.__ABRIR_ASSINAR(); }}>Liberar a IA</button></div>
   </div>;
   const casosArea = window.OSCE_BANCO[areaSel]||[];
   return <div>
@@ -6002,10 +6076,15 @@ function OSCEEstacao({caso, onVoltar}){
      Item vale 0 (não fez), 1 (parcial/genérico) ou 2 (completo e específico). */
   const normTxt=(t)=>String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9%,.]+/g," ").replace(/\s+/g," ").trim();
   const evidenciaValida=(ev,falaAluno)=>{
-    const e=normTxt(ev); if(e.length<6) return false;
+    const e=normTxt(ev); if(e.length<2) return false;
+    /* compara palavras inteiras, ignorando vírgula/ponto soltos ("Febre?" = "febre.") */
+    const so=(t)=>" "+t.replace(/[,.](?!\d)/g," ").replace(/\s+/g," ").trim()+" ";
+    if(so(falaAluno).indexOf(so(e))>=0) return true;
+    /* trecho curto ("ECG", "PA") só vale se o aluno disse exatamente essas palavras */
+    if(e.length<6) return false;
     if(falaAluno.indexOf(e)>=0) return true;
     /* tolera pequenas diferenças: 80% das palavras do trecho precisam estar nas falas, em sequência aproximada */
-    const ws=e.split(" ").filter(w=>w.length>2); if(ws.length<2) return false;
+    const ws=e.split(" ").map(w=>w.replace(/^[,.]+|[,.]+$/g,"")).filter(w=>w.length>2); if(ws.length<2) return false;
     const achou=ws.filter(w=>falaAluno.indexOf(w)>=0).length; return achou/ws.length>=0.8;
   };
   const encerrar = async ()=>{
@@ -6028,8 +6107,8 @@ function OSCEEstacao({caso, onVoltar}){
         "CHECKLIST (índice: item):\n"+itens.map((t,i)=>i+": "+t).join("\n") +
         "\n\nTRANSCRIÇÃO:\n"+transcricao(msgs) +
         "\n\nResponda ESTRITAMENTE em JSON válido, sem texto fora do JSON, no formato: " +
-        '{"itens":[{"i":0,"nota":0,"evidencia":""}],"erros_criticos":["..."],"feedback":"3 a 5 frases diretas como um examinador: principais falhas, o que custou pontos e o que fazer na prova"}' +
-        " — inclua TODOS os índices de 0 a "+(itens.length-1)+".";
+        '{"itens":[{"i":0,"nota":0,"evidencia":""}],"erros_criticos":[],"feedback":"3 a 5 frases diretas como um examinador: principais falhas, o que custou pontos e o que fazer na prova"}' +
+        " — inclua TODOS os índices de 0 a "+(itens.length-1)+". Em erros_criticos, descreva cada erro crítico em uma frase; se não houver nenhum, deixe a lista vazia [].";
       const r=await wfetch("/tirar-duvida",{tema:"OSCE correção — "+caso.titulo, contexto, pergunta:"Corrija o checklist com rigor e devolva o JSON."});
       const d=await r.json();
       if(!r.ok||d.error) throw new Error(d.error||"Falha na correção.");
@@ -6050,14 +6129,15 @@ function OSCEEstacao({caso, onVoltar}){
       });
       const pontos=detalhe.reduce((a,x)=>a+x.nivel,0);
       let pct=Math.round(pontos/(2*itens.length)*100);
-      const erros=(parsed.erros_criticos||[]).filter(e=>typeof e==="string"&&e.trim()).slice(0,6);
+      /* ignora entradas vazias, "..." copiado do modelo ou "nenhum" — não podem descontar nota */
+      const erros=(parsed.erros_criticos||[]).filter(e=>typeof e==="string"&&/[a-z]{3}/.test(normTxt(e))&&!/^(nenhum|nenhuma|nao ha|nao houve|sem erro|n a$)/.test(normTxt(e))).slice(0,6);
       pct=Math.max(0,pct-10*erros.length);
       /* atendimento muito curto não passa: menos de 4 falas do aluno limita a nota */
       const palavras=falasAluno.reduce((a,m)=>a+m.txt.split(/\s+/).length,0);
       let teto=100; if(falasAluno.length<4||palavras<40) teto=25; else if(falasAluno.length<8) teto=60;
       const limitado=pct>teto; pct=Math.min(pct,teto);
       let fb=parsed.feedback||"";
-      if(limitado) fb+="\n\nNota limitada a "+teto+"%: o atendimento foi curto demais ("+falasAluno.length+" falas). Na prova, cada etapa (anamnese, exame, hipótese, exames, conduta) precisa ser verbalizada.";
+      if(limitado) fb+="\n\nNota limitada a "+teto+"%: o atendimento foi curto demais ("+falasAluno.length+" falas, "+palavras+" palavras). Na prova, cada etapa (anamnese, exame, hipótese, exames, conduta) precisa ser verbalizada.";
       if(semEvid) fb+="\n\n"+semEvid+" item(ns) zerado(s) por falta de evidência na sua fala.";
       setResultado({itens:detalhe,nota:detalhe.filter(x=>x.ok).length,pontos,pct,feedback:fb,erros,aprovado:pct>=70});
     }catch(e){
@@ -6209,13 +6289,16 @@ function Treinar({pool,store,registrar,bloqueadas,isPro,acesso,onAssinar,onNovas
 
   // embaralha de forma ESTAVEL (so muda quando area/tema/seed mudam, nao a cada render)
   const fila = useMemo(()=>{
-    const todas=[...base,...extra.filter(q=>(area==="todas"||q.area===area)&&(tema==="todos"||q.tema===tema))];
+    /* as geradas pela IA também chegam pelo pool (onNovasQuestoes): ficam fora do embaralhamento
+       e entram no FIM, para não duplicar nem mudar a questão em que o aluno está */
+    const idsExtra=new Set(extra.map(q=>q.id));
+    const novas=extra.filter(q=>(area==="todas"||q.area===area)&&(tema==="todos"||q.tema===tema));
     // ordenacao estavel baseada no seed (nao usa Math.random a cada render)
-    const arr=todas.slice();
+    const arr=base.filter(q=>!idsExtra.has(q.id));
     let s=seed*9973;
     const rnd=()=>{ s=(s*9301+49297)%233280; return s/233280; };
     for(let k=arr.length-1;k>0;k--){ const j=Math.floor(rnd()*(k+1)); [arr[k],arr[j]]=[arr[j],arr[k]]; }
-    return arr;
+    return arr.concat(novas);
   },[base,extra,area,tema,seed]);
 
   const [i,setI]=useState(0);
@@ -6297,7 +6380,7 @@ function Treinar({pool,store,registrar,bloqueadas,isPro,acesso,onAssinar,onNovas
 
     {retomado&&<AvisoRetomado onRecomecar={recomecar}/>}
     <MapaQuestoes fila={fila} i={i} resp={resp} onIr={setI}/>
-    <QuestionCard q={q} indice={i} total={fila.length} selInicial={resp[q.id]&&typeof resp[q.id].sel==="number"?resp[q.id].sel:null}
+    <QuestionCard key={q.id} q={q} indice={i} total={fila.length} selInicial={resp[q.id]&&typeof resp[q.id].sel==="number"?resp[q.id].sel:null}
       onResp={(qq,ok,esc)=>{registrar(qq,ok);setResp(r=>({...r,[qq.id]:{ok,sel:typeof esc==="number"?esc:null}}));}}/>
 
     <div className="row" style={{marginTop:14}}>
@@ -6425,7 +6508,7 @@ function Diagnostico({pool,registrar,onFim,modo,questoesFixas,flag,chave,rotulo}
       </div>
     </div>}
     <div className="bar" style={{marginBottom:14}}><i style={{width:((i+1)/prova.length*100)+"%",background:"var(--acc)"}}/></div>
-    <QuestionCard q={q} indice={i} total={prova.length} selInicial={resp[q.id]&&typeof resp[q.id].sel==="number"?resp[q.id].sel:null} onResp={(qq,ok,escolha)=>{
+    <QuestionCard key={q.id} q={q} indice={i} total={prova.length} selInicial={resp[q.id]&&typeof resp[q.id].sel==="number"?resp[q.id].sel:null} onResp={(qq,ok,escolha)=>{
       setResp(r=>({...r,[qq.id]:{ok,area:qq.area,tema:qq.tema,sel:(typeof escolha==="number"?escolha:undefined)}}));
       registrar&&registrar(qq,ok); setSel(ok);
     }}/>
@@ -6441,7 +6524,10 @@ function Diagnostico({pool,registrar,onFim,modo,questoesFixas,flag,chave,rotulo}
         }}/>}
         <button className="btn sm" disabled={!resp[q.id]} onClick={()=>{
           setSel(null);
-          if(i<prova.length-1) setI(i+1); else setFim(true);
+          if(i<prova.length-1){ setI(i+1); return; }
+          const faltam=prova.filter(x=>!resp[x.id]&&x.id!==q.id).length;
+          if(faltam>0 && !confirm("Ficaram "+faltam+" questões sem resposta"+(chave?" (use 🔢 Escolher questão para voltar a elas)":"")+". Elas contam como erro na nota. Ver o resultado mesmo assim?")) return;
+          setFim(true);
         }}>{i<prova.length-1?"Próxima":"Ver resultado"}</button>
       </span>
     </div>
@@ -6453,11 +6539,11 @@ function Simulado({pool,registrar,isPro}){
   const [run,setRun]=useState(false);const [prova,setProva]=useState([]);const [resp,setResp]=useState({});const [fim,setFim]=useState(false);
   const alvo=isPro?4:2; // por área; PRO monta simulado maior
   const montar=()=>{let sel=[];AREAS.forEach(a=>{const p=pool.filter(q=>q.area===a.k).sort(()=>Math.random()-0.5);sel=sel.concat(p.slice(0,alvo));});setProva(sel.sort(()=>Math.random()-0.5));setResp({});setFim(false);setRun(true);};
-  const finalizar=()=>{prova.forEach(q=>{if(resp[q.id]!==undefined)registrar(q,resp[q.id]===q.correta);});setFim(true);};
+  const finalizar=()=>{prova.forEach(q=>{if(resp[q.id]!==undefined)registrar(q,acertouQ(q,resp[q.id]));});setFim(true);};
   if(!run)return <div className="card"><h3 style={{fontSize:17,marginBottom:8}}>Simulado no formato oficial</h3>
     <div className="muted" style={{fontSize:14,marginBottom:14,lineHeight:1.6}}>Respeita a proporção de 20/área (escalada ao banco). {isPro?"":"No plano free o simulado é reduzido — o completo é PRO."}</div>
     <button className="btn" onClick={montar}>Gerar simulado</button></div>;
-  const L=["A","B","C","D","E"];const ac=prova.filter(q=>resp[q.id]===q.correta).length;
+  const L=["A","B","C","D","E"];const ac=prova.filter(q=>q.anulada||resp[q.id]===q.correta).length;
   return <div>{!fim&&<div className="muted" style={{fontSize:13,marginBottom:12}}>{prova.length} questões · responda e finalize.</div>}
     {prova.map((q,idx)=><div key={q.id} className="card" style={{marginBottom:14}}>
       <div className="row" style={{gap:8,marginBottom:8}}><span className="muted" style={{fontSize:13}}>{idx+1}.</span><span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(q.area)}</span></div>
@@ -6497,7 +6583,7 @@ function SimuladoEnamed({pool, registrar}){
   }
 
   if(provas.length===0){
-    return <div className="card muted">Nenhum simulado ENAMED encontrado no banco. Importe as questões (tema "ENAMED — Simulado N").</div>;
+    return <div className="card muted">Os simulados ENAMED não estão disponíveis no momento. Se o problema continuar, fale com o suporte.</div>;
   }
 
   return <div>
@@ -6553,12 +6639,12 @@ function RunnerEnamed({prova, gabModo, registrar, onVoltar}){
   };
 
   const finalizar=()=>{
-    qs.forEach(q=>{ if(resp[q.id]!==undefined && registrar) registrar(q, resp[q.id]===q.correta); });
+    qs.forEach(q=>{ if(resp[q.id]!==undefined && registrar) registrar(q, acertouQ(q,resp[q.id])); });
     setRodando(false); setFim(true); irAoTopo();
   };
 
   const respondidas=Object.keys(resp).length;
-  const acertos=qs.filter(q=>resp[q.id]===q.correta).length;
+  const acertos=qs.filter(q=>q.anulada||resp[q.id]===q.correta).length;
   const pct=Math.round(acertos/qs.length*100);
   const cor=pct>=70?"var(--acc)":pct>=50?"var(--warn)":"var(--bad)";
 
@@ -6735,7 +6821,7 @@ function PraticaTema({t,store,registrar,isPro,onAssinar}){
   const q=fila[i];
   return <div>
     <div className="muted" style={{fontSize:13,marginBottom:10}}>Questões de <b>{t.nome}</b> — responda no calor da aula. ({i+1}/{fila.length})</div>
-    <QuestionCard q={q} indice={i} total={fila.length} onResp={(qq,ok)=>{if(registrar)registrar(qq,ok);setFeito(true);}}/>
+    <QuestionCard key={q.id} q={q} indice={i} total={fila.length} onResp={(qq,ok)=>{if(registrar)registrar(qq,ok);setFeito(true);}}/>
     <div className="row" style={{marginTop:12}}>
       {i<fila.length-1
         ? <React.Fragment>
@@ -6828,7 +6914,7 @@ function TiraDuvida({tema,contexto}){
 /* =================== TRAVA FREE (cadeado reutilizavel) =================== */
 function Flashcards({cards, curriculo, sb, uid}){
   const nomeAssunto = (a)=>{ const t=(curriculo||[]).find(x=>x.id===a); return t?t.nome:a; };
-  const hoje = new Date().toISOString().slice(0,10);
+  const hoje = dataLocal();
 
   // mapa de prefixo -> area
   const PREFIXO_AREA = {cm:"CM", cir:"CIR", go:"GO", ped:"PED", mfc:"MFC"};
@@ -6896,7 +6982,7 @@ function Flashcards({cards, curriculo, sb, uid}){
       const prev = streak;
       let dias=1;
       if(prev&&prev.ultimo_dia){
-        const ontem=new Date(Date.now()-86400000).toISOString().slice(0,10);
+        const ontem=dataLocal(Date.now()-86400000);
         if(prev.ultimo_dia===hoje){ dias=prev.dias_seguidos; }
         else if(prev.ultimo_dia===ontem){ dias=(prev.dias_seguidos||0)+1; }
         else { dias=1; }
@@ -6906,7 +6992,7 @@ function Flashcards({cards, curriculo, sb, uid}){
     }catch(e){}
   };
 
-  const irPara=(m)=>{ setModo(m); };
+  const irPara=(m)=>{ setModo(m); setI(0); setVirado(false); setFeitos({sabia:0,revisar:0}); setFim(false); };
 
   // barra de modos + filtros (sempre visível no topo)
   const controles = <div style={{marginBottom:14}}>
@@ -7177,7 +7263,7 @@ function Assinar({uid,email,onClose,onVerificar,venceu}){
           <b style={{fontSize:16}}>Acesso completo — 6 meses</b>
           <div style={{fontSize:28,fontWeight:800,letterSpacing:"-.02em",margin:"4px 0 0"}}>{((window.__PRECO||{}).txt||"R$ 49,90")}<span style={{fontSize:13,fontWeight:600,color:"var(--muted)"}}> pagamento único</span></div>
           <div className="muted" style={{fontSize:13,margin:"2px 0 6px"}}>Tudo liberado por 6 meses: {CURRICULO.length} assuntos, 2.800+ questões, simulados, aula adaptativa e correção por IA. Sem mensalidade, sem renovação automática.</div>
-          <div style={{fontSize:12,color:"var(--acc)",marginBottom:12}}>Menos de R$ 9 por mês para organizar sua reta final.</div>
+          <div style={{fontSize:12,color:"var(--acc)",marginBottom:12}}>{"Menos de R$ "+Math.ceil((((window.__PRECO||{}).valor)||49.9)/(((window.__PRECO||{}).meses)||6))+" por mês para organizar sua reta final."}</div>
           <div style={{marginBottom:10}}>
             <label style={{fontSize:12,color:"var(--muted)",display:"block",marginBottom:4}}>CPF (obrigatório para o Pix)</label>
             <input value={cpf} onChange={e=>setCpf(e.target.value)} inputMode="numeric" placeholder="000.000.000-00" maxLength={14}

@@ -4,10 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Preceptor — estude só o que cai na prova, da faculdade à residência</title>
-<meta name="description" content="Preceptor (antes ENAMED Engine): mais de 2.800 questões com gabarito comentado, provas oficiais na íntegra (ENAMED, ENARE, SUS-BA, Revalida, TECM), questões originais das N2 do internato, OSCE com IA e revisão espaçada. Teste grátis de 24 h. Preço fundador: R$49,90 por 6 meses, garantido nas renovações." />
+<meta name="description" content="Preceptor (antes ENAMED Engine): mais de 2.800 questões com gabarito comentado, provas oficiais na íntegra (ENAMED, ENARE, SUS-BA, Revalida, TECM), questões originais das N2 do internato, OSCE com IA e revisão espaçada. Teste grátis de 24 h, depois pagamento único por 6 meses, via Pix." />
 <meta name="theme-color" content="#0d1618" />
 <meta property="og:title" content="Preceptor — estude só o que cai na prova" />
-<meta property="og:description" content="Da faculdade à residência: 2.800+ questões comentadas, provas oficiais na íntegra, N2 do internato, OSCE com IA e revisão espaçada. Teste grátis 24 h. Preço fundador R$49,90 por 6 meses, garantido nas renovações." />
+<meta property="og:description" content="Da faculdade à residência: 2.800+ questões comentadas, provas oficiais na íntegra, N2 do internato, OSCE com IA e revisão espaçada. Teste grátis 24 h, depois pagamento único por 6 meses, via Pix." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://consultaia.github.io/enamed/" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -95,7 +95,16 @@ footer{border-top:1px solid var(--line);padding:32px 0;background:var(--pan)}
 .disc{max-width:60ch;font-size:12px;line-height:1.5}
 @media(max-width:760px){.who,.feat{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.hero{padding:44px 0 4px}section{padding:44px 0}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+/* preço fundador até 15/10/2026 23:59 (BRT); depois o script troca para o preço novo */
+.so-depois{display:none}
+.pos-corte .so-fundador{display:none!important}
+.pos-corte span.so-depois{display:inline}
+.pos-corte p.so-depois,.pos-corte div.so-depois,.pos-corte h2.so-depois,.pos-corte details.so-depois{display:block}
 </style>
+<script>
+/* MESMA data do window.PRECO_CFG no index.html (DATA_FUNDADOR) */
+(function(){ try{ if(new Date()>=new Date("2026-10-15T23:59:59-03:00")) document.documentElement.classList.add("pos-corte"); }catch(e){} })();
+</script>
 </head>
 <body>
 <div class="aura"></div>
@@ -111,9 +120,9 @@ footer{border-top:1px solid var(--line);padding:32px 0;background:var(--pan)}
   <p class="sub">Do jeito reto: o que a banca cobra na faculdade, nas <b>N2 do internato</b>, no ENAMED, na residência, no ENARE, no SUS-BA e no Revalida. <b>Direto ao ponto</b>, com provas oficiais na íntegra e questão até você dominar.</p>
   <div class="btns">
     <a class="btn btn-p" href="https://consultaia.github.io/enamed/">Testar grátis por 24 h →</a>
-    <a class="btn btn-g" href="#preco">Preço fundador</a>
+    <a class="btn btn-g" href="#preco"><span class="so-fundador">Preço fundador</span><span class="so-depois">Ver preço</span></a>
   </div>
-  <div class="note"><b>Teste grátis por 24 h</b> · depois <b>R$ 49,90</b> · 6 meses · Pix · sem renovação automática</div>
+  <div class="note"><b>Teste grátis por 24 h</b> · depois <b><span class="so-fundador">R$ 49,90</span><span class="so-depois">R$ 79,90</span></b> · 6 meses · Pix · sem renovação automática</div>
   <div class="was">O <b>ENAMED Engine</b> cresceu e virou o Preceptor: mesma plataforma, agora pra todas as provas que importam.</div>
 </div></header>
 
@@ -168,10 +177,10 @@ footer{border-top:1px solid var(--line);padding:32px 0;background:var(--pan)}
 <section id="preco"><div class="wrap">
   <div class="sh"><div class="kick">Acesso</div><h2>Um preço. Seis meses. Sem mensalidade.</h2></div>
   <div class="price">
-    <span class="flag">PREÇO FUNDADOR</span>
-    <div class="amt">R$ 49<span class="c">,90</span></div>
-    <div class="pnote">pagamento único · 6 meses · menos de R$ 9/mês</div>
-    <div class="pnote" style="color:var(--gold);font-weight:600;margin-top:-10px">Assine até 15/10/2026 e renove sempre por R$ 49,90 — depois sobe para R$ 79,90 para quem entrar.</div>
+    <span class="flag"><span class="so-fundador">PREÇO FUNDADOR</span><span class="so-depois">ACESSO COMPLETO</span></span>
+    <div class="amt"><span class="so-fundador">R$ 49<span class="c">,90</span></span><span class="so-depois">R$ 79<span class="c">,90</span></span></div>
+    <div class="pnote">pagamento único · 6 meses · menos de <span class="so-fundador">R$ 9</span><span class="so-depois">R$ 14</span>/mês</div>
+    <div class="pnote so-fundador" style="color:var(--gold);font-weight:600;margin-top:-10px">Assine até 15/10/2026 e renove sempre por R$ 49,90 — depois sobe para R$ 79,90 para quem entrar.</div>
     <ul class="pl">
       <li><span class="ck">✓</span> Mais de 2.800 questões com gabarito comentado</li>
       <li><span class="ck">✓</span> Provas oficiais na íntegra: ENAMED, Revalida, ENARE, SUS-BA e TECM</li>
@@ -183,8 +192,8 @@ footer{border-top:1px solid var(--line);padding:32px 0;background:var(--pan)}
       <li><span class="ck">✓</span> Teste grátis de 24 h com acesso completo (IA só no PRO) · +1 mês se assinar durante o teste</li>
       <li><span class="ck">✓</span> Sem renovação automática, sem pegadinha</li>
     </ul>
-    <a class="btn btn-p" href="https://consultaia.github.io/enamed/">Quero ser aluno fundador →</a>
-    <p class="micro">Pix, liberação na hora. Tem amostra grátis pra testar antes. Cancelar? Nem precisa — é pagamento único.</p>
+    <a class="btn btn-p" href="https://consultaia.github.io/enamed/"><span class="so-fundador">Quero ser aluno fundador →</span><span class="so-depois">Quero assinar →</span></a>
+    <p class="micro">Pix, liberação na hora. Dá pra testar grátis por 24 h antes. Cancelar? Nem precisa — é pagamento único.</p>
   </div>
 </div></section>
 
@@ -194,17 +203,19 @@ footer{border-top:1px solid var(--line);padding:32px 0;background:var(--pan)}
   <div class="faq">
     <details open><summary>Serve pra qual etapa?</summary><p>Da graduação ao internato (com as N2 dos rodízios), ENAMED, residência, ENARE, SUS-BA, Revalida e TECM. É pensada pra te acompanhar da faculdade até a residência.</p></details>
     <details><summary>Era o ENAMED Engine?</summary><p>Sim. O ENAMED Engine nasceu focado no ENAMED e cresceu tanto — internato, ENARE, SUS-BA, Revalida, TECM, OSCE — que ganhou um nome à altura: Preceptor. Mesma conta, mesmo progresso, muito mais conteúdo.</p></details>
-    <details><summary>O que é aluno fundador?</summary><p>Quem assina até 15/10/2026 trava o preço de R$ 49,90 por 6 meses em todas as renovações, para sempre — mesmo depois do reajuste (R$ 79,90 para quem entrar depois). Renovando antes de vencer, os dias que restam são somados. É o nosso obrigado a quem confiou no começo.</p></details>
+    <details class="so-fundador"><summary>O que é aluno fundador?</summary><p>Quem assina até 15/10/2026 trava o preço de R$ 49,90 por 6 meses em todas as renovações, para sempre — mesmo depois do reajuste (R$ 79,90 para quem entrar depois). Renovando antes de vencer, os dias que restam são somados. É o nosso obrigado a quem confiou no começo.</p></details>
     <details><summary>Como funciona o teste grátis?</summary><p>Ao criar a conta você tem 24 horas de acesso completo a questões, provas oficiais, simulados, guias e progresso. Só a IA (tira-dúvida, OSCE com paciente simulado, gerar questão, resolver por foto) fica para o PRO. Quem assina durante o teste ganha +1 mês.</p></details>
-    <details><summary>Como é o pagamento?</summary><p>Pagamento único de R$ 49,90 por 6 meses de acesso completo, via Pix, com liberação automática. Sem mensalidade nem renovação automática. Dá pra testar uma amostra grátis antes.</p></details>
+    <details><summary>Como é o pagamento?</summary><p>Pagamento único de <span class="so-fundador">R$ 49,90</span><span class="so-depois">R$ 79,90</span> por 6 meses de acesso completo, via Pix, com liberação automática. Sem mensalidade nem renovação automática. Dá pra testar grátis por 24 h antes.</p></details>
     <details><summary>As provas oficiais são completas?</summary><p>Sim — cadernos oficiais na íntegra (conteúdo público do INEP e das bancas, como a ABAEM no SUS-BA), com gabarito comentado e questões anuladas marcadas. Ferramenta educacional independente, sem vínculo com INEP, MEC ou qualquer banca.</p></details>
     <details><summary>Funciona no celular?</summary><p>Sim, no celular, tablet e computador — dá pra instalar como app, e o progresso fica salvo na sua conta.</p></details>
   </div>
 </div></section>
 
 <section class="final"><div class="wrap">
-  <h2>A janela de aluno fundador <em>está aberta</em>.</h2>
-  <p>Teste grátis por 24 h. Se fizer sentido, trave R$ 49,90 para sempre até 15/10/2026.</p>
+  <h2 class="so-fundador">A janela de aluno fundador <em>está aberta</em>.</h2>
+  <p class="so-fundador">Teste grátis por 24 h. Se fizer sentido, trave R$ 49,90 para sempre até 15/10/2026.</p>
+  <h2 class="so-depois">Comece hoje e <em>acerte mais</em>.</h2>
+  <p class="so-depois">Teste grátis por 24 h. Se fizer sentido, R$ 79,90 por 6 meses, pagamento único via Pix.</p>
   <a class="btn btn-p" href="https://consultaia.github.io/enamed/">Testar grátis agora →</a>
 </div></section>
 </main>
