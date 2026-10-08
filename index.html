@@ -6939,6 +6939,10 @@ function EstudarAssunto({t,store,avaliarDominio,registrar,irTreinar,isPro,onAssi
             <OuvirTexto paragrafos={t.nucleo} rotulo="Ouvir o resumo"/>
             <ul style={{margin:"0 0 0 18px",padding:0,fontSize:14.5,lineHeight:1.7}}>{t.nucleo.map((n,i)=><li key={i} style={{marginBottom:6}}>{n}</li>)}</ul>
           </div>}
+      {Array.isArray(t.cobra)&&t.cobra.length>0 && <div className="b-pega block" style={{marginTop:16}}>
+        <b>🎯 Como a prova cobra este tema</b>
+        <ul style={{margin:"8px 0 0 18px",padding:0}}>{t.cobra.map((c,i)=><li key={i} style={{marginBottom:6,lineHeight:1.55}}>{htmlAula(c)}</li>)}</ul>
+      </div>}
       <TiraDuvida tema={t.nome} contexto={(t.aula||t.nucleo||[]).join(" ")}/>
       <VideoaulasDoTema area={t.area} tema={t.nome} videos={window.__VIDEOAULAS||[]}/>
     </div>}
@@ -6952,7 +6956,13 @@ function EstudarAssunto({t,store,avaliarDominio,registrar,irTreinar,isPro,onAssi
           <span style={{minWidth:26,height:26,borderRadius:99,background:"var(--acc)",color:"var(--bg)",fontWeight:800,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>{i+1}</span>
           <span style={{fontSize:14.5,lineHeight:1.55}}>{r.replace(/^\d+\.\s*/,"")}</span>
         </div>)}
+      {Array.isArray(t.pense)&&t.pense.length>0 && <div style={{marginTop:14}}>
+        <div className="tag" style={{color:"var(--acc)",marginBottom:6}}>🧠 Pare e pense (responda antes de abrir)</div>
+        {t.pense.map((p,i)=><details key={i} className="block b-mne" style={{cursor:"pointer"}}>
+          <summary><b>{i+1}.</b> {htmlAula(p.q)}</summary><div style={{marginTop:8}}>{htmlAula(p.r)}</div></details>)}
+      </div>}
       <div className="b-pega block" style={{marginTop:12}}><b>Pegadinha da banca:</b> {t.pega}</div>
+      {t.roteiro && <div className="b-metodo block" style={{marginTop:10}}><b>Fechando:</b> {htmlAula(t.roteiro)}</div>}
     </div>}
 
     {/* ETAPA 2 — PRATIQUE (questoes do tema, grudadas na aula) */}
