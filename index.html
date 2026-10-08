@@ -6599,6 +6599,74 @@ Object.keys(window.OSCE_BANCO).forEach(k=>{
   window.OSCE_BANCO[k].forEach(c=>{ c.cor=cor; c.areaK=k; });
 });
 
+/* ===== OSCE inédito: o aluno digita o tema e a IA escreve a estação no formato do banco =====
+   A ficha passa por validação de estrutura antes de abrir; limite diário para controlar custo
+   de IA; as geradas ficam guardadas no aparelho ("Minhas estações"). */
+const OSCE_GEN_LIMITE=3, OSCE_GEN_KEY="preceptor_osce_gerados";
+function validarEstacaoGerada(e){
+  if(!e||typeof e!=="object") return null;
+  const str=(x,n)=>typeof x==="string"&&x.trim().length>=n;
+  if(!str(e.titulo,4)||!str(e.cenario,20)||!str(e.contextoIA,80)||!Array.isArray(e.etapas)) return null;
+  const etapas=e.etapas.filter(x=>x&&str(x.nome,2)&&str(x.instrucao,5)&&typeof x.paciente==="string"&&Array.isArray(x.checklist))
+    .map((x,i)=>({id:"e"+i,nome:x.nome.slice(0,80),instrucao:x.instrucao.slice(0,400),paciente:x.paciente.slice(0,1500),
+      checklist:x.checklist.filter(c=>str(c,4)).map(c=>c.slice(0,240)).slice(0,8)})).filter(x=>x.checklist.length>0);
+  if(etapas.length<3||etapas.length>7) return null;
+  return {titulo:e.titulo.slice(0,120),cenario:e.cenario.slice(0,600),duracao:str(e.duracao,3)?e.duracao.slice(0,12):"10 min",etapas,contextoIA:e.contextoIA.slice(0,4000)};
+}
+function GeradorOSCE({areaInicial,onAbrir}){
+  const [tema,setTema]=useState(""), [area,setArea]=useState(areaInicial&&areaInicial!=="CMB"?areaInicial:"CM"), [nivel,setNivel]=useState("internato");
+  const [gerando,setGerando]=useState(false), [erro,setErro]=useState(""), [aberto,setAberto]=useState(false);
+  const [lista,setLista]=useState(()=>{ const v=lerJSON(OSCE_GEN_KEY); return Array.isArray(v)?v:[]; });
+  const chaveDia="preceptor_osce_gen_"+dataLocal(); const usadas=(+(PLS.get(chaveDia)||0))||0;
+  const NIVEIS={internato:"internato / ENAMED (graduação)",residencia:"prova de residência",tecm:"prova prática do Título de Especialista em Clínica Médica (SBCM)"};
+  const gerar=async()=>{
+    const t=tema.trim(); if(t.length<4||gerando) return;
+    if(usadas>=OSCE_GEN_LIMITE){ setErro("Você já criou "+OSCE_GEN_LIMITE+" estações hoje. Amanhã libera de novo — enquanto isso, refaça as suas abaixo ou use as do banco."); return; }
+    setGerando(true); setErro("");
+    try{
+      const exemplo=((window.OSCE_BANCO[area]||window.OSCE_BANCO.CM||[])[0])||null;
+      const molde=exemplo?JSON.stringify({titulo:exemplo.titulo,cenario:exemplo.cenario,duracao:exemplo.duracao,etapas:exemplo.etapas.slice(0,2),contextoIA:String(exemplo.contextoIA).slice(0,600)}):"";
+      const contexto=
+        "Você é examinador de OSCE e vai CRIAR uma estação inédita para treino, no nível: "+NIVEIS[nivel]+". Área: "+((OSCE_TEMAS[area]||{}).nome||area)+". Tema pedido pelo aluno: \""+t+"\".\n"+
+        "Se o tema não for de medicina ou não couber numa estação de OSCE, responda {\"erro\":\"motivo\"}.\n"+
+        "Regras: caso clínico realista e coerente, conduta segundo diretrizes brasileiras atuais (Ministério da Saúde e sociedades brasileiras); 5 etapas, em geral: anamnese, exame físico, hipóteses, exames complementares, conduta (ou etapas de comunicação, se o tema for de comunicação); em cada etapa, 'paciente' traz TUDO que o paciente/avaliador revela quando o aluno pergunta ou pede (respostas da anamnese, achados do exame, valores dos exames), sem entregar o diagnóstico; 'checklist' com 3 a 5 ações objetivas e verificáveis (com dose e via quando a conduta exigir); 'contextoIA' com a verdade clínica completa, o diagnóstico, a conduta esperada e como o paciente se comporta. Seja conciso: no máximo ~500 caracteres por campo 'paciente'.\n"+
+        "Formato (siga EXATAMENTE este molde de chaves; o conteúdo do molde é só exemplo de estilo): "+molde+"\n"+
+        "Responda ESTRITAMENTE com um JSON válido {titulo, cenario, duracao, etapas:[{nome, instrucao, paciente, checklist:[...]}], contextoIA}, sem texto fora do JSON.";
+      const r=await wfetch("/tirar-duvida",{tema:"OSCE geração — "+t, contexto, pergunta:"Crie a estação em JSON."});
+      const d=await r.json(); if(!r.ok||d.error) throw new Error(d.error||"a IA não respondeu");
+      let raw=(d.resposta||"").replace(/```json|```/g,"").trim(); raw=raw.slice(raw.indexOf("{"),raw.lastIndexOf("}")+1);
+      const obj=JSON.parse(raw); if(obj&&obj.erro) throw new Error(String(obj.erro).slice(0,160));
+      const est=validarEstacaoGerada(obj); if(!est) throw new Error("a estação veio incompleta — tente de novo ou detalhe mais o tema");
+      const cor=(OSCE_TEMAS[area]||{}).cor||"var(--acc)";
+      const caso={...est,id:"gen_"+Date.now(),cor,areaK:area,gerada:true,temaPedido:t,nivel,criadaEm:Date.now()};
+      try{ PLS.set(chaveDia,String(usadas+1)); }catch(e){}
+      const nova=[caso].concat(lista).slice(0,12); setLista(nova); gravarJSON(OSCE_GEN_KEY,nova); setTema(""); onAbrir(caso);
+    }catch(e){ setErro("Não consegui criar a estação ("+((e&&e.message)||"erro")+")."); }
+    setGerando(false);
+  };
+  const apagar=id=>{ const n=lista.filter(x=>x.id!==id); setLista(n); gravarJSON(OSCE_GEN_KEY,n); };
+  return <div className="card" style={{marginBottom:14,borderColor:"var(--gold)"}}>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+      <div><div className="tag" style={{color:"var(--gold)"}}>✨ CRIAR ESTAÇÃO INÉDITA</div>
+        <div className="muted" style={{fontSize:12.5,marginTop:3}}>Digite o tema e a IA monta uma estação nova, com paciente, checklist e correção. {Math.max(0,OSCE_GEN_LIMITE-usadas)} de {OSCE_GEN_LIMITE} hoje.</div></div>
+      {lista.length>0 && <span className="link" style={{fontSize:12.5}} onClick={()=>setAberto(a=>!a)}>{aberto?"Esconder":"Minhas estações ("+lista.length+")"}</span>}
+    </div>
+    <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}>
+      <input value={tema} onChange={e=>setTema(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter") gerar(); }} placeholder='Ex.: "dor abdominal em idosa", "hemoptise", "comunicar óbito à família"' style={{flex:"1 1 260px",margin:0}} maxLength={140}/>
+      <select value={area} onChange={e=>setArea(e.target.value)} style={{width:"auto",margin:0}}>{Object.keys(OSCE_TEMAS).filter(k=>k!=="CMB").map(k=><option key={k} value={k}>{OSCE_TEMAS[k].nome}</option>)}</select>
+      <select value={nivel} onChange={e=>setNivel(e.target.value)} style={{width:"auto",margin:0}}><option value="internato">Internato/ENAMED</option><option value="residencia">Residência</option><option value="tecm">Título CM</option></select>
+      <button className="btn sm" disabled={gerando||tema.trim().length<4} onClick={gerar}>{gerando?"Criando a estação…":"Criar"}</button>
+    </div>
+    {gerando && <div className="muted" style={{fontSize:12.5,marginTop:8}}>A IA está escrevendo o caso, o paciente e o checklist — leva alguns segundos.</div>}
+    {erro && <div style={{fontSize:12.5,marginTop:8,color:"var(--bad)"}}>{erro}</div>}
+    {aberto && lista.length>0 && <div style={{marginTop:10}}>
+      {lista.map(c=><div key={c.id} className="row" style={{justifyContent:"space-between",gap:8,padding:"7px 0",borderTop:"1px solid var(--line)"}}>
+        <span style={{fontSize:13.5,cursor:"pointer",flex:1}} onClick={()=>onAbrir(c)}><b>{c.titulo}</b> <span className="muted">· {(OSCE_TEMAS[c.areaK]||{}).nome||c.areaK} · "{c.temaPedido}"</span></span>
+        <span className="row" style={{gap:10}}><span className="link" style={{fontSize:12.5}} onClick={()=>onAbrir(c)}>Abrir</span><span className="link muted" style={{fontSize:12.5}} onClick={()=>apagar(c.id)}>apagar</span></span>
+      </div>)}
+    </div>}
+  </div>;
+}
 function OSCE({onVoltar}){
   const [caso,setCaso]=useState(null);
   const [areaSel,setAreaSel]=useState(()=>{ try{ const a=window.__OSCE_AREA; if(a&&OSCE_TEMAS[a]){ window.__OSCE_AREA=null; return a; } }catch(e){} return "CM"; });
@@ -6618,6 +6686,8 @@ function OSCE({onVoltar}){
         Você conversa com um paciente simulado por IA (anamnese → exame → hipótese → exames → conduta) e, ao encerrar, o examinador corrige o checklist e dá feedback. Escolha a área e o tema.
       </div>
     </div>
+
+    <GeradorOSCE areaInicial={areaSel} onAbrir={c=>{ setCaso(c); irAoTopo(); }}/>
 
     <div className="row" style={{gap:6,flexWrap:"wrap",marginBottom:14}}>
       {Object.keys(OSCE_TEMAS).map(k=>
@@ -6821,6 +6891,7 @@ function OSCEEstacao({caso, onVoltar}){
     </div>
 
     <div className="hero" style={{marginBottom:12}}>
+      {caso.gerada && <div style={{fontSize:12,color:"var(--warn)",marginBottom:8}}>✨ Estação inédita gerada por IA a partir do tema "{caso.temaPedido}". Confira condutas e doses na diretriz.</div>}
       <div className="tag" style={{color:"var(--muted)"}}>CENÁRIO</div>
       <div style={{fontSize:14,marginTop:6,lineHeight:1.55}}>{caso.cenario}</div>
       <div className="muted" style={{fontSize:12.5,marginTop:8}}>
