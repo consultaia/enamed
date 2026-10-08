@@ -21,7 +21,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.08";
+  window.APP_VERSION="2026.10.08.1";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -6002,10 +6002,15 @@ function OSCEEstacao({caso, onVoltar}){
      Item vale 0 (não fez), 1 (parcial/genérico) ou 2 (completo e específico). */
   const normTxt=(t)=>String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9%,.]+/g," ").replace(/\s+/g," ").trim();
   const evidenciaValida=(ev,falaAluno)=>{
-    const e=normTxt(ev); if(e.length<6) return false;
+    const e=normTxt(ev); if(e.length<2) return false;
+    /* compara palavras inteiras, ignorando vírgula/ponto soltos ("Febre?" = "febre.") */
+    const so=(t)=>" "+t.replace(/[,.](?!\d)/g," ").replace(/\s+/g," ").trim()+" ";
+    if(so(falaAluno).indexOf(so(e))>=0) return true;
+    /* trecho curto ("ECG", "PA") só vale se o aluno disse exatamente essas palavras */
+    if(e.length<6) return false;
     if(falaAluno.indexOf(e)>=0) return true;
     /* tolera pequenas diferenças: 80% das palavras do trecho precisam estar nas falas, em sequência aproximada */
-    const ws=e.split(" ").filter(w=>w.length>2); if(ws.length<2) return false;
+    const ws=e.split(" ").map(w=>w.replace(/^[,.]+|[,.]+$/g,"")).filter(w=>w.length>2); if(ws.length<2) return false;
     const achou=ws.filter(w=>falaAluno.indexOf(w)>=0).length; return achou/ws.length>=0.8;
   };
   const encerrar = async ()=>{
@@ -6028,8 +6033,8 @@ function OSCEEstacao({caso, onVoltar}){
         "CHECKLIST (índice: item):\n"+itens.map((t,i)=>i+": "+t).join("\n") +
         "\n\nTRANSCRIÇÃO:\n"+transcricao(msgs) +
         "\n\nResponda ESTRITAMENTE em JSON válido, sem texto fora do JSON, no formato: " +
-        '{"itens":[{"i":0,"nota":0,"evidencia":""}],"erros_criticos":["..."],"feedback":"3 a 5 frases diretas como um examinador: principais falhas, o que custou pontos e o que fazer na prova"}' +
-        " — inclua TODOS os índices de 0 a "+(itens.length-1)+".";
+        '{"itens":[{"i":0,"nota":0,"evidencia":""}],"erros_criticos":[],"feedback":"3 a 5 frases diretas como um examinador: principais falhas, o que custou pontos e o que fazer na prova"}' +
+        " — inclua TODOS os índices de 0 a "+(itens.length-1)+". Em erros_criticos, descreva cada erro crítico em uma frase; se não houver nenhum, deixe a lista vazia [].";
       const r=await wfetch("/tirar-duvida",{tema:"OSCE correção — "+caso.titulo, contexto, pergunta:"Corrija o checklist com rigor e devolva o JSON."});
       const d=await r.json();
       if(!r.ok||d.error) throw new Error(d.error||"Falha na correção.");
@@ -6050,14 +6055,15 @@ function OSCEEstacao({caso, onVoltar}){
       });
       const pontos=detalhe.reduce((a,x)=>a+x.nivel,0);
       let pct=Math.round(pontos/(2*itens.length)*100);
-      const erros=(parsed.erros_criticos||[]).filter(e=>typeof e==="string"&&e.trim()).slice(0,6);
+      /* ignora entradas vazias, "..." copiado do modelo ou "nenhum" — não podem descontar nota */
+      const erros=(parsed.erros_criticos||[]).filter(e=>typeof e==="string"&&/[a-z]{3}/.test(normTxt(e))&&!/^(nenhum|nenhuma|nao ha|nao houve|sem erro|n a$)/.test(normTxt(e))).slice(0,6);
       pct=Math.max(0,pct-10*erros.length);
       /* atendimento muito curto não passa: menos de 4 falas do aluno limita a nota */
       const palavras=falasAluno.reduce((a,m)=>a+m.txt.split(/\s+/).length,0);
       let teto=100; if(falasAluno.length<4||palavras<40) teto=25; else if(falasAluno.length<8) teto=60;
       const limitado=pct>teto; pct=Math.min(pct,teto);
       let fb=parsed.feedback||"";
-      if(limitado) fb+="\n\nNota limitada a "+teto+"%: o atendimento foi curto demais ("+falasAluno.length+" falas). Na prova, cada etapa (anamnese, exame, hipótese, exames, conduta) precisa ser verbalizada.";
+      if(limitado) fb+="\n\nNota limitada a "+teto+"%: o atendimento foi curto demais ("+falasAluno.length+" falas, "+palavras+" palavras). Na prova, cada etapa (anamnese, exame, hipótese, exames, conduta) precisa ser verbalizada.";
       if(semEvid) fb+="\n\n"+semEvid+" item(ns) zerado(s) por falta de evidência na sua fala.";
       setResultado({itens:detalhe,nota:detalhe.filter(x=>x.ok).length,pontos,pct,feedback:fb,erros,aprovado:pct>=70});
     }catch(e){
