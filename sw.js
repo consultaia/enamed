@@ -5,7 +5,7 @@
    ao usuário, sem precisar limpar cache. O cache serve só de
    reserva para quando estiver offline.
    ================================================================ */
-const VERSION = 'enamed-v' + '2026-10-08-01';  // troque a data a cada deploy grande
+const VERSION = 'enamed-v' + '2026-10-08-02';  // troque a data a cada deploy grande
 const CACHE = VERSION;
 // Arquivos que valem manter em cache como reserva offline.
 const ASSETS = [
@@ -38,6 +38,9 @@ self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+  // Supabase (dados do aluno, assinatura) e o worker da IA vão SEMPRE direto
+  // à rede: servir do cache mostraria progresso e assinatura desatualizados.
+  if (/(^|\.)supabase\.co$|(^|\.)workers\.dev$/.test(url.hostname)) return;
   const isHTML =
     req.mode === 'navigate' ||
     req.destination === 'document' ||
@@ -49,8 +52,13 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       fetch(req, { cache: 'no-store' })
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('./index.html', copy)).catch(() => {});
+          // só guarda como reserva o próprio app (não a landing nem páginas de erro)
+          const ehApp = url.origin === self.location.origin &&
+            (url.pathname.endsWith('/') || url.pathname.endsWith('index.html'));
+          if (res.ok && ehApp) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put('./index.html', copy)).catch(() => {});
+          }
           return res;
         })
         .catch(() =>
@@ -64,8 +72,10 @@ self.addEventListener('fetch', (e) => {
     caches.match(req).then((cached) => {
       const network = fetch(req)
         .then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+          if (res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+          }
           return res;
         })
         .catch(() => cached);
