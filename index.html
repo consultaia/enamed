@@ -2246,7 +2246,7 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
         <span className="muted" style={{fontSize:12}}>6 estações de 10 min no formato SBCM, com paciente e examinador de IA (PRO).</span>
       </div>
       <CalculadoraTECM/>
-      <ProgramaTECM/>
+      <ProgramaTECM qs={(pool||[]).filter(q=>q&&q.transv&&q.transv.indexOf&&q.transv.indexOf("TECM")>=0)}/>
     </div>}
   </div>;
 }
@@ -2788,8 +2788,35 @@ function PlanoSemana({uid,store,srs,pool,temasFracos,meta,isPro,acoes:exec}){
         </div>; })}
     </div>; };
   const iaHoje=plano.iaEm===hoje;
+  /* Dias perdidos: tarefas de dias anteriores que ficaram sem fazer (a revisão diária não conta) */
+  const feitoEm=(i,t)=>!!(plano.feitos||{})[i+"-"+t.acao];
+  const pendDia=i=>((plano.dias[i]||{tarefas:[]}).tarefas||[]).filter(t=>t.acao!=="R"&&!feitoEm(i,t));
+  const diasAtras=[...Array(diaHoje)].map((_,i)=>i).filter(i=>pendDia(i).length>0);
+  /* Corrigir: o primeiro dia com pendência vira HOJE e a semana anda junto, sem acumular.
+     Com data de prova, nada passa da véspera: o excesso entra nos dias que sobram. */
+  const corrigirPlano=()=>{
+    const ini=diasAtras.length?diasAtras[0]:diaHoje;
+    const limite=cam.dataProva?Math.max(1,Math.min(7,diasEntre(hoje,cam.dataProva))):7;
+    const dias=[...Array(7)].map(()=>({titulo:"",tarefas:[]})), feitos={}, sobra=[];
+    for(let i=ini;i<7;i++){ const d=plano.dias[i]||{titulo:"",tarefas:[]}, k=i-ini;
+      const ts=(d.tarefas||[]).filter(t=>i>=diaHoje||!feitoEm(i,t)); // o que já foi feito em dia passado sai da lista
+      if(k<limite){ dias[k].titulo=d.titulo||""; ts.forEach(t=>{ if(!dias[k].tarefas.some(x=>x.acao===t.acao)){ dias[k].tarefas.push(t); if(i>=diaHoje&&feitoEm(i,t)) feitos[k+"-"+t.acao]=true; } }); }
+      else ts.filter(t=>t.acao!=="R"&&!feitoEm(i,t)).forEach(t=>sobra.push(t)); }
+    sobra.forEach(t=>{ for(let k=0;k<limite;k++){ if(dias[k].tarefas.length<5&&!dias[k].tarefas.some(x=>x.acao===t.acao)){ dias[k].tarefas.push(t); break; } } });
+    const R=(plano.acoes||acoes).find(a=>a.tipo==="revisao");
+    for(let k=0;k<limite;k++) if(R&&!dias[k].tarefas.some(t=>t.acao==="R")) dias[k].tarefas.unshift({acao:"R",porque:"As vencidas de hoje — é o que segura a memória."});
+    dias.forEach((d,k)=>{ if(k>=limite){ d.tarefas=[]; d.titulo=cam.dataProva&&k===limite?"Dia da prova":"Descanso e revisão leve"; } else if(!d.tarefas.length) d.titulo="Dia livre: pratique questões soltas"; });
+    const np={...plano,dias,feitos,inicio:hoje,corrigidoEm:hoje}; setPlano(np); gravarJSON(planoKey(uid),np); setSemana(false);
+  };
   return <div className="card" style={{marginBottom:16}}>
     {titulo}
+    {diasAtras.length>0 && <div className="block b-pega" style={{marginTop:8}}>
+      <b>Ficou para trás {diasAtras.length===1?"1 dia":diasAtras.length+" dias"} do plano</b> ({diasAtras.reduce((s,i)=>s+pendDia(i).length,0)} tarefa{diasAtras.reduce((s,i)=>s+pendDia(i).length,0)===1?"":"s"} sem fazer). Normal acontecer — o que não dá é deixar acumular.
+      <div className="row" style={{gap:10,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
+        <button className="btn sm" onClick={corrigirPlano}>↻ Corrigir o plano a partir de hoje</button>
+        <span className="muted" style={{fontSize:12}}>As tarefas atrasadas voltam para hoje e o resto da semana anda junto.</span>
+      </div>
+    </div>}
     {plano.resumo&&<div style={{fontSize:13.5,lineHeight:1.5,margin:"8px 0 4px"}}>{plano.resumo}</div>}
     {plano.dica&&<div className="muted" style={{fontSize:12.5,marginBottom:4}}>💡 {plano.dica}</div>}
     {semana ? plano.dias.map((_,i)=>listaDia(i)) : listaDia(diaHoje)}
@@ -3355,9 +3382,9 @@ function dadosGuia(mod){
       D=JSON.parse(h.slice(i+13,j)); } }catch(e){ D=null; }
   __dadosGuia[mod]=D; return D;
 }
-function AulasInternato({modInicial,onVoltar,registrar}){
+function AulasInternato({modInicial,numInicial,onVoltar,registrar}){
   const [mod,setMod]=useState(modInicial||null);
-  const [num,setNum]=useState(null);
+  const [num,setNum]=useState(numInicial!=null?numInicial:null);
   const [etapa,setEtapa]=useState(0);
   const [aulas,setAulas]=useState(null);
   const [erro,setErro]=useState(false);
@@ -3477,6 +3504,7 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
   const [areaSel,setAreaSel]=useState(null); // area escolhida
   const [aberto,setAberto]=useState(null);   // assunto em estudo
   const [n2Mod,setN2Mod]=useState(null);     // módulo das aulas do Internato aberto aqui
+  const [n2Num,setN2Num]=useState(null);     // aula pedida de outra aba (trilha TECM)
   const yc=y=>y>=3?"var(--gold)":y===2?"var(--acc2)":"var(--muted)";
   const yl=y=>y>=3?"ALTO RENDIMENTO":y===2?"IMPORTANTE":"COMPLEMENTAR";
   const liberado=t=>isPro||t.id===freeTopico;
@@ -3488,10 +3516,11 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
     if(!liberado(t)){onAssinar();return;} setAreaSel(t.area); setAberto(t.id); irAoTopo(); };
     /* pedido vindo de outra aba (Início, plano da semana): a Trilha acabou de montar */
     if(window.__ASSUNTO_PENDENTE){ const id=window.__ASSUNTO_PENDENTE; window.__ASSUNTO_PENDENTE=null; window.__ABRIR_ASSUNTO(id); }
+    if(window.__AULA_N2_PENDENTE){ const p=window.__AULA_N2_PENDENTE; window.__AULA_N2_PENDENTE=null; setN2Num(p.num); setN2Mod(p.mod); }
   }catch(e){} return ()=>{ try{ window.__ABRIR_ASSUNTO=null; }catch(e){} }; },[isPro]);
 
   /* ---------- aulas do Internato (N2) lidas dentro do Estudar ---------- */
-  if(n2Mod) return <AulasInternato key={n2Mod} modInicial={n2Mod} registrar={registrar} onVoltar={()=>{ setN2Mod(null); irAoTopo(); }}/>;
+  if(n2Mod) return <AulasInternato key={n2Mod+"|"+(n2Num||"")} modInicial={n2Mod} numInicial={n2Num} registrar={registrar} onVoltar={()=>{ setN2Mod(null); setN2Num(null); irAoTopo(); }}/>;
 
   /* ---------- ESTADO 3: estudando um assunto (tela cheia) ---------- */
   if(aberto){
@@ -3832,15 +3861,29 @@ function CalculadoraTECM(){
     <div className="muted" style={{fontSize:12,marginTop:6}}>Para a 2ª fase você precisa de <b>{TECM_REGRAS.corteSoma}</b> na soma teórica + currículo. Com {pts.toFixed(1)} de currículo, a teórica precisa render <b>{Math.max(0,TECM_REGRAS.corteSoma-pts).toFixed(1)}</b> pontos.</div>
   </div>;
 }
-function ProgramaTECM(){
+/* Mapa do programa SBCM ("i:j" = especialidade:tópico) para o material do app:
+   assuntos do Estudar, aulas do Internato e palavras para achar as questões TECM do tópico. */
+const TECM_MAPA = [];
+const nrmTECM=s=>String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+function abrirAssuntoTECM(id){ try{ window.__ASSUNTO_PENDENTE=id; if(window.__ABRIR_ASSUNTO){ window.__ABRIR_ASSUNTO(id); window.__ASSUNTO_PENDENTE=null; } window.__SET_TAB&&window.__SET_TAB("trilha"); irAoTopo(); }catch(e){} }
+function abrirAulaTECM(mod,num){ try{ window.__AULA_N2_PENDENTE={mod,num}; window.__SET_TAB&&window.__SET_TAB("trilha"); irAoTopo(); }catch(e){} }
+function ProgramaTECM({qs}){
   const [feito,setFeito]=useState(()=>{try{return JSON.parse(localStorage.getItem("preceptor_tecm_programa")||"{}")}catch(e){return {}}});
   const [aberto,setAberto]=useState(null);
+  const [verTopico,setVerTopico]=useState(null);
   const toggle=k=>{ const n={...feito,[k]:!feito[k]}; setFeito(n); try{localStorage.setItem("preceptor_tecm_programa",JSON.stringify(n));}catch(e){} };
   const total=TECM_PROGRAMA.reduce((s,e)=>s+e.topicos.length,0);
   const ok=Object.values(feito).filter(Boolean).length;
+  const mapa=useMemo(()=>{ const m={}; (TECM_MAPA||[]).forEach(x=>{ if(x&&x.k) m[x.k]=x; }); return m; },[]);
+  /* questões TECM de cada tópico: tema/enunciado contém alguma palavra-chave do tópico */
+  const textoQ=useMemo(()=>(qs||[]).map(q=>[q,nrmTECM((q.tema||"")+" "+(q.enun||""))]),[qs]);
+  const questoesDe=k=>{ const ws=((mapa[k]&&mapa[k].palavras)||[]).map(nrmTECM).filter(w=>w.length>2); if(!ws.length) return [];
+    return textoQ.filter(([q,t])=>ws.some(w=>t.indexOf(w)>=0)).map(([q])=>q); };
+  const nomeAssunto=id=>{ const t=CURRICULO.find(x=>x.id===id); return t?t.nome:id; };
+  const nomeAula=(m,n)=>{ const l=AULAS_N2_TITULOS[m]||[]; const x=l.find(y=>y[0]===n); return x?x[1]:"Aula "+n; };
   return <div className="card" style={{marginTop:14}}>
     <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10}}>
-      <div><div className="tag" style={{color:"var(--acc)"}}>CONTEÚDO PROGRAMÁTICO OFICIAL</div><div className="muted" style={{fontSize:13,marginTop:3}}>Do edital SBCM. Marque o que já revisou.</div></div>
+      <div><div className="tag" style={{color:"var(--acc)"}}>TRILHA DO PROGRAMA OFICIAL</div><div className="muted" style={{fontSize:13,marginTop:3}}>Do edital SBCM. Em cada tópico: estude, treine as questões da prova e marque como revisado.</div></div>
       <b style={{fontSize:18}}>{ok}<span className="muted" style={{fontSize:12,fontWeight:400}}>/{total}</span></b>
     </div>
     <div style={{height:8,background:"var(--line)",borderRadius:99,margin:"10px 0",overflow:"hidden"}}><div style={{width:Math.round(ok/total*100)+"%",height:"100%",background:"var(--acc)"}}/></div>
@@ -3852,9 +3895,27 @@ function ProgramaTECM(){
           <span className="muted" style={{fontSize:12}}>{n}/{e.topicos.length} {aberto===i?"▴":"▾"}</span>
         </div>
         {aberto===i && <div style={{paddingBottom:8}}>
-          {e.topicos.map((t,j)=><label key={j} className="row" style={{gap:8,alignItems:"flex-start",fontSize:13.5,padding:"4px 0",cursor:"pointer"}}>
-            <input type="checkbox" checked={!!feito[i+":"+j]} onChange={()=>toggle(i+":"+j)} style={{margin:"3px 0 0",width:"auto"}}/><span style={{opacity:feito[i+":"+j]?.6:1,textDecoration:feito[i+":"+j]?"line-through":"none"}}>{t}</span>
-          </label>)}
+          {e.topicos.map((t,j)=>{ const k=i+":"+j, m=mapa[k]||{}, qT=questoesDe(k);
+            const temMat=(m.assuntos||[]).length+(m.aulas||[]).length>0, open=verTopico===k;
+            return <div key={j} style={{padding:"6px 0",borderBottom:"1px dashed var(--line)"}}>
+              <div className="row" style={{gap:8,alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap"}}>
+                <label className="row" style={{gap:8,alignItems:"flex-start",fontSize:13.5,cursor:"pointer",flex:"1 1 200px",margin:0,color:"var(--ink)",fontWeight:400}}>
+                  <input type="checkbox" checked={!!feito[k]} onChange={()=>toggle(k)} style={{margin:"3px 0 0",width:"auto"}}/>
+                  <span style={{opacity:feito[k]?.6:1,textDecoration:feito[k]?"line-through":"none"}}>{t}
+                    {m.cobertura==="parcial" && <span className="pill" style={{marginLeft:6,fontSize:10,color:"var(--warn)",borderColor:"var(--warn)"}}>material parcial</span>}
+                    {m.cobertura==="ausente" && <span className="pill" style={{marginLeft:6,fontSize:10}}>em preparação</span>}</span>
+                </label>
+                <span className="row" style={{gap:6}}>
+                  {temMat && <button className="btn ghost sm" style={{padding:"4px 9px",fontSize:12}} onClick={()=>setVerTopico(open?null:k)}>📖 Estudar</button>}
+                  {qT.length>0 && <button className="btn ghost sm" style={{padding:"4px 9px",fontSize:12}} onClick={()=>{ try{ window.__TREINAR_GEMEAS&&window.__TREINAR_GEMEAS(qT,"TECM · "+t); }catch(x){} }}>✍️ {qT.length} {qT.length===1?"questão":"questões"}</button>}
+                </span>
+              </div>
+              {open && <div className="block b-metodo" style={{marginTop:6}}>
+                {(m.assuntos||[]).map(id=><div key={id} className="link" style={{fontSize:13.5,margin:"3px 0"}} onClick={()=>abrirAssuntoTECM(id)}>📚 {nomeAssunto(id)}</div>)}
+                {(m.aulas||[]).map(([mod,num])=><div key={mod+num} className="link" style={{fontSize:13.5,margin:"3px 0"}} onClick={()=>abrirAulaTECM(mod,num)}>📘 {semN2(nomeAula(mod,num))} <span className="muted">· aula do Internato</span></div>)}
+                {m.falta && <div className="muted" style={{fontSize:12,marginTop:6}}>Para o nível do título, aprofunde: {m.falta}</div>}
+              </div>}
+            </div>; })}
         </div>}
       </div>;
     })}
