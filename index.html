@@ -2,6 +2,18 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
+<script>
+/* Visitante novo vê a landing; quem já usou o app, abre pelo app instalado ou chega por
+   link de e-mail (confirmação, troca de senha) segue direto para o app. */
+(function(){ try{
+  var L=window.localStorage, q=location.search, h=location.hash;
+  var link=/[?&](app|code|error)\b/.test(q)||/access_token|refresh_token|type=|error/.test(h);
+  var instalado=(window.matchMedia&&matchMedia("(display-mode: standalone)").matches)||navigator.standalone===true;
+  var sessao=false; for(var i=0;i<L.length;i++){ var k=L.key(i)||""; if(/^sb-.*-auth-token$/.test(k)){ sessao=true; break; } }
+  if(link||instalado||sessao||L.getItem("preceptor_app_visto")==="1"){ L.setItem("preceptor_app_visto","1"); return; }
+  location.replace("landing.html");
+}catch(e){} })();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Preceptor — questões, revisão espaçada e simulados para ENAMED, ENARE, SUS-BA, Revalida e TECM</title>
 <meta name="theme-color" content="#0d1618" />
@@ -21,7 +33,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.09.4";
+  window.APP_VERSION="2026.10.09.5";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
