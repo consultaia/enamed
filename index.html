@@ -6857,6 +6857,7 @@ function OSCE({onVoltar}){
       const c=osceCasoPedido(); if(c) setCaso(c); irAoTopo(); };
     return ()=>{ window.__OSCE_ABRIR_CASO=null; }; },[]);
   const [,reavaliar]=useState(0);
+  const [soRodizio,setSoRodizio]=useState(false);
   if(caso) return <OSCEEstacao caso={caso} onVoltar={()=>setCaso(null)}/>;
   if(!window.__PRO) return <div>
     <button className="btn ghost sm" onClick={onVoltar}>← Voltar</button>
@@ -6894,8 +6895,23 @@ function OSCE({onVoltar}){
         </ul>
       </div>
     </div>}
+    {areaSel==="APS" && <div className="card" style={{marginBottom:14,borderColor:"#c7a3ff"}}>
+      <div className="tag" style={{color:"#c7a3ff"}}>ORIENTAÇÃO DE ESTUDOS · OSCE APS · 4º RODÍZIO 2026</div>
+      <div style={{fontWeight:700,fontSize:15.5,margin:"6px 0"}}>Rotinas da APS · prova em 17/10 (sábado)</div>
+      <div className="muted" style={{fontSize:13,lineHeight:1.6}}>
+        <b>Formato:</b> 2 estações diferentes de <b>5 minutos</b> + 2 minutos de feedback, com confinamento por período. Treine no tempo real: vá direto ao que o checklist pede.
+        <ul style={{margin:"8px 0 0 18px",padding:0}}>
+          <li><b>Temas:</b> acolhimento; demanda espontânea e agendada; Hiperdia; saúde da mulher; pré-natal; saúde do idoso; puericultura; saúde mental.</li>
+          <li><b>Transversais:</b> coordenação do cuidado; promoção da saúde e prevenção; trabalho em equipe; comunicação.</li>
+          <li><b>Em toda estação:</b> apresente-se, escute antes de conduzir, use linguagem simples, decida junto com a pessoa e confira o entendimento no fim.</li>
+        </ul>
+      </div>
+      <div className="row" style={{gap:6,flexWrap:"wrap",marginTop:10}}>
+        <button className={"btn sm "+(soRodizio?"":"ghost")} onClick={()=>setSoRodizio(v=>!v)}>{soRodizio?"✓ ":""}Só as estações do 4º rodízio ({(window.OSCE_BANCO.APS||[]).filter(c=>c.rodizio).length})</button>
+      </div>
+    </div>}
     <div className="grid" style={{gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))"}}>
-      {casosArea.map(c=>
+      {casosArea.filter(c=>!(areaSel==="APS"&&soRodizio)||c.rodizio).map(c=>
         <div key={c.id} className="topico" style={{cursor:"pointer"}} onClick={()=>{setCaso(c);irAoTopo();}}>
           <div style={{fontWeight:700,fontSize:15.5}}>{c.titulo}</div>
           <div className="muted" style={{fontSize:12.5,margin:"6px 0 12px",lineHeight:1.5}}>{c.cenario}</div>
