@@ -3,98 +3,189 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Preceptor — estude só o que cai na prova, da faculdade à residência</title>
-<meta name="description" content="Preceptor (antes ENAMED Engine): mais de 2.800 questões com gabarito comentado, provas oficiais na íntegra (ENAMED, ENARE, SUS-BA, Revalida, TECM), questões originais das N2 do internato, OSCE com IA e revisão espaçada. Teste grátis de 24 h, depois pagamento único por 6 meses, via Pix." />
+<title>Preceptor — estude com o Preceptor e alcance sua melhor versão</title>
+<meta name="description" content="Preceptor: mais de 4.200 questões comentadas, aulas que mostram como a prova cobra, 144 aulas do internato, 70 estações de OSCE com IA, provas oficiais na íntegra e plano de estudo que se ajusta aos seus erros. Teste grátis de 24 h." />
 <meta name="theme-color" content="#0d1618" />
-<meta property="og:title" content="Preceptor — estude só o que cai na prova" />
-<meta property="og:description" content="Da faculdade à residência: 2.800+ questões comentadas, provas oficiais na íntegra, N2 do internato, OSCE com IA e revisão espaçada. Teste grátis 24 h, depois pagamento único por 6 meses, via Pix." />
+<meta property="og:title" content="Estude com o Preceptor e alcance sua melhor versão" />
+<meta property="og:description" content="4.200+ questões comentadas, aulas que mostram como a prova cobra, internato, OSCE com IA e provas oficiais na íntegra. Teste grátis por 24 h." />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://preceptor.api.br/" />
+<meta property="og:image" content="https://preceptor.api.br/icon-512.png" />
+<link rel="icon" href="icon-192.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
 <style>
-:root{--bg:#0d1618;--pan:#12211f;--pan2:#16302b;--line:#1f3d37;--ink:#e8f2ee;--mut:#7fa49a;--acc:#3ddc97;--acc2:#0f9d6b;--gold:#e6b450;
-  --sans:'Inter',system-ui,sans-serif;--disp:'Fraunces',Georgia,serif;--mono:'JetBrains Mono',monospace;--mw:960px}
+:root{--bg:#0d1618;--pan:#12211f;--pan2:#16302b;--line:#1f3d37;--ink:#e8f2ee;--mut:#86aba1;--acc:#3ddc97;--acc-d:#2bbd7f;--gold:#e6b450;--bad:#ff7a7a;
+  --sans:'Inter',system-ui,sans-serif;--disp:'Fraunces',Georgia,serif;--mono:'JetBrains Mono',ui-monospace,monospace;--mw:1080px}
 *{box-sizing:border-box}
+html{scroll-behavior:smooth}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
 a{color:inherit}
-.wrap{max-width:var(--mw);margin:0 auto;padding:0 22px}
-.aura{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(60% 45% at 80% -8%,rgba(61,220,151,.10),transparent 60%),radial-gradient(40% 35% at 5% 6%,rgba(230,180,80,.05),transparent 60%)}
+.wrap{max-width:var(--mw);margin:0 auto;padding:0 20px}
+.aura{position:fixed;inset:0;z-index:0;pointer-events:none;background:radial-gradient(55% 40% at 85% -5%,rgba(61,220,151,.13),transparent 60%),radial-gradient(40% 35% at 0% 10%,rgba(230,180,80,.06),transparent 60%)}
 main{position:relative;z-index:1}
-nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);background:rgba(13,22,24,.72);border-bottom:1px solid var(--line)}
-.nav-in{display:flex;align-items:center;justify-content:space-between;height:60px}
-.brand{display:flex;align-items:center;gap:10px;font-weight:600}
-.mark{position:relative;width:28px;height:28px;border-radius:8px;background:linear-gradient(150deg,var(--pan2),#0e2420);border:1px solid #2a5a4e;display:grid;place-items:center;color:var(--ink);font-family:var(--mono);font-weight:600}
-.mark::after{content:"✓";position:absolute;right:-6px;bottom:-6px;width:14px;height:14px;border-radius:50%;background:var(--gold);color:#1a1204;font-size:9px;font-weight:700;display:grid;place-items:center;font-family:var(--sans)}
-.brand small{color:var(--mut);font-weight:500}
-.cta{font-size:14px;font-weight:600;padding:9px 16px;border-radius:10px;background:var(--acc);color:#04120c;text-decoration:none;transition:transform .15s,box-shadow .15s}
-.cta:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(61,220,151,.25)}
-.hero{padding:64px 0 8px;text-align:center}
-.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--gold);border:1px solid rgba(230,180,80,.3);border-radius:100px;padding:6px 14px;margin-bottom:22px}
-.eyebrow .dot{width:6px;height:6px;border-radius:50%;background:var(--gold)}
-h1{font-family:var(--disp);font-weight:500;letter-spacing:-.02em;font-size:clamp(32px,6vw,54px);line-height:1.05;margin:0 auto 18px;max-width:18ch}
-h1 em{font-style:italic;color:var(--acc)}
-.sub{font-size:clamp(16px,2.2vw,19px);color:var(--mut);max-width:56ch;margin:0 auto 28px}
-.sub b{color:var(--ink);font-weight:600}
-.btns{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
-.btn{font-size:16px;font-weight:600;padding:14px 26px;border-radius:12px;text-decoration:none;border:1px solid transparent;cursor:pointer;transition:transform .15s,box-shadow .15s;display:inline-flex;align-items:center;gap:8px}
-.btn-p{background:var(--acc);color:#04120c}
-.btn-p:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(61,220,151,.3)}
+
+/* nav */
+nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);background:rgba(13,22,24,.78);border-bottom:1px solid var(--line)}
+.nav-in{display:flex;align-items:center;justify-content:space-between;height:62px;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;text-decoration:none}
+.mark{position:relative;width:30px;height:30px;border-radius:9px;background:linear-gradient(150deg,var(--pan2),#0e2420);border:1px solid #2a5a4e;display:grid;place-items:center;font-family:var(--mono);font-weight:500}
+.mark::after{content:"✓";position:absolute;right:-6px;bottom:-6px;width:15px;height:15px;border-radius:50%;background:var(--gold);color:#1a1204;font-size:9px;font-weight:800;display:grid;place-items:center;font-family:var(--sans)}
+.nav-r{display:flex;align-items:center;gap:8px}
+.nav-link{font-size:14px;font-weight:600;color:var(--mut);text-decoration:none;padding:8px 10px}
+.nav-link:hover{color:var(--ink)}
+.cta-s{font-size:14px;font-weight:700;padding:10px 16px;border-radius:10px;background:var(--acc);color:#04120c;text-decoration:none;white-space:nowrap}
+
+/* botões */
+.btn{font-size:17px;font-weight:700;padding:16px 26px;border-radius:14px;text-decoration:none;border:1px solid transparent;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .15s,box-shadow .15s,background .15s}
+.btn-p{background:var(--acc);color:#04120c;box-shadow:0 10px 30px rgba(61,220,151,.22)}
+.btn-p:hover{transform:translateY(-2px);box-shadow:0 16px 36px rgba(61,220,151,.32);background:#4fe6a4}
 .btn-g{background:transparent;color:var(--ink);border-color:var(--line)}
 .btn-g:hover{border-color:var(--acc);color:var(--acc)}
-.note{font-size:13px;color:var(--mut);margin-top:14px}.note b{color:var(--acc)}
-.was{font-size:13px;color:var(--mut);margin-top:8px}.was b{color:var(--ink);font-weight:500}
-section{padding:56px 0}
-.sh{text-align:center;max-width:52ch;margin:0 auto 34px}
-.kick{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--acc);margin-bottom:12px}
-.sh h2{font-family:var(--disp);font-weight:500;letter-spacing:-.02em;font-size:clamp(24px,4vw,34px);line-height:1.12;margin:0 0 10px}
-.sh p{color:var(--mut);font-size:16px;margin:0}
-/* stats */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:-8px}
-.st{border:1px solid var(--line);border-radius:12px;padding:16px 14px;background:var(--pan);text-align:center}
-.st .n{font-family:var(--disp);font-size:30px;font-weight:600;letter-spacing:-.02em;color:var(--acc);line-height:1}
-.st .l{font-size:12.5px;color:var(--mut);margin-top:6px}
-/* personas */
-.who{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.card{border:1px solid var(--line);border-radius:14px;padding:22px;background:linear-gradient(160deg,var(--pan),#0f1c1a)}
-.card .ic{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:var(--pan2);color:var(--acc);font-size:21px;margin-bottom:12px}
-.card h3{font-size:17px;margin:0 0 4px;letter-spacing:-.01em}
-.card .for{font-family:var(--mono);font-size:11px;color:var(--gold);letter-spacing:.03em;margin-bottom:9px}
+.trust{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13.5px;color:var(--mut);margin-top:16px}
+.trust span::before{content:"✓ ";color:var(--acc);font-weight:800}
+
+/* hero */
+.hero{padding:56px 0 30px}
+.hero-g{display:grid;grid-template-columns:1.1fr .9fr;gap:44px;align-items:center}
+.pill-top{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--gold);border:1px solid rgba(230,180,80,.35);background:rgba(230,180,80,.06);border-radius:100px;padding:6px 14px;margin-bottom:20px}
+.pill-top .dot{width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 4px rgba(230,180,80,.15)}
+h1{font-family:var(--disp);font-weight:600;letter-spacing:-.025em;font-size:clamp(36px,5.6vw,60px);line-height:1.02;margin:0 0 18px}
+h1 em{font-style:italic;color:var(--acc);font-weight:500}
+.sub{font-size:clamp(16.5px,2vw,19px);color:var(--mut);max-width:52ch;margin:0 0 26px}
+.sub b{color:var(--ink);font-weight:600}
+.btns{display:flex;flex-wrap:wrap;gap:12px}
+
+/* mock do app */
+.mock{position:relative;border:1px solid var(--line);border-radius:22px;background:linear-gradient(165deg,var(--pan2),#0f1d1b);padding:18px;box-shadow:0 30px 80px rgba(0,0,0,.45)}
+.mock-top{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;color:var(--mut);margin-bottom:12px}
+.mock-top b{color:var(--acc);font-weight:500}
+.q{font-size:14.5px;line-height:1.5;margin-bottom:12px}
+.alt{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:11px;padding:9px 12px;margin-bottom:7px;font-size:13.5px;color:var(--mut)}
+.alt b{font-family:var(--mono);font-weight:500;opacity:.8}
+.alt.ok{border-color:var(--acc);background:rgba(61,220,151,.08);color:var(--ink)}
+.cobra{margin-top:12px;border-left:3px solid var(--gold);background:rgba(230,180,80,.07);border-radius:0 10px 10px 0;padding:10px 12px;font-size:13px}
+.cobra b{color:var(--gold);display:block;font-size:11.5px;letter-spacing:.06em;font-family:var(--mono);font-weight:500;margin-bottom:2px}
+.float{position:absolute;right:-14px;bottom:-18px;background:var(--acc);color:#04120c;font-weight:800;font-size:13px;border-radius:12px;padding:9px 13px;box-shadow:0 12px 30px rgba(61,220,151,.3)}
+
+/* seções */
+section{padding:64px 0}
+.band{background:var(--pan);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.sh{max-width:60ch;margin:0 0 30px}
+.sh.c{text-align:center;margin:0 auto 34px}
+.kick{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--acc);margin-bottom:10px}
+h2{font-family:var(--disp);font-weight:600;letter-spacing:-.02em;font-size:clamp(27px,4vw,40px);line-height:1.08;margin:0 0 12px}
+h2 em{font-style:italic;color:var(--acc);font-weight:500}
+.sh p{color:var(--mut);font-size:16.5px;margin:0}
+
+/* números */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.st{border:1px solid var(--line);border-radius:14px;padding:18px 14px;background:var(--pan);text-align:center}
+.st .n{font-family:var(--disp);font-size:34px;font-weight:600;letter-spacing:-.02em;color:var(--acc);line-height:1}
+.st .l{font-size:13px;color:var(--mut);margin-top:7px;line-height:1.35}
+
+/* dor → solução */
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.vs-c{border:1px solid var(--line);border-radius:16px;padding:22px 22px 8px}
+.vs-c h3{margin:0 0 12px;font-size:16px;letter-spacing:-.01em}
+.vs-c ul{list-style:none;margin:0;padding:0}
+.vs-c li{display:flex;gap:10px;margin-bottom:12px;font-size:15px;color:var(--mut)}
+.vs-c li i{font-style:normal;flex:none;font-weight:800}
+.vs-a li i{color:var(--bad)}
+.vs-b{border-color:rgba(61,220,151,.45);background:linear-gradient(160deg,rgba(61,220,151,.07),transparent)}
+.vs-b li{color:var(--ink)}
+.vs-b li i{color:var(--acc)}
+
+/* passos */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.step{border:1px solid var(--line);border-radius:16px;padding:22px;background:var(--pan)}
+.step .num{font-family:var(--mono);font-size:12px;color:var(--gold);letter-spacing:.08em}
+.step h3{margin:8px 0 6px;font-size:18px;letter-spacing:-.01em}
+.step p{margin:0;color:var(--mut);font-size:14.5px}
+
+/* recursos */
+.feat{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.f{border:1px solid var(--line);border-radius:14px;padding:18px;background:var(--bg)}
+.f .fi{font-size:22px;line-height:1}
+.f b{display:block;margin:10px 0 4px;letter-spacing:-.01em;font-size:15.5px}
+.f span{font-size:14px;color:var(--mut);line-height:1.5}
+.novo{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.06em;color:#1a1204;background:var(--gold);border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:2px;font-weight:500}
+
+/* OSCE */
+.osce{display:grid;grid-template-columns:1fr 1fr;gap:40px;align-items:center}
+.chat{border:1px solid var(--line);border-radius:20px;background:var(--pan);padding:18px}
+.bub{max-width:88%;border-radius:16px;padding:10px 14px;font-size:14px;line-height:1.45;margin-bottom:10px}
+.bub small{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;opacity:.7;margin-bottom:2px}
+.pac{background:#1b3a33}
+.voc{background:var(--acc);color:#04120c;margin-left:auto;font-weight:500}
+.score{display:flex;align-items:center;gap:12px;margin-top:14px;font-size:13px;color:var(--mut)}
+.bar{flex:1;height:10px;border-radius:99px;background:#0a1512;overflow:hidden}
+.bar i{display:block;width:82%;height:100%;background:linear-gradient(90deg,var(--acc),#8ff0c4)}
+.score b{color:var(--ink)}
+.checks{list-style:none;padding:0;margin:18px 0 26px}
+.checks li{display:flex;gap:10px;margin-bottom:10px;font-size:15.5px}
+.checks li::before{content:"✓";color:var(--acc);font-weight:800}
+
+/* para quem */
+.who{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.card{border:1px solid var(--line);border-radius:16px;padding:20px;background:linear-gradient(160deg,var(--pan),#0f1c1a)}
+.card .ic{font-size:24px}
+.card .for{font-family:var(--mono);font-size:11px;color:var(--gold);letter-spacing:.05em;margin:10px 0 6px}
+.card h3{font-size:16.5px;margin:0 0 6px;letter-spacing:-.01em}
 .card p{margin:0;font-size:14px;color:var(--mut)}
-/* features */
-.feat{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.f{display:flex;gap:13px;border:1px solid var(--line);border-radius:12px;padding:16px 18px;background:var(--pan)}
-.f .fi{font-size:20px;flex:none}
-.f b{display:block;margin-bottom:2px;letter-spacing:-.01em}
-.f span{font-size:14px;color:var(--mut)}
-/* price */
-.price{max-width:460px;margin:0 auto;border:1px solid rgba(230,180,80,.35);border-radius:16px;background:linear-gradient(165deg,var(--pan2),#102520);padding:34px 30px;text-align:center;position:relative}
-.flag{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--gold);color:#1a1204;font-size:12px;font-weight:700;padding:5px 16px;border-radius:100px;font-family:var(--mono)}
-.amt{font-family:var(--disp);font-size:56px;font-weight:600;letter-spacing:-.03em;line-height:1;margin:10px 0 2px}
-.amt .c{font-size:26px;vertical-align:super}
-.pnote{color:var(--mut);font-size:14px;margin-bottom:20px}
-.pl{text-align:left;display:grid;gap:9px;margin:0 0 24px;padding:0;list-style:none;font-size:14.5px}
-.pl li{display:flex;gap:10px}.pl .ck{color:var(--acc);font-weight:700;flex:none}
-.price .btn-p{width:100%;justify-content:center}
-.micro{font-size:12px;color:var(--mut);margin-top:14px}
+
+/* preço */
+.price{max-width:520px;margin:0 auto;border:1px solid rgba(230,180,80,.4);border-radius:22px;background:linear-gradient(165deg,var(--pan2),#102520);padding:36px 30px 28px;text-align:center;position:relative;box-shadow:0 30px 80px rgba(0,0,0,.35)}
+.flag{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--gold);color:#1a1204;font-size:12px;font-weight:800;padding:6px 16px;border-radius:100px;font-family:var(--mono);white-space:nowrap}
+.amt{font-family:var(--disp);font-size:64px;font-weight:600;letter-spacing:-.03em;line-height:1;margin:8px 0 4px}
+.amt .c{font-size:28px;vertical-align:super}
+.pnote{color:var(--mut);font-size:14.5px;margin-bottom:6px}
+.urg{display:inline-block;margin:10px 0 18px;font-size:13.5px;font-weight:700;color:var(--gold);background:rgba(230,180,80,.08);border:1px solid rgba(230,180,80,.3);border-radius:10px;padding:7px 12px}
+.pl{text-align:left;display:grid;gap:10px;margin:0 0 26px;padding:0;list-style:none;font-size:15px}
+.pl li{display:flex;gap:10px}.pl .ck{color:var(--acc);font-weight:800;flex:none}
+.price .btn{width:100%}
+.micro{font-size:12.5px;color:var(--mut);margin:14px 0 0}
+
 /* faq */
-.faq{max-width:640px;margin:0 auto}
-details{border-bottom:1px solid var(--line);padding:16px 2px}
-summary{cursor:pointer;font-size:16px;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:14px;align-items:center}
+.faq{max-width:720px;margin:0 auto}
+details{border-bottom:1px solid var(--line);padding:18px 2px}
+summary{cursor:pointer;font-size:16.5px;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:14px;align-items:center}
 summary::-webkit-details-marker{display:none}
-summary::after{content:"+";color:var(--acc);font-size:20px;transition:transform .2s;flex:none}
+summary::after{content:"+";color:var(--acc);font-size:22px;transition:transform .2s;flex:none}
 details[open] summary::after{transform:rotate(45deg)}
-details p{margin:12px 0 0;color:var(--mut);font-size:14.5px}
-.final{text-align:center;padding:72px 0}
-.final h2{font-family:var(--disp);font-weight:500;font-size:clamp(26px,5vw,40px);letter-spacing:-.02em;margin:0 0 14px;line-height:1.1}
-.final h2 em{font-style:italic;color:var(--acc)}
-.final p{color:var(--mut);font-size:17px;max-width:46ch;margin:0 auto 28px}
-footer{border-top:1px solid var(--line);padding:32px 0;background:var(--pan)}
+details p{margin:12px 0 0;color:var(--mut);font-size:15px}
+
+.final{text-align:center;padding:84px 0 96px}
+.final p{color:var(--mut);font-size:17.5px;max-width:48ch;margin:0 auto 28px}
+.final .trust{justify-content:center}
+footer{border-top:1px solid var(--line);padding:30px 0 96px;background:var(--pan)}
 .foot{display:flex;flex-wrap:wrap;gap:14px;justify-content:space-between;align-items:center;font-size:13px;color:var(--mut)}
-.disc{max-width:60ch;font-size:12px;line-height:1.5}
-@media(max-width:760px){.who,.feat{grid-template-columns:1fr}.stats{grid-template-columns:1fr 1fr}.hero{padding:44px 0 4px}section{padding:44px 0}}
-@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+.disc{max-width:62ch;font-size:12px;line-height:1.5;margin:0}
+
+/* barra fixa no celular */
+.sticky{position:fixed;left:0;right:0;bottom:0;z-index:60;display:none;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:rgba(13,22,24,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line)}
+.sticky .btn{width:100%;padding:14px 18px;font-size:16px}
+.sticky small{display:block;text-align:center;font-size:11.5px;color:var(--mut);margin-top:6px}
+
+@media(max-width:900px){
+  .hero-g,.osce{grid-template-columns:1fr;gap:34px}
+  .feat{grid-template-columns:1fr 1fr}
+  .who{grid-template-columns:1fr 1fr}
+  .float{right:10px}
+}
+@media(max-width:640px){
+  .hero{padding:34px 0 18px}
+  section{padding:48px 0}
+  .stats{grid-template-columns:1fr 1fr}
+  .vs,.steps,.feat,.who{grid-template-columns:1fr}
+  .btns .btn{width:100%}
+  .nav-link{display:none}
+  .sticky{display:block}
+  .sh{margin-bottom:24px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+
 /* preço fundador até 15/10/2026 23:59 (BRT); depois o script troca para o preço novo */
 .so-depois{display:none}
 .pos-corte .so-fundador{display:none!important}
@@ -109,120 +200,196 @@ footer{border-top:1px solid var(--line);padding:32px 0;background:var(--pan)}
 <body>
 <div class="aura"></div>
 <nav><div class="wrap nav-in">
-  <div class="brand"><span class="mark">P</span><span>Preceptor <small>· antes ENAMED Engine</small></span></div>
-  <a class="cta" href="./?app">Entrar</a>
+  <a class="brand" href="#"><span class="mark">P</span><span>Preceptor</span></a>
+  <div class="nav-r">
+    <a class="nav-link" href="#recursos">Recursos</a>
+    <a class="nav-link" href="#preco">Preço</a>
+    <a class="nav-link" href="./?app">Entrar</a>
+    <a class="cta-s" href="./?app">Testar grátis</a>
+  </div>
 </div></nav>
 
 <main>
-<header class="hero"><div class="wrap">
-  <span class="eyebrow"><span class="dot"></span>ESTUDE COM O PRECEPTOR</span>
-  <h1>Estude só o que <em>cai na prova</em> — e acerte mais.</h1>
-  <p class="sub">Do jeito reto: o que a banca cobra na faculdade, nas <b>N2 do internato</b>, no ENAMED, na residência, no ENARE, no SUS-BA e no Revalida. <b>Direto ao ponto</b>, com provas oficiais na íntegra e questão até você dominar.</p>
-  <div class="btns">
-    <a class="btn btn-p" href="./?app">Testar grátis por 24 h →</a>
-    <a class="btn btn-g" href="#preco"><span class="so-fundador">Preço fundador</span><span class="so-depois">Ver preço</span></a>
+<!-- HERO -->
+<header class="hero"><div class="wrap hero-g">
+  <div>
+    <span class="pill-top"><span class="dot"></span><span class="so-fundador">Preço fundador até 15/10 · <span class="faltam">últimos dias</span></span><span class="so-depois">Faculdade, internato, ENAMED, residência e TECM</span></span>
+    <h1>Estude com o Preceptor e alcance sua <em>melhor versão</em>.</h1>
+    <p class="sub">Pare de estudar tudo: estude o que cai. O Preceptor mostra <b>como a banca cobra cada assunto</b>, treina você com <b>mais de 4.200 questões comentadas</b> e monta seu plano da semana a partir dos seus erros. Do internato à residência.</p>
+    <div class="btns">
+      <a class="btn btn-p" href="./?app">Começar meu teste grátis →</a>
+      <a class="btn btn-g" href="#recursos">Ver o que tem dentro</a>
+    </div>
+    <div class="trust"><span>24 h de acesso completo</span><span>Sem cartão</span><span>Pix, sem renovação automática</span></div>
   </div>
-  <div class="note"><b>Teste grátis por 24 h</b> · depois <b><span class="so-fundador">R$ 49,90</span><span class="so-depois">R$ 79,90</span></b> · 6 meses · Pix · sem renovação automática</div>
-  <div class="was">O <b>ENAMED Engine</b> cresceu e virou o Preceptor: mesma plataforma, agora pra todas as provas que importam.</div>
+
+  <div class="mock" aria-hidden="true">
+    <div class="mock-top"><span>CLÍNICA MÉDICA · SEPSE</span><b>3/20</b></div>
+    <div class="q">Idosa com febre, confusão e PA 82×50 após 30 mL/kg de cristaloide. Lactato 4,1. Qual a próxima conduta?</div>
+    <div class="alt"><b>A</b> Repetir o volume e reavaliar em 6 h</div>
+    <div class="alt ok"><b>B</b> Iniciar noradrenalina, alvo de PAM ≥ 65 mmHg</div>
+    <div class="alt"><b>C</b> Aguardar culturas para iniciar antibiótico</div>
+    <div class="cobra"><b>🎯 COMO A PROVA COBRA</b>Hipotensão que não responde ao volume é choque séptico: a banca quer o vasopressor, não mais soro.</div>
+    <div class="float">✓ Acertou · revisão em 3 dias</div>
+  </div>
 </div></header>
 
 <!-- NÚMEROS -->
-<section style="padding-top:36px;padding-bottom:20px"><div class="wrap">
+<section style="padding-top:26px;padding-bottom:30px"><div class="wrap">
   <div class="stats">
-    <div class="st"><div class="n">2.800+</div><div class="l">questões com gabarito comentado</div></div>
-    <div class="st"><div class="n">5</div><div class="l">provas oficiais na íntegra</div></div>
-    <div class="st"><div class="n">7</div><div class="l">simulados ENAMED completos</div></div>
-    <div class="st"><div class="n">50+</div><div class="l">estações OSCE com IA</div></div>
+    <div class="st"><div class="n">4.200+</div><div class="l">questões com gabarito comentado</div></div>
+    <div class="st"><div class="n">140+</div><div class="l">assuntos com aula, ENAMED e TECM</div></div>
+    <div class="st"><div class="n">144</div><div class="l">aulas do internato em 12 disciplinas</div></div>
+    <div class="st"><div class="n">70</div><div class="l">estações de OSCE com IA</div></div>
+  </div>
+</div></section>
+
+<!-- DOR → SOLUÇÃO -->
+<section><div class="wrap">
+  <div class="sh"><div class="kick">O problema</div><h2>Estudar muito não é o mesmo que <em>acertar mais</em>.</h2><p>Resumão de 3 horas, banco de questões sem rumo e a sensação de nunca saber onde está perdendo ponto. O Preceptor foi feito pra cortar isso.</p></div>
+  <div class="vs">
+    <div class="vs-c vs-a"><h3>Sem método</h3><ul>
+      <li><i>✕</i>Lê tudo com o mesmo peso, inclusive o que nunca cai</li>
+      <li><i>✕</i>Erra a questão e não sabe se foi conteúdo ou leitura</li>
+      <li><i>✕</i>Esquece em duas semanas o que estudou</li>
+      <li><i>✕</i>Perde um dia e o cronograma desmorona</li>
+    </ul></div>
+    <div class="vs-c vs-b"><h3>Com o Preceptor</h3><ul>
+      <li><i>✓</i>Aula direta com o bloco "Como a prova cobra" em cada assunto</li>
+      <li><i>✓</i>Caderno de erros que mostra por que você erra e o que refazer</li>
+      <li><i>✓</i>Revisão espaçada que traz o erro de volta no dia certo</li>
+      <li><i>✓</i>Plano da semana que se corrige sozinho quando você falha um dia</li>
+    </ul></div>
+  </div>
+</div></section>
+
+<!-- COMO FUNCIONA -->
+<section class="band"><div class="wrap">
+  <div class="sh c"><div class="kick">Como funciona</div><h2>Três passos. Todo dia.</h2></div>
+  <div class="steps">
+    <div class="step"><div class="num">01 · DIAGNÓSTICO</div><h3>Descubra onde você perde ponto</h3><p>Uma rodada curta de questões mostra seus temas fracos e reorganiza a trilha por eles.</p></div>
+    <div class="step"><div class="num">02 · PLANO</div><h3>Siga o plano da semana</h3><p>Aula, bloco de questões e revisão distribuídos nos seus dias até a prova, sem acumular quando a vida aperta.</p></div>
+    <div class="step"><div class="num">03 · DOMÍNIO</div><h3>Treine até virar automático</h3><p>Questão comentada, Modo Rodízio e revisão espaçada até você marcar a certa sem pensar duas vezes.</p></div>
+  </div>
+</div></section>
+
+<!-- RECURSOS -->
+<section id="recursos"><div class="wrap">
+  <div class="sh c"><div class="kick">O que tem dentro</div><h2>Tudo que você precisa, <em>num lugar só</em>.</h2><p>Teoria, questões, provas oficiais, OSCE e organização, conectados entre si.</p></div>
+  <div class="feat">
+    <div class="f"><span class="fi">📚</span><b>Aula que mostra como cai</b><span>Cada assunto tem aula direta, "Como a prova cobra", perguntas de "Pare e pense", prática e fixação. Dá até pra ouvir.</span></div>
+    <div class="f"><span class="fi">🩺</span><b>Internato por disciplina</b><span>144 aulas nas 12 disciplinas (A e B), as questões originais das N2 dos rodízios e a Super Revisão de cada tema.</span></div>
+    <div class="f"><span class="fi">🏛️</span><b>Provas oficiais na íntegra</b><span>ENAMED, Revalida, ENARE, SUS-BA e TECM com gabarito comentado e anuladas marcadas.</span></div>
+    <div class="f"><span class="fi">⏱️</span><b>Simulados com relatório</b><span>7 simulados ENAMED cronometrados. No fim: acerto por área, temas mais fracos e um botão pra treinar exatamente eles.</span></div>
+    <div class="f"><span class="fi">🏆</span><b>Trilha completa da TECM</b><span>Os 96 tópicos do programa da prova de título de Clínica Médica, com aulas e as questões da prova de 2026.</span></div>
+    <div class="f"><span class="fi">🎯</span><b>Diretrizes atualizadas</b><span>Conteúdo revisado com as diretrizes novas, avisando quando a banca ainda pode cobrar a versão anterior.</span></div>
+    <div class="f"><span class="fi">🔎</span><b>Raio-X da banca</b><span>Quantas vezes o tema já caiu, em que provas, e o ranking do que mais cai. Com dados, não achismo.</span></div>
+    <div class="f"><span class="fi">🏁</span><b>Modo Rodízio</b><span>Sprint por tema que separa seus erros e te faz refazer só o que errou, até dominar.</span></div>
+    <div class="f"><span class="fi">🤖</span><b>IA que tira dúvida</b><span>Reexplica de outro jeito, responde sobre a própria questão, gera questão inédita e resolve por foto.</span></div>
+    <div class="f"><span class="fi">⭐</span><b>Questões marcadas<span class="novo">NOVO</span></b><span>Guarde as difíceis com sua anotação e refaça a lista quando quiser.</span></div>
+    <div class="f"><span class="fi">🔍</span><b>Busca que acha tudo<span class="novo">NOVO</span></b><span>Digite "pancreatite" e veja de uma vez o assunto, a aula, a estação de OSCE e as questões.</span></div>
+    <div class="f"><span class="fi">🍅</span><b>Pomodoro e sons de foco</b><span>Cronômetro de estudo e ruído de fundo dentro do app, pra render sem trocar de aba.</span></div>
+  </div>
+</div></section>
+
+<!-- OSCE -->
+<section class="band"><div class="wrap osce">
+  <div>
+    <div class="kick">OSCE com IA</div>
+    <h2>Treine a prova prática <em>antes da prova prática</em>.</h2>
+    <p class="sub" style="margin-bottom:0">Um paciente simulado responde ao seu atendimento e um examinador corrige o checklist item por item, como no dia.</p>
+    <ul class="checks">
+      <li>70 estações em clínica, cirurgia, GO, pediatria, APS, urgência e TECM</li>
+      <li><span><b>OSCE inédito por tema</b><span class="novo">NOVO</span>: digite o caso que vai cair e a estação é montada na hora</span></li>
+      <li>Feedback do que faltou, pra repetir até fechar o checklist</li>
+    </ul>
+    <a class="btn btn-p" href="./?app">Quero treinar o OSCE →</a>
+  </div>
+  <div class="chat" aria-hidden="true">
+    <div class="mock-top"><span>ESTAÇÃO · DOR TORÁCICA</span><b>⏱ 07:42</b></div>
+    <div class="bub pac"><small>PACIENTE</small>Doutor, a dor começou há 40 minutos, aperta no peito e vai pro braço esquerdo…</div>
+    <div class="bub voc"><small>VOCÊ</small>Vou fazer um ECG agora e medir sua pressão nos dois braços.</div>
+    <div class="bub pac"><small>PACIENTE</small>Tá bom… estou suando muito.</div>
+    <div class="score"><span>Checklist</span><div class="bar"><i></i></div><b>82%</b></div>
   </div>
 </div></section>
 
 <!-- PARA QUEM -->
-<section id="quem" style="padding-top:28px"><div class="wrap">
-  <div class="sh"><div class="kick">Feito para você</div><h2>Onde quer que você esteja na medicina</h2></div>
+<section><div class="wrap">
+  <div class="sh c"><div class="kick">Para quem é</div><h2>Da faculdade à residência</h2></div>
   <div class="who">
-    <div class="card">
-      <div class="ic">🎓</div><div class="for">ESTUDANTE · INTERNATO</div>
-      <h3>Do rodízio à N2</h3>
-      <p>As questões originais das provas N2 dos rodízios do internato, comentadas. Passa na N2 e já chega treinado pro ENAMED.</p>
-    </div>
-    <div class="card">
-      <div class="ic">🩺</div><div class="for">CONCLUINTE · ENAMED</div>
-      <h3>Chegue pronto ao ENAMED</h3>
-      <p>Prova oficial na íntegra, 7 simulados completos cronometrados e diagnóstico que mostra onde você perde ponto — pra corrigir a tempo.</p>
-    </div>
-    <div class="card">
-      <div class="ic">🏥</div><div class="for">MÉDICO FORMADO</div>
-      <h3>Residência, ENARE, SUS-BA e Revalida</h3>
-      <p>As provas que abrem a residência num lugar só — cadernos oficiais completos, inclusive o acesso direto do SUS-BA. E a TECM.</p>
-    </div>
-  </div>
-</div></section>
-
-<!-- O QUE TEM -->
-<section style="background:var(--pan);border-top:1px solid var(--line);border-bottom:1px solid var(--line)"><div class="wrap">
-  <div class="sh"><div class="kick">Por que funciona</div><h2>Cirúrgico pro que a banca cobra</h2><p>Nada de resumão de 3 horas. É o essencial que faz você marcar a certa — e treino até virar automático.</p></div>
-  <div class="feat">
-    <div class="f"><span class="fi">🎯</span><div><b>Só o que cai</b><span>Alto rendimento: a pegadinha da banca, a conduta que ela quer e a âncora no SUS. Você chega sabendo onde ela ataca.</span></div></div>
-    <div class="f"><span class="fi">🏛️</span><div><b>Provas oficiais na íntegra</b><span>ENAMED, Revalida, ENARE, SUS-BA e TECM com gabarito comentado e anuladas marcadas — treine no formato exato do dia da prova.</span></div></div>
-    <div class="f"><span class="fi">🩺</span><div><b>Estações OSCE com IA</b><span>Paciente simulado que responde ao seu atendimento e examinador que pontua cada item. Treine a prática antes da prática.</span></div></div>
-    <div class="f"><span class="fi">🔁</span><div><b>Revisão espaçada + ofensiva diária</b><span>O que você errou volta no dia certo, sozinho. E a ofensiva mantém o ritmo até a prova.</span></div></div>
-    <div class="f"><span class="fi">🏁</span><div><b>Questão até dominar</b><span>Modo Rodízio: sprint por tema que aponta seus erros e te faz refazer só o que errou, até virar automático.</span></div></div>
-    <div class="f"><span class="fi">🤖</span><div><b>IA no seu ritmo</b><span>Travou? Ela reexplica de outro jeito, responde sobre a própria questão, gera questão inédita e resolve por foto.</span></div></div>
-    <div class="f"><span class="fi">🔎</span><div><b>Raio-X da banca e questões-gêmeas</b><span>Em cada questão: quantas vezes a banca já cobrou o tema, em que provas — e o ranking do que mais cai, com dados, não achismo.</span></div></div>
-    <div class="f"><span class="fi">📝</span><div><b>Meta diária e caderno de erros</b><span>Escolha quantas questões por dia, veja "se a prova fosse hoje", marque por que errou e refaça só o que precisa. Com humor de preceptor.</span></div></div>
+    <div class="card"><div class="ic">🎓</div><div class="for">INTERNATO</div><h3>Passe na N2 do rodízio</h3><p>Aulas por disciplina, as questões originais das N2, Super Revisão e OSCE.</p></div>
+    <div class="card"><div class="ic">🩺</div><div class="for">ENAMED</div><h3>Chegue pronto ao ENAMED</h3><p>Prova oficial, 7 simulados com relatório e plano que ataca seus temas fracos.</p></div>
+    <div class="card"><div class="ic">🏥</div><div class="for">RESIDÊNCIA · REVALIDA</div><h3>ENARE, SUS-BA e Revalida</h3><p>Cadernos oficiais completos num lugar só, com gabarito comentado.</p></div>
+    <div class="card"><div class="ic">🏆</div><div class="for">TÍTULO · TECM</div><h3>Título de Clínica Médica</h3><p>Trilha com os 96 tópicos do programa e as questões da prova de 2026.</p></div>
   </div>
 </div></section>
 
 <!-- PREÇO -->
-<section id="preco"><div class="wrap">
-  <div class="sh"><div class="kick">Acesso</div><h2>Um preço. Seis meses. Sem mensalidade.</h2></div>
+<section id="preco" class="band"><div class="wrap">
+  <div class="sh c"><div class="kick">Acesso</div><h2>Menos que um livro. <em>Seis meses de tudo.</em></h2><p>Pagamento único. Sem mensalidade, sem renovação automática, sem pegadinha.</p></div>
   <div class="price">
     <span class="flag"><span class="so-fundador">PREÇO FUNDADOR</span><span class="so-depois">ACESSO COMPLETO</span></span>
     <div class="amt"><span class="so-fundador">R$ 49<span class="c">,90</span></span><span class="so-depois">R$ 79<span class="c">,90</span></span></div>
-    <div class="pnote">pagamento único · 6 meses · menos de <span class="so-fundador">R$ 9</span><span class="so-depois">R$ 14</span>/mês</div>
-    <div class="pnote so-fundador" style="color:var(--gold);font-weight:600;margin-top:-10px">Assine até 15/10/2026 e renove sempre por R$ 49,90 — depois sobe para R$ 79,90 para quem entrar.</div>
+    <div class="pnote">pagamento único · 6 meses · menos de <span class="so-fundador">R$ 9</span><span class="so-depois">R$ 14</span> por mês</div>
+    <div class="urg so-fundador">⏳ Até 15/10: renove sempre por R$ 49,90 · <span class="faltam">últimos dias</span></div>
     <ul class="pl">
-      <li><span class="ck">✓</span> Mais de 2.800 questões com gabarito comentado</li>
-      <li><span class="ck">✓</span> Provas oficiais na íntegra: ENAMED, Revalida, ENARE, SUS-BA e TECM</li>
-      <li><span class="ck">✓</span> Internato: questões originais das provas N2 dos rodízios</li>
-      <li><span class="ck">✓</span> 7 simulados ENAMED completos e cronometrados</li>
-      <li><span class="ck">✓</span> Estações OSCE com paciente e examinador de IA</li>
-      <li><span class="ck">✓</span> Revisão espaçada, ofensiva diária, Modo Rodízio e busca global</li>
-      <li><span class="ck">✓</span> IA: reexplica, tira-dúvida, gera questão e resolve por foto</li>
-      <li><span class="ck">✓</span> Teste grátis de 24 h com acesso completo (IA só no PRO) · +1 mês se assinar durante o teste</li>
-      <li><span class="ck">✓</span> Sem renovação automática, sem pegadinha</li>
+      <li><span class="ck">✓</span>Mais de 4.200 questões com gabarito comentado</li>
+      <li><span class="ck">✓</span>140+ assuntos com aula, "Como a prova cobra" e "Pare e pense"</li>
+      <li><span class="ck">✓</span>Internato: 144 aulas e as questões originais das N2</li>
+      <li><span class="ck">✓</span>Provas oficiais: ENAMED, Revalida, ENARE, SUS-BA e TECM</li>
+      <li><span class="ck">✓</span>7 simulados ENAMED com relatório dos temas fracos</li>
+      <li><span class="ck">✓</span>70 estações de OSCE com IA e OSCE inédito por tema</li>
+      <li><span class="ck">✓</span>Trilha TECM com os 96 tópicos do programa</li>
+      <li><span class="ck">✓</span>Plano da semana, revisão espaçada, caderno de erros e IA tira-dúvida</li>
     </ul>
-    <a class="btn btn-p" href="./?app"><span class="so-fundador">Quero ser aluno fundador →</span><span class="so-depois">Quero assinar →</span></a>
-    <p class="micro">Pix, liberação na hora. Dá pra testar grátis por 24 h antes. Cancelar? Nem precisa — é pagamento único.</p>
+    <a class="btn btn-p" href="./?app"><span class="so-fundador">Garantir o preço fundador →</span><span class="so-depois">Começar agora →</span></a>
+    <p class="micro">Comece pelo teste grátis de 24 h. Gostou? Pague por Pix e a liberação é na hora. Quem assina durante o teste ganha +1 mês.</p>
   </div>
 </div></section>
 
 <!-- FAQ -->
-<section style="padding-top:8px"><div class="wrap">
-  <div class="sh"><div class="kick">Perguntas</div><h2>Rápidas</h2></div>
+<section><div class="wrap">
+  <div class="sh c"><div class="kick">Dúvidas</div><h2>Perguntas rápidas</h2></div>
   <div class="faq">
-    <details open><summary>Serve pra qual etapa?</summary><p>Da graduação ao internato (com as N2 dos rodízios), ENAMED, residência, ENARE, SUS-BA, Revalida e TECM. É pensada pra te acompanhar da faculdade até a residência.</p></details>
-    <details><summary>Era o ENAMED Engine?</summary><p>Sim. O ENAMED Engine nasceu focado no ENAMED e cresceu tanto — internato, ENARE, SUS-BA, Revalida, TECM, OSCE — que ganhou um nome à altura: Preceptor. Mesma conta, mesmo progresso, muito mais conteúdo.</p></details>
-    <details class="so-fundador"><summary>O que é aluno fundador?</summary><p>Quem assina até 15/10/2026 trava o preço de R$ 49,90 por 6 meses em todas as renovações, para sempre — mesmo depois do reajuste (R$ 79,90 para quem entrar depois). Renovando antes de vencer, os dias que restam são somados. É o nosso obrigado a quem confiou no começo.</p></details>
-    <details><summary>Como funciona o teste grátis?</summary><p>Ao criar a conta você tem 24 horas de acesso completo a questões, provas oficiais, simulados, guias e progresso. Só a IA (tira-dúvida, OSCE com paciente simulado, gerar questão, resolver por foto) fica para o PRO. Quem assina durante o teste ganha +1 mês.</p></details>
-    <details><summary>Como é o pagamento?</summary><p>Pagamento único de <span class="so-fundador">R$ 49,90</span><span class="so-depois">R$ 79,90</span> por 6 meses de acesso completo, via Pix, com liberação automática. Sem mensalidade nem renovação automática. Dá pra testar grátis por 24 h antes.</p></details>
-    <details><summary>As provas oficiais são completas?</summary><p>Sim — cadernos oficiais na íntegra (conteúdo público do INEP e das bancas, como a ABAEM no SUS-BA), com gabarito comentado e questões anuladas marcadas. Ferramenta educacional independente, sem vínculo com INEP, MEC ou qualquer banca.</p></details>
-    <details><summary>Funciona no celular?</summary><p>Sim, no celular, tablet e computador — dá pra instalar como app, e o progresso fica salvo na sua conta.</p></details>
+    <details open><summary>Como funciona o teste grátis?</summary><p>Ao criar a conta você tem 24 horas de acesso completo a questões, aulas, provas oficiais, simulados e plano de estudo, sem cadastrar cartão. Os recursos com IA (tira-dúvida, OSCE, gerar questão e resolver por foto) ficam no plano pago. Quem assina durante o teste ganha +1 mês.</p></details>
+    <details><summary>Tem teoria ou só questões?</summary><p>Os dois. São mais de 140 assuntos com aula direta, o bloco "Como a prova cobra", perguntas de "Pare e pense", prática e fixação, além de 144 aulas do internato por disciplina.</p></details>
+    <details><summary>Serve pra qual etapa?</summary><p>Faculdade e internato (com as N2 dos rodízios), ENAMED, residência, ENARE, SUS-BA, Revalida e a prova de título de Clínica Médica (TECM).</p></details>
+    <details><summary>Como funciona o OSCE com IA?</summary><p>Você escolhe uma das 70 estações, ou digita um tema e a plataforma cria uma estação inédita na hora. O paciente simulado responde ao seu atendimento e, no fim, o examinador corrige o checklist item por item, com feedback.</p></details>
+    <details class="so-fundador"><summary>O que é o preço fundador?</summary><p>Quem assina até 15/10/2026 paga R$ 49,90 por 6 meses e mantém esse valor em todas as renovações, mesmo depois do reajuste para R$ 79,90. Renovando antes de vencer, os dias que restam são somados.</p></details>
+    <details><summary>Como é o pagamento?</summary><p>Pagamento único de <span class="so-fundador">R$ 49,90</span><span class="so-depois">R$ 79,90</span> por 6 meses, via Pix, com liberação automática. Sem mensalidade e sem renovação automática.</p></details>
+    <details><summary>As provas oficiais são completas?</summary><p>Sim: cadernos oficiais na íntegra (conteúdo público do INEP e das bancas), com gabarito comentado e questões anuladas marcadas.</p></details>
+    <details><summary>Funciona no celular?</summary><p>Sim, no celular, tablet e computador. Dá pra instalar como app, e o progresso fica salvo na sua conta e sincroniza entre aparelhos.</p></details>
   </div>
 </div></section>
 
+<!-- CTA FINAL -->
 <section class="final"><div class="wrap">
-  <h2 class="so-fundador">A janela de aluno fundador <em>está aberta</em>.</h2>
-  <p class="so-fundador">Teste grátis por 24 h. Se fizer sentido, trave R$ 49,90 para sempre até 15/10/2026.</p>
-  <h2 class="so-depois">Comece hoje e <em>acerte mais</em>.</h2>
-  <p class="so-depois">Teste grátis por 24 h. Se fizer sentido, R$ 79,90 por 6 meses, pagamento único via Pix.</p>
-  <a class="btn btn-p" href="./?app">Testar grátis agora →</a>
+  <h2>Sua <em>melhor versão</em> começa hoje.</h2>
+  <p>Crie sua conta em 30 segundos e use tudo por 24 h. Se fizer sentido, <span class="so-fundador">trave R$ 49,90 até 15/10</span><span class="so-depois">são R$ 79,90 por 6 meses</span>.</p>
+  <a class="btn btn-p" href="./?app">Começar meu teste grátis →</a>
+  <div class="trust"><span>Sem cartão</span><span>Pix</span><span>Sem renovação automática</span></div>
 </div></section>
 </main>
 
 <footer><div class="wrap foot">
-  <div class="brand"><span class="mark">P</span><span>Preceptor</span></div>
+  <a class="brand" href="#"><span class="mark">P</span><span>Preceptor</span></a>
   <p class="disc">Ferramenta educacional independente, sem vínculo, afiliação ou endosso do INEP, do MEC, de qualquer banca examinadora ou instituição de ensino. Conteúdo de finalidade exclusivamente educacional. Não substitui orientação médica.</p>
 </div></footer>
+
+<div class="sticky">
+  <a class="btn btn-p" href="./?app">Testar grátis por 24 h →</a>
+  <small><span class="so-fundador">Preço fundador R$ 49,90 até 15/10</span><span class="so-depois">R$ 79,90 · 6 meses · Pix</span></small>
+</div>
+
+<script>
+/* contagem regressiva do preço fundador */
+(function(){ try{
+  var fim=new Date("2026-10-15T23:59:59-03:00").getTime(), ms=fim-Date.now(); if(ms<=0) return;
+  var d=Math.floor(ms/86400000), h=Math.floor(ms%86400000/3600000);
+  var t=d>=2?("faltam "+d+" dias"):d===1?("falta 1 dia e "+h+" h"):("últimas "+Math.max(1,h)+" h");
+  var els=document.querySelectorAll(".faltam"); for(var i=0;i<els.length;i++) els[i].textContent=t;
+}catch(e){} })();
+</script>
 </body>
 </html>
