@@ -6917,7 +6917,7 @@ function OSCE({onVoltar}){
           <div style={{fontWeight:700,fontSize:15.5}}>{c.titulo}</div>
           <div className="muted" style={{fontSize:12.5,margin:"6px 0 12px",lineHeight:1.5}}>{c.cenario}</div>
           <div className="row" style={{justifyContent:"space-between"}}>
-            <span className="pill" style={{color:c.cor,borderColor:c.cor}}>{c.etapas.length} etapas · {c.duracao}{c.exames?" · 🩻":""}</span>
+            <span className="pill" style={{color:c.cor,borderColor:c.cor}}>{c.etapas.length} etapas · {c.duracao}{c.exames?" · 🩻":""}{(window.OSCE_AULAS||{})[c.id]?" · 🧠":""}</span>
             {(()=>{ const e=estudoDaEstacao(c); return e ? <span className="link" style={{fontSize:12}} onClick={ev=>{ ev.stopPropagation(); abrirAssuntoTECM(e.id); }}>📚 Estudar</span> : null; })()}
             <span className="muted" style={{fontSize:12}}>Iniciar →</span>
           </div>
@@ -6932,8 +6932,21 @@ function OSCE({onVoltar}){
 function urlCommons(arquivo,largura){ return "https://commons.wikimedia.org/wiki/Special:FilePath/"+encodeURIComponent(arquivo)+"?width="+(largura||900); }
 function paginaCommons(arquivo){ return "https://commons.wikimedia.org/wiki/File:"+encodeURIComponent(String(arquivo).replace(/ /g,"_")); }
 /* O aluno pediu raio-X ou gasometria? (só mostra o resultado quando ele pede, como no OSCE real) */
-function examesPedidos(txt){ const t=String(txt||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
-  return { rx:/radiograf|raio[\s-]*x|\brx\b|rx de torax|rx do torax|chest/.test(t), gaso:/gasometr|\bgaso\b|\bgasos\b/.test(t) }; }
+function normExame(txt){ return String(txt||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,""); }
+function examesPedidos(txt){ const t=normExame(txt);
+  return { rx:/radiograf|raio[\s-]*x|\brx\b|rx de torax|rx do torax|chest/.test(t), gaso:/gasometr|\bgaso\b|\bgasos\b/.test(t),
+    ecg:/\becg\b|eletrocardiogra|\beletro\b/.test(t) }; }
+function labPedido(lab,txt){ try{ return new RegExp(lab.gatilho,"i").test(normExame(txt)); }catch(e){ return false; } }
+/* Imagens reais de ECG (Wikimedia Commons, licença livre) por achado; sem imagem, vale o laudo. */
+const ECG_IMG={
+  stemi_anterior:{arquivo:"12 Lead EKG ST Elevation tracing only.jpg",anotada:"12 Lead EKG ST Elevation tracing color coded.jpg",credito:"Wikimedia Commons (domínio público)"},
+  stemi_inferior:{arquivo:"12 lead generated inferior MI.JPG",credito:"Glenlarson · Wikimedia Commons"},
+  fa_rvr:{arquivo:"Afib ecg (CardioNetworks ECGpedia).jpg",credito:"CardioNetworks ECGpedia · Wikimedia Commons (CC BY-SA)"},
+  bav_total:{arquivo:"CompleteHeartBlock.jpg",credito:"James Heilman, MD · Wikimedia Commons (CC BY-SA)"},
+  hipercalemia_t_apiculada:{arquivo:"Hyperkalemia ECG.jpg",credito:"M. J. Agbayani e E. Gonzales · Wikimedia Commons"},
+  tv:{arquivo:"Electrocardiogram of Ventricular Tachycardia.png",credito:"Karthik Sheka, MD · Wikimedia Commons (CC BY-SA 2.5)"},
+  tsv:{arquivo:"SVT Lead II-2.JPG",credito:"Wikimedia Commons (domínio público)"},
+};
 function ExameRX({rx,gabarito}){
   const [laudo,setLaudo]=useState(!!gabarito);
   const [falhou,setFalhou]=useState(false);
@@ -6964,13 +6977,67 @@ function ExameGaso({gaso,gabarito}){
       : <button className="btn ghost sm" style={{marginTop:8}} onClick={()=>setVer(true)}>Interpretei — ver a interpretação</button>)}
   </div>;
 }
+function ExameLab({lab,gabarito}){
+  const [ver,setVer]=useState(!!gabarito);
+  return <div>
+    <div className="tag" style={{color:"var(--acc)",marginBottom:6}}>🧪 {String(lab.titulo||"Exames").toUpperCase()}{lab.contexto?" · "+String(lab.contexto).toUpperCase():""}</div>
+    <table style={{width:"100%",maxWidth:460,borderCollapse:"collapse",fontSize:14}}>
+      <thead><tr><th style={{textAlign:"left",padding:"4px 6px"}} className="muted">Exame</th><th style={{textAlign:"left",padding:"4px 6px"}}>Resultado</th><th style={{textAlign:"left",padding:"4px 6px"}} className="muted">Referência</th></tr></thead>
+      <tbody>{(lab.valores||[]).map(([p,v,r,alt],k)=><tr key={k} style={{borderTop:"1px solid var(--line)"}}>
+        <td style={{padding:"5px 6px"}}>{p}</td><td style={{padding:"5px 6px",fontWeight:700,fontFamily:"var(--mono)",color:alt?"var(--bad)":"inherit"}}>{v}</td><td style={{padding:"5px 6px"}} className="muted">{r}</td></tr>)}</tbody>
+    </table>
+    {lab.interpretacao && (ver
+      ? <div className="block b-metodo" style={{marginTop:10,fontSize:14,lineHeight:1.55}}><b>Interpretação:</b> {lab.interpretacao}</div>
+      : <button className="btn ghost sm" style={{marginTop:8}} onClick={()=>setVer(true)}>Interpretei — ver a interpretação</button>)}
+  </div>;
+}
+function ExameECG({ecg,gabarito}){
+  const img=ECG_IMG[ecg.achado]||null;
+  const [laudo,setLaudo]=useState(!!gabarito||!img);
+  const [falhou,setFalhou]=useState(false);
+  const arq=img?(gabarito&&img.anotada?img.anotada:img.arquivo):null;
+  return <div>
+    <div className="tag" style={{color:"var(--acc)",marginBottom:6}}>📈 ELETROCARDIOGRAMA{gabarito&&img&&img.anotada?" · ANOTADO":""}</div>
+    {arq && !falhou && <a href={paginaCommons(arq)} target="_blank" rel="noopener noreferrer">
+      <img src={urlCommons(arq,1200)} alt="Eletrocardiograma" loading="lazy" onError={()=>setFalhou(true)}
+        style={{width:"100%",display:"block",borderRadius:10,background:"#fff",border:"1px solid var(--line)"}}/></a>}
+    {arq && !falhou && <div className="muted" style={{fontSize:11,marginTop:4}}>Traçado ilustrativo do achado · {img.credito} · toque para ampliar</div>}
+    {(!arq||falhou) && <div className="muted" style={{fontSize:12.5,margin:"4px 0"}}>{arq?"Não consegui carregar o traçado agora. Laudo abaixo.":"Laudo do ECG:"}</div>}
+    {laudo ? <div style={{fontSize:14,lineHeight:1.55,marginTop:8}}><b>Laudo:</b> {ecg.laudo}</div>
+      : <button className="btn ghost sm" style={{marginTop:8}} onClick={()=>setLaudo(true)}>Interpretei — ver o laudo</button>}
+  </div>;
+}
 function ExamesDaEstacao({caso}){
   const ex=caso.exames; if(!ex) return null;
+  const blocos=[];
+  if(ex.rx) blocos.push(<ExameRX key="rx" rx={ex.rx} gabarito/>);
+  if(ex.gaso) blocos.push(<ExameGaso key="gaso" gaso={ex.gaso} gabarito/>);
+  if(ex.ecg) blocos.push(<ExameECG key="ecg" ecg={ex.ecg} gabarito/>);
+  (ex.labs||[]).forEach((l,k)=>blocos.push(<ExameLab key={"l"+k} lab={l} gabarito/>));
+  if(!blocos.length) return null;
   return <div className="card" style={{marginBottom:12}}>
     <div className="tag" style={{color:"var(--acc)",marginBottom:10}}>📎 EXAMES DA ESTAÇÃO (GABARITO)</div>
-    {ex.rx && <ExameRX rx={ex.rx} gabarito/>}
-    {ex.rx && ex.gaso && <div style={{height:16}}/>}
-    {ex.gaso && <ExameGaso gaso={ex.gaso} gabarito/>}
+    {blocos.map((b,k)=><div key={k} style={{marginTop:k?18:0}}>{b}</div>)}
+  </div>;
+}
+/* Aula de raciocínio clínico + pegadinhas + falas que pontuam (preparo da estação). */
+function PreparoOSCE({caso,aberto:ini}){
+  const a=(window.OSCE_AULAS||{})[caso.id];
+  const [aberto,setAberto]=useState(!!ini);
+  if(!a) return null;
+  return <div className="card" style={{marginBottom:12,borderColor:"var(--acc)"}}>
+    <div className="row" style={{justifyContent:"space-between",alignItems:"center",cursor:"pointer",gap:10}} onClick={()=>setAberto(x=>!x)}>
+      <div><div className="tag" style={{color:"var(--acc)"}}>🧠 AULA DE RACIOCÍNIO CLÍNICO</div>
+        <div className="muted" style={{fontSize:12.5,marginTop:3}}>Como pensar nesta estação, as pegadinhas que mais caem e o que falar para pontuar.</div></div>
+      <span className="muted">{aberto?"▲":"▼"}</span>
+    </div>
+    {aberto && <div style={{marginTop:12}}>
+      {(a.raciocinio||[]).map((p,k)=><p key={k} style={{fontSize:14.5,lineHeight:1.65,margin:"0 0 10px"}}>{htmlAula(p)}</p>)}
+      {(a.pegadinhas||[]).length>0 && <div className="b-pega block" style={{marginTop:6}}><b>⚠️ Pegadinhas que mais caem:</b>
+        <ul style={{margin:"6px 0 0 18px",padding:0}}>{a.pegadinhas.map((t,k)=><li key={k} style={{marginBottom:4,fontSize:14}}>{htmlAula(t)}</li>)}</ul></div>}
+      {(a.falas||[]).length>0 && <div className="block b-metodo" style={{marginTop:10}}><b>🗣️ Fale em voz alta (é o que pontua):</b>
+        <ul style={{margin:"6px 0 0 18px",padding:0}}>{a.falas.map((t,k)=><li key={k} style={{marginBottom:4,fontSize:14}}>"{t}"</li>)}</ul></div>}
+    </div>}
   </div>;
 }
 /* Atendimento-modelo: um OSCE "nota 10" escrito a partir do checklist e da verdade clínica do caso.
@@ -7120,6 +7187,8 @@ function OSCEEstacao({caso, onVoltar}){
         const jaTem=t=>out.some(x=>x.de==="exame"&&x.tipo===t);
         if(ped.rx&&ex.rx&&!jaTem("rx")) out.push({de:"exame",tipo:"rx",txt:"[Resultado da radiografia exibido ao aluno]"});
         if(ped.gaso&&ex.gaso&&!jaTem("gaso")) out.push({de:"exame",tipo:"gaso",txt:"[Resultado da gasometria exibido ao aluno]"});
+        if(ped.ecg&&ex.ecg&&!jaTem("ecg")) out.push({de:"exame",tipo:"ecg",txt:"[ECG exibido ao aluno]"});
+        (ex.labs||[]).forEach((l,k)=>{ if(labPedido(l,q)&&!jaTem("lab"+k)) out.push({de:"exame",tipo:"lab"+k,txt:"[Resultado exibido: "+l.titulo+"]"}); });
         return out; });
     }catch(e){ setMsgs(m=>[...m,{de:"paciente",txt:"(Não consegui responder agora: "+e.message+")"}]); }
     setCarregando(false);
@@ -7228,6 +7297,7 @@ function OSCEEstacao({caso, onVoltar}){
           <div style={{fontSize:14,lineHeight:1.55,whiteSpace:"pre-wrap"}}>{resultado.feedback}</div>
         </div>}
       <ExamesDaEstacao caso={caso}/>
+      <PreparoOSCE caso={caso} aberto/>
       <AtendimentoModelo caso={caso}/>
       {(()=>{ const e=estudoDaEstacao(caso); return e ? <div className="card" style={{marginBottom:12}}>
         <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
@@ -7262,15 +7332,17 @@ function OSCEEstacao({caso, onVoltar}){
       <div className="muted" style={{fontSize:12.5,marginTop:8}}>
         Converse com o paciente como no OSCE real: faça a anamnese, peça o exame físico e os exames que julgar necessários. Ao terminar, encerre para o examinador corrigir.
       </div>
-      {caso.exames && <div className="muted" style={{fontSize:12.5,marginTop:6}}>🩻 Nesta estação, quando você pedir radiografia ou gasometria, o resultado aparece na tela para você interpretar.</div>}
+      {caso.exames && <div className="muted" style={{fontSize:12.5,marginTop:6}}>🩻 Nesta estação, os exames que você pedir aparecem na tela para você interpretar.</div>}
     </div>
 
+    {msgs.length===0 && <PreparoOSCE caso={caso}/>}
     <div className="card" style={{marginBottom:12}}>
       {msgs.length===0 &&
         <div className="muted" style={{fontSize:13.5}}>Comece se apresentando e iniciando a anamnese. Ex.: "Bom dia, sou o médico. O que trouxe o(a) senhor(a) aqui hoje?"</div>}
       {msgs.map((m,idx)=> m.de==="exame"
         ? <div key={idx} className="block" style={{marginTop:idx?10:0,borderLeft:"3px solid var(--warn)"}}>
-            {m.tipo==="rx"?<ExameRX rx={caso.exames.rx}/>:<ExameGaso gaso={caso.exames.gaso}/>}
+            {m.tipo==="rx"?<ExameRX rx={caso.exames.rx}/>:m.tipo==="gaso"?<ExameGaso gaso={caso.exames.gaso}/>:m.tipo==="ecg"?<ExameECG ecg={caso.exames.ecg}/>
+              :<ExameLab lab={(caso.exames.labs||[])[Number(String(m.tipo).slice(3))]||{titulo:"Exame",valores:[]}}/>}
           </div>
         : <div key={idx} className="block" style={{marginTop:idx?10:0,
           background:m.de==="aluno"?"var(--panel2)":"color-mix(in srgb, var(--acc) 10%, var(--panel))",
