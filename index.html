@@ -33,7 +33,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.12.3";
+  window.APP_VERSION="2026.10.12.4";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -7152,6 +7152,11 @@ function GuiaOSCE({area}){
 }
 
 /* ---- OSCE por voz: o paciente fala (síntese do navegador) e o aluno fala (reconhecimento pt-BR) ---- */
+const EH_IOS=(()=>{ try{ return /iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1); }catch(e){ return false; } })();
+const EH_APP_INSTALADO=(()=>{ try{ return !!(navigator.standalone||window.matchMedia("(display-mode: standalone)").matches); }catch(e){ return false; } })();
+/* iPhone só deixa o site falar se a 1ª fala nascer de um toque: "destrava" a voz no clique */
+let __ttsDestravado=false;
+function destravarVoz(){ if(__ttsDestravado) return; try{ const u=new SpeechSynthesisUtterance(" "); u.volume=0; u.lang="pt-BR"; window.speechSynthesis.speak(u); __ttsDestravado=true; }catch(e){} }
 function reconhecedorVoz(){ try{ return window.SpeechRecognition||window.webkitSpeechRecognition||null; }catch(e){ return null; } }
 function vozPacienteCfg(caso){ const c=normExame(caso.cenario||"");
   /* pediatria: quem responde é a mãe; senão, pelo sexo do paciente no cenário */
@@ -7180,28 +7185,45 @@ function OSCEEstacao({caso, onVoltar}){
   const recRef=useRef(null); const conversaRef=useRef(false); const enviarRef=useRef(null);
   useEffect(()=>{ conversaRef.current=conversaVoz; },[conversaVoz]);
   useEffect(()=>()=>{ try{ recRef.current&&recRef.current.abort(); }catch(e){} try{ window.speechSynthesis.cancel(); }catch(e){} },[]);
-  const setVoz=v=>{ setVozOn(v); try{ PLS.set("preceptor_osce_voz",v?"1":"0"); }catch(e){} if(!v){ try{ window.speechSynthesis.cancel(); }catch(e){} setFalando(false); } };
+  const setVoz=v=>{ if(v) destravarVoz(); setVozOn(v); try{ PLS.set("preceptor_osce_voz",v?"1":"0"); }catch(e){} if(!v){ try{ window.speechSynthesis.cancel(); }catch(e){} setFalando(false); } };
   /* ouvir o aluno: transcreve ao vivo na caixa; encerra após ~2 s de silêncio.
      autoEnviar: no modo conversa, manda a fala sozinha ao terminar. */
+  const [avisoVoz,setAvisoVoz]=useState("");
+  const avisoMicNegado=()=>EH_IOS
+    ? (EH_APP_INSTALADO
+        ? "No app instalado na tela inicial, o iPhone pode bloquear o microfone do site. Abra o Preceptor pelo Safari, ou toque na caixa de texto e use o 🎤 do teclado do iPhone."
+        : "O iPhone bloqueou o microfone. Em Ajustes → Safari → Microfone, escolha Permitir; e em Ajustes → Geral → Teclado, ative o Ditado. Ou toque na caixa de texto e use o 🎤 do teclado.")
+    : "Permita o uso do microfone (cadeado na barra de endereço) para falar com o paciente.";
+  /* ouvir o aluno: transcreve ao vivo na caixa; encerra após ~2 s de silêncio.
+     autoEnviar: no modo conversa, manda a fala sozinha ao terminar.
+     No iPhone o modo contínuo duplica/corta o texto: lá usa uma frase por vez. */
   const ouvir=(autoEnviar)=>{
     if(!Rec) return; try{ recRef.current&&recRef.current.abort(); }catch(e){}
-    try{ window.speechSynthesis.cancel(); }catch(e){} setFalando(false);
-    const r=new Rec(); r.lang="pt-BR"; r.continuous=true; r.interimResults=true;
-    let finalTxt="", parcial="", timer=null;
+    try{ window.speechSynthesis.cancel(); }catch(e){} setFalando(false); setAvisoVoz("");
+    let r; try{ r=new Rec(); }catch(e){ setAvisoVoz(avisoMicNegado()); setConversaVoz(false); return; }
+    r.lang="pt-BR"; r.continuous=!EH_IOS; r.interimResults=true; try{ r.maxAlternatives=1; }catch(e){}
+    let texto="", timer=null, teveResultado=false, acabou=false;
     const base=autoEnviar?"":(document.querySelector("textarea[data-osce]")||{}).value||"";
-    const mostrar=()=>setEntrada(((base?base.trim()+" ":"")+finalTxt+parcial).trim());
-    const silencio=()=>{ clearTimeout(timer); timer=setTimeout(()=>{ try{ r.stop(); }catch(e){} },2200); };
-    r.onresult=e=>{ parcial=""; for(let i=e.resultIndex;i<e.results.length;i++){ const t=e.results[i][0].transcript; if(e.results[i].isFinal) finalTxt+=t+" "; else parcial+=t; } mostrar(); silencio(); };
-    r.onerror=e=>{ if(e.error==="not-allowed"||e.error==="service-not-allowed"){ alert("Permita o uso do microfone para falar com o paciente."); setConversaVoz(false); } };
-    r.onend=()=>{ clearTimeout(timer); setOuvindo(false); recRef.current=null;
-      const fala=((base?base.trim()+" ":"")+finalTxt+parcial).trim();
-      if(autoEnviar&&conversaRef.current){ if(fala) enviarRef.current&&enviarRef.current(fala); else setConversaVoz(false); } };
-    recRef.current=r; setOuvindo(true); silencio();
-    try{ r.start(); }catch(e){ setOuvindo(false); }
+    const junto=()=>((base?base.trim()+" ":"")+texto).trim();
+    const silencio=(ms)=>{ clearTimeout(timer); timer=setTimeout(()=>{ try{ r.stop(); }catch(e){} setTimeout(()=>{ if(!acabou) fim(); },1500); },ms); };
+    /* reconstrói o texto a partir de todos os resultados (evita repetir trechos no Safari) */
+    r.onresult=e=>{ teveResultado=true; let t=""; for(let i=0;i<e.results.length;i++) t+=e.results[i][0].transcript+(e.results[i].isFinal?" ":"");
+      texto=t.replace(/\s+/g," ").trim(); setEntrada(junto()); silencio(2200); };
+    r.onerror=e=>{ const er=e&&e.error;
+      if(er==="not-allowed"||er==="service-not-allowed"){ setAvisoVoz(avisoMicNegado()); setConversaVoz(false); conversaRef.current=false; }
+      else if(er==="no-speech"){ setAvisoVoz("Não ouvi nada. Toque de novo e fale mais perto do microfone."); }
+      else if(er==="audio-capture"){ setAvisoVoz("Não encontrei o microfone do aparelho."); setConversaVoz(false); conversaRef.current=false; }
+      else if(er==="network"){ setAvisoVoz("O reconhecimento de voz precisa de internet."); } };
+    const fim=()=>{ if(acabou) return; acabou=true; clearTimeout(timer); setOuvindo(false); recRef.current=null;
+      const fala=junto();
+      if(autoEnviar&&conversaRef.current){ if(fala) enviarRef.current&&enviarRef.current(fala); else { setConversaVoz(false); conversaRef.current=false; } } };
+    r.onend=fim;
+    recRef.current=r; setOuvindo(true); silencio(EH_IOS?7000:9000); /* ninguém falou: desiste */
+    try{ r.start(); }catch(e){ acabou=true; setOuvindo(false); setAvisoVoz(avisoMicNegado()); setConversaVoz(false); }
   };
   const pararOuvir=()=>{ try{ recRef.current&&recRef.current.stop(); }catch(e){} };
   const alternarConversa=()=>{ if(conversaVoz){ setConversaVoz(false); try{ recRef.current&&recRef.current.abort(); }catch(e){} try{ window.speechSynthesis.cancel(); }catch(e){} setFalando(false); return; }
-    setConversaVoz(true); conversaRef.current=true; setVoz(true); ouvir(true); };
+    destravarVoz(); setConversaVoz(true); conversaRef.current=true; setVoz(true); ouvir(true); };
   const [msgs,setMsgs]=useState([]);      // [{de:'aluno'|'paciente', txt}]
   const [entrada,setEntrada]=useState("");
   const [carregando,setCarregando]=useState(false);
@@ -7423,13 +7445,14 @@ function OSCEEstacao({caso, onVoltar}){
       {temTTS && <button className={"btn sm"+(vozOn?"":" ghost")} onClick={()=>setVoz(!vozOn)}>{vozOn?"🔊 Paciente fala":"🔇 Paciente em texto"}</button>}
       <span className="muted" style={{fontSize:12}}>{ouvindo?"🎙️ Ouvindo… fale e faça uma pausa":falando?"🔊 Paciente falando…":carregando&&conversaVoz?"Paciente pensando…":conversaVoz?"Conversa por voz ligada":""}</span>
     </div>}
-    {!Rec && temTTS && <div className="muted" style={{fontSize:11.5,marginBottom:6}}>Para falar com o paciente por voz, use o Chrome, o Edge ou o Safari.</div>}
+    {avisoVoz && <div style={{fontSize:12.5,marginBottom:8,color:"var(--warn)",lineHeight:1.45}}>⚠️ {avisoVoz}</div>}
+    {!Rec && temTTS && <div className="muted" style={{fontSize:11.5,marginBottom:6}}>{EH_IOS?"Para falar com o paciente, toque na caixa de texto e use o 🎤 do teclado do iPhone; ligue \"🔊 Paciente fala\" para ouvir a resposta.":"Para falar com o paciente por voz, use o Chrome, o Edge ou o Safari."}</div>}
     <textarea data-osce="1" rows={2} value={entrada} onChange={e=>setEntrada(e.target.value)}
       placeholder='Pergunte ao paciente, peça exame físico ("vou palpar o abdome") ou exames ("solicito TC de abdome")…'
       onKeyDown={e=>{ if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)) enviar(); }}/>
     <div className="row" style={{marginTop:8,justifyContent:"space-between"}}>
       <div className="row" style={{gap:8}}>
-        <button className="btn" disabled={carregando||!entrada.trim()} onClick={enviar}>Enviar</button>
+        <button className="btn" disabled={carregando||!entrada.trim()} onClick={()=>{ if(vozOn) destravarVoz(); enviar(); }}>Enviar</button>
         <span className="muted" style={{fontSize:12}}>Ctrl/Cmd+Enter</span>
       </div>
       <button className="btn ghost" disabled={carregando||msgs.length===0} onClick={encerrar}>Encerrar e corrigir ✓</button>
