@@ -33,7 +33,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.12.2";
+  window.APP_VERSION="2026.10.12.3";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -7151,8 +7151,57 @@ function GuiaOSCE({area}){
   </div>;
 }
 
+/* ---- OSCE por voz: o paciente fala (síntese do navegador) e o aluno fala (reconhecimento pt-BR) ---- */
+function reconhecedorVoz(){ try{ return window.SpeechRecognition||window.webkitSpeechRecognition||null; }catch(e){ return null; } }
+function vozPacienteCfg(caso){ const c=normExame(caso.cenario||"");
+  /* pediatria: quem responde é a mãe; senão, pelo sexo do paciente no cenário */
+  const fem=/\b(mulher|gestante|primigesta|secundigesta|puerpera|menina|senhora|paciente do sexo feminino|mae)\b|\bG\d/i.test(c)||/^(lactente|crianca|menino|menina|rn|recem|escolar|pre-escolar|adolescente)/.test(c)||/\bpediatr/.test(c);
+  const idoso=/\b([6-9]\d) anos/.test(c);
+  return {pitch:fem?1.12:0.88, rate:idoso?0.95:1.04}; }
+function falarPaciente(txt,caso,aoTerminar){ try{
+  if(!("speechSynthesis" in window)){ aoTerminar&&aoTerminar(); return; }
+  const limpo=String(txt||"").replace(/[*_#>`]/g,"").replace(/\s+/g," ").trim(); if(!limpo){ aoTerminar&&aoTerminar(); return; }
+  window.speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(limpo); const v=escolherVoz(); if(v){ u.voice=v; u.lang=v.lang; } else u.lang="pt-BR";
+  const cfg=vozPacienteCfg(caso); u.pitch=cfg.pitch; u.rate=cfg.rate;
+  let fim=false; const acabar=()=>{ if(fim) return; fim=true; aoTerminar&&aoTerminar(); };
+  u.onend=acabar; u.onerror=acabar;
+  /* alguns navegadores não disparam onend: libera o microfone após o tempo estimado da fala */
+  setTimeout(acabar, 2500+limpo.length*90);
+  setTimeout(()=>{ try{ window.speechSynthesis.speak(u); }catch(e){ acabar(); } },60);
+}catch(e){ aoTerminar&&aoTerminar(); } }
 function OSCEEstacao({caso, onVoltar}){
   const workerOk = !WORKER_URL.startsWith("COLE_");
+  const Rec=reconhecedorVoz(); const temTTS=typeof window!=="undefined"&&"speechSynthesis" in window;
+  const [vozOn,setVozOn]=useState(()=>{ try{ return PLS.get("preceptor_osce_voz")==="1"; }catch(e){ return false; } }); // paciente fala
+  const [conversaVoz,setConversaVoz]=useState(false); // mãos livres: fala → envia → paciente responde → microfone reabre
+  const [ouvindo,setOuvindo]=useState(false);
+  const [falando,setFalando]=useState(false);
+  const recRef=useRef(null); const conversaRef=useRef(false); const enviarRef=useRef(null);
+  useEffect(()=>{ conversaRef.current=conversaVoz; },[conversaVoz]);
+  useEffect(()=>()=>{ try{ recRef.current&&recRef.current.abort(); }catch(e){} try{ window.speechSynthesis.cancel(); }catch(e){} },[]);
+  const setVoz=v=>{ setVozOn(v); try{ PLS.set("preceptor_osce_voz",v?"1":"0"); }catch(e){} if(!v){ try{ window.speechSynthesis.cancel(); }catch(e){} setFalando(false); } };
+  /* ouvir o aluno: transcreve ao vivo na caixa; encerra após ~2 s de silêncio.
+     autoEnviar: no modo conversa, manda a fala sozinha ao terminar. */
+  const ouvir=(autoEnviar)=>{
+    if(!Rec) return; try{ recRef.current&&recRef.current.abort(); }catch(e){}
+    try{ window.speechSynthesis.cancel(); }catch(e){} setFalando(false);
+    const r=new Rec(); r.lang="pt-BR"; r.continuous=true; r.interimResults=true;
+    let finalTxt="", parcial="", timer=null;
+    const base=autoEnviar?"":(document.querySelector("textarea[data-osce]")||{}).value||"";
+    const mostrar=()=>setEntrada(((base?base.trim()+" ":"")+finalTxt+parcial).trim());
+    const silencio=()=>{ clearTimeout(timer); timer=setTimeout(()=>{ try{ r.stop(); }catch(e){} },2200); };
+    r.onresult=e=>{ parcial=""; for(let i=e.resultIndex;i<e.results.length;i++){ const t=e.results[i][0].transcript; if(e.results[i].isFinal) finalTxt+=t+" "; else parcial+=t; } mostrar(); silencio(); };
+    r.onerror=e=>{ if(e.error==="not-allowed"||e.error==="service-not-allowed"){ alert("Permita o uso do microfone para falar com o paciente."); setConversaVoz(false); } };
+    r.onend=()=>{ clearTimeout(timer); setOuvindo(false); recRef.current=null;
+      const fala=((base?base.trim()+" ":"")+finalTxt+parcial).trim();
+      if(autoEnviar&&conversaRef.current){ if(fala) enviarRef.current&&enviarRef.current(fala); else setConversaVoz(false); } };
+    recRef.current=r; setOuvindo(true); silencio();
+    try{ r.start(); }catch(e){ setOuvindo(false); }
+  };
+  const pararOuvir=()=>{ try{ recRef.current&&recRef.current.stop(); }catch(e){} };
+  const alternarConversa=()=>{ if(conversaVoz){ setConversaVoz(false); try{ recRef.current&&recRef.current.abort(); }catch(e){} try{ window.speechSynthesis.cancel(); }catch(e){} setFalando(false); return; }
+    setConversaVoz(true); conversaRef.current=true; setVoz(true); ouvir(true); };
   const [msgs,setMsgs]=useState([]);      // [{de:'aluno'|'paciente', txt}]
   const [entrada,setEntrada]=useState("");
   const [carregando,setCarregando]=useState(false);
@@ -7174,8 +7223,8 @@ function OSCEEstacao({caso, onVoltar}){
   };
   const transcricao = (arr)=> arr.map(m=>(m.de==="aluno"?"ALUNO(médico): ":"PACIENTE/ESTAÇÃO: ")+m.txt).join("\n");
 
-  const enviar = async ()=>{
-    const q=entrada.trim(); if(!q||carregando) return;
+  const enviar = async (txtVoz)=>{
+    const q=(typeof txtVoz==="string"?txtVoz:entrada).trim(); if(!q||carregando) return;
     if(!workerOk){ setMsgs(m=>[...m,{de:"paciente",txt:"(Configure a WORKER_URL para ativar o paciente por IA.)"}]); return; }
     const novo=[...msgs,{de:"aluno",txt:q}];
     setMsgs(novo); setEntrada(""); setCarregando(true);
@@ -7189,6 +7238,7 @@ function OSCEEstacao({caso, onVoltar}){
       const r=await wfetch("/tirar-duvida",{tema:"OSCE paciente — "+caso.titulo, contexto, pergunta:q});
       const d=await r.json();
       if(!r.ok||d.error) throw new Error(d.error||"Falha na simulação.");
+      if(vozOn||conversaRef.current){ setFalando(true); falarPaciente(d.resposta,caso,()=>{ setFalando(false); if(conversaRef.current) setTimeout(()=>{ if(conversaRef.current) ouvir(true); },250); }); }
       setMsgs(m=>{ const out=[...m,{de:"paciente",txt:d.resposta}];
         /* o aluno pediu radiografia/gasometria e a estação tem o exame: mostra o resultado de verdade (uma vez) */
         const ped=examesPedidos(q), ex=caso.exames||{};
@@ -7198,9 +7248,10 @@ function OSCEEstacao({caso, onVoltar}){
         if(ped.ecg&&ex.ecg&&!jaTem("ecg")) out.push({de:"exame",tipo:"ecg",txt:"[ECG exibido ao aluno]"});
         (ex.labs||[]).forEach((l,k)=>{ if(labPedido(l,q)&&!jaTem("lab"+k)) out.push({de:"exame",tipo:"lab"+k,txt:"[Resultado exibido: "+l.titulo+"]"}); });
         return out; });
-    }catch(e){ setMsgs(m=>[...m,{de:"paciente",txt:"(Não consegui responder agora: "+e.message+")"}]); }
+    }catch(e){ setMsgs(m=>[...m,{de:"paciente",txt:"(Não consegui responder agora: "+e.message+")"}]); setConversaVoz(false); }
     setCarregando(false);
   };
+  enviarRef.current=enviar;
 
   /* Correção rígida: o examinador precisa citar o TRECHO do aluno que comprova cada item;
      o app confere se o trecho existe mesmo nas falas do aluno. Sem evidência, item = 0.
@@ -7219,6 +7270,7 @@ function OSCEEstacao({caso, onVoltar}){
     const achou=ws.filter(w=>falaAluno.indexOf(w)>=0).length; return achou/ws.length>=0.8;
   };
   const encerrar = async ()=>{
+    setConversaVoz(false); conversaRef.current=false; try{ recRef.current&&recRef.current.abort(); }catch(e){} try{ window.speechSynthesis.cancel(); }catch(e){}
     const itens = caso.etapas.flatMap(e=>e.checklist);
     const falasAluno = msgs.filter(m=>m.de==="aluno");
     if(!workerOk){ setFase("resultado"); setResultado({itens:itens.map(t=>({texto:t,ok:false,nivel:0})),nota:0,pct:0,feedback:"Ative a IA para correção automática."}); return; }
@@ -7365,7 +7417,14 @@ function OSCEEstacao({caso, onVoltar}){
       <div ref={fimRef}/>
     </div>
 
-    <textarea rows={2} value={entrada} onChange={e=>setEntrada(e.target.value)}
+    {(temTTS||Rec) && <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:8,alignItems:"center"}}>
+      {Rec && <button className={"btn sm"+(conversaVoz?"":" ghost")} disabled={!workerOk} onClick={alternarConversa}>{conversaVoz?"⏹ Parar conversa por voz":"🗣️ Conversa por voz"}</button>}
+      {Rec && !conversaVoz && <button className={"btn sm"+(ouvindo?"":" ghost")} onClick={()=>ouvindo?pararOuvir():ouvir(false)}>{ouvindo?"⏹ Parar de ditar":"🎤 Ditar"}</button>}
+      {temTTS && <button className={"btn sm"+(vozOn?"":" ghost")} onClick={()=>setVoz(!vozOn)}>{vozOn?"🔊 Paciente fala":"🔇 Paciente em texto"}</button>}
+      <span className="muted" style={{fontSize:12}}>{ouvindo?"🎙️ Ouvindo… fale e faça uma pausa":falando?"🔊 Paciente falando…":carregando&&conversaVoz?"Paciente pensando…":conversaVoz?"Conversa por voz ligada":""}</span>
+    </div>}
+    {!Rec && temTTS && <div className="muted" style={{fontSize:11.5,marginBottom:6}}>Para falar com o paciente por voz, use o Chrome, o Edge ou o Safari.</div>}
+    <textarea data-osce="1" rows={2} value={entrada} onChange={e=>setEntrada(e.target.value)}
       placeholder='Pergunte ao paciente, peça exame físico ("vou palpar o abdome") ou exames ("solicito TC de abdome")…'
       onKeyDown={e=>{ if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)) enviar(); }}/>
     <div className="row" style={{marginTop:8,justifyContent:"space-between"}}>
