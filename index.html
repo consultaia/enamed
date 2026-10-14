@@ -6865,6 +6865,8 @@ function OSCE({onVoltar}){
     return ()=>{ window.__OSCE_ABRIR_CASO=null; }; },[]);
   const [,reavaliar]=useState(0);
   const [soRodizio,setSoRodizio]=useState(false);
+  const [soDispneia,setSoDispneia]=useState(false);
+  const [verPistas,setVerPistas]=useState(false);
   if(caso) return <OSCEEstacao caso={caso} onVoltar={()=>setCaso(null)}/>;
   if(!window.__PRO) return <div>
     <button className="btn ghost sm" onClick={onVoltar}>← Voltar</button>
@@ -6918,8 +6920,40 @@ function OSCE({onVoltar}){
         <button className={"btn sm "+(soRodizio?"":"ghost")} onClick={()=>setSoRodizio(v=>!v)}>{soRodizio?"✓ ":""}Só as estações do 4º rodízio ({(window.OSCE_BANCO.APS||[]).filter(c=>c.rodizio).length})</button>
       </div>
     </div>}
+    {areaSel==="CMB" && <div className="card" style={{marginBottom:14,borderColor:"#7cc4ff"}}>
+      <div className="tag" style={{color:"#7cc4ff"}}>ORIENTAÇÃO DE ESTUDOS · OSCE · INTERNATO DE CLÍNICA MÉDICA</div>
+      <div style={{fontWeight:700,fontSize:15.5,margin:"6px 0"}}>Dispneia: quatro diagnósticos prioritários</div>
+      <div className="muted" style={{fontSize:13,lineHeight:1.6}}>
+        <b>TEP</b> (incluindo o de alto risco), <b>tuberculose pulmonar</b>, <b>pneumonia adquirida na comunidade</b> e <b>IC descompensada</b> (congesto e com hipoperfusão). Citar o diagnóstico não basta: a banca cobra o raciocínio.
+        <div className="block" style={{margin:"8px 0",fontSize:12.5,lineHeight:1.55}}><b>Em toda estação:</b> reconhecer gravidade → caracterizar a dispneia → formular hipóteses → solicitar exames dirigidos → interpretar → definir conduta → reavaliar.</div>
+        <ul style={{margin:"4px 0 0 18px",padding:0}}>
+          <li>Comece pela estabilidade e pelos sinais vitais.</li>
+          <li>Diferenciais hierarquizados e justificados; cada exame pedido com o porquê.</li>
+          <li>Interprete o resultado no contexto, não só leia. Diga quando a conduta não pode esperar a confirmação.</li>
+          <li>Treine em voz alta e com tempo marcado: use 🗣️ Conversa por voz e o cronômetro da estação.</li>
+        </ul>
+      </div>
+      <div className="row" style={{gap:6,flexWrap:"wrap",marginTop:10}}>
+        <button className={"btn sm "+(soDispneia?"":"ghost")} onClick={()=>setSoDispneia(v=>!v)}>{soDispneia?"✓ ":""}Só as estações dos 4 diagnósticos ({(window.OSCE_BANCO.CMB||[]).filter(c=>c.trilha==="dispneia4").length})</button>
+        <button className="btn sm ghost" onClick={()=>setVerPistas(v=>!v)}>{verPistas?"Ocultar":"Ver"} pistas para comparação rápida</button>
+      </div>
+      {verPistas && <div style={{overflowX:"auto",marginTop:10}}>
+        <table style={{borderCollapse:"collapse",fontSize:12.5,minWidth:560,width:"100%"}}>
+          <thead><tr>{["Pista","TEP","Tuberculose","PAC","IC descompensada"].map(h=><th key={h} style={{textAlign:"left",padding:"5px 6px",borderBottom:"1px solid var(--line)"}}>{h}</th>)}</tr></thead>
+          <tbody>{[
+            ["Início","Súbito/agudo","Subagudo/crônico","Agudo/subagudo","Agudo ou progressivo"],
+            ["Dor torácica","Pleurítica","Pode ocorrer","Pleurítica","Pressão/desconforto pode coexistir"],
+            ["Febre","Não é obrigatória","Comum (vespertina)","Comum","Pode indicar precipitante infeccioso"],
+            ["Ortopneia/DPN","Pouco típicas","Pouco típicas","Pouco típicas","Muito sugestivas"],
+            ["Imagem-chave","AngioTC","RX/TC + microbiologia","RX de tórax","RX + eco conforme contexto"],
+            ["Prioridade","Estratificar risco","Diagnóstico + isolamento","Gravidade + antibiótico","Congestão/perfusão + suporte"]
+          ].map(l=><tr key={l[0]} style={{borderTop:"1px solid var(--line)"}}>{l.map((c,k)=><td key={k} style={{padding:"5px 6px",fontWeight:k?400:700}}>{c}</td>)}</tr>)}</tbody>
+        </table>
+        <div className="muted" style={{fontSize:11.5,marginTop:6}}>Atenção: sibilância não exclui IC ("asma cardíaca").</div>
+      </div>}
+    </div>}
     <div className="grid" style={{gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))"}}>
-      {casosArea.filter(c=>!(areaSel==="APS"&&soRodizio)||c.rodizio).map(c=>
+      {casosArea.filter(c=>!(areaSel==="APS"&&soRodizio)||c.rodizio).filter(c=>!(areaSel==="CMB"&&soDispneia)||c.trilha==="dispneia4").map(c=>
         <div key={c.id} className="topico" style={{cursor:"pointer"}} onClick={()=>{setCaso(c);irAoTopo();}}>
           <div style={{fontWeight:700,fontSize:15.5}}>{c.titulo}</div>
           <div className="muted" style={{fontSize:12.5,margin:"6px 0 12px",lineHeight:1.5}}>{c.cenario}</div>
@@ -7101,7 +7135,7 @@ function AtendimentoModelo({caso,spoiler}){
 }
 /* Liga a estação ao assunto do Estudar (para estudar o tema antes/depois). */
 /* Estação → assunto do Estudar (curado à mão; estação gerada por IA não tem). */
-const OSCE_ESTUDO={"cm_sca":"cm-sca","cm_cad":"cm-dm2","cm_hipert":"cm-has","cm_dpoc":"cm-asma-dpoc","cm_avc":"cm-avc","cm_pac":"cm-pac","cmb_ic":"cm-ic","cmb_dpoc":"cm-asma-dpoc","cmb_tep":"cm-tev","cmb_pac":"cm-pac","cmb_asma":"cm-asma-dpoc","cir_atls":"cir-trauma","cir_colecistite":"cir-biliar","cir_pancreatite":"cir-pancreatite","cir_queimadura":"cir-queimados","cir_apendicite":"cir-abdome","cir_obstrucao":"cir-obstrucao","cir_hernia":"cir-hernia","cir_tce":"cir-tce","ped_desidrat":"ped-desidratacao","ped_bronquiolite":"ped-respiratorio","ped_crisefebril":"ped-febre","ped_asma":"cm-asma-dpoc","ped_pueri":"ped-desenvolvimento","ped_ictericia":"ped-ictericia","ped_maustratos":"ped-violencia","ped_pneumonia":"ped-respiratorio","go_prenatal":"go-prenatal","go_preeclampsia":"go-preeclampsia","go_aborto":"go-hemorragias","go_parto":"go-partograma","go_corrimento":"go-corrimentos","go_contracep":"go-contracepcao","go_hpp":"go-hpp","go_colo_alterado":"go-rastreio","aps4_acolhimento":"mfc-atributos","aps4_prenatal":"go-prenatal","aps4_mulher":"go-rastreio","aps4_puericultura":"ped-desenvolvimento","aps4_idoso":"tecm-polifarmacia","aps4_saudemental":"tv-saudemental","aps4_hiperdia_adesao":"mfc-mccp","aps4_coordenacao":"mfc-atributos","aps4_prevencao":"mfc-rastreio","aps_hasdm":"cm-has","aps_tabaco":"tv-substancias","aps_tb":"cm-tuberculose","aps_dengue":"cm-dengue","aps_depressao":"tv-saudemental","aps_itu":"cm-itu","aps_lombalgia":"mfc-lombalgia","aps_violencia":"mfc-vigilancia","aps_spikes":"mfc-mccp","uesm_pcr":"tecm-pos-pcr","uesm_choque":"cm-sepse","uesm_mal":"tecm-epilepsia-adulto","uesm_taqui":"cm-fa","uesm_choque_hemorragico":"cir-trauma","uesm_avc":"cm-avc","uesm_iamcsst":"cm-sca","uesm_iamssst":"cm-sca","uesm_ic_eap":"cm-ic","tecm_fa_rvr":"cm-fa","tecm_dpoc_exac":"tecm-dpoc","tecm_cirrose_pbe":"cm-cirrose","tecm_hipercalemia_drc":"cm-drc","tecm_ehh":"cm-dm2","tecm_delirium_itu":"cm-itu","tecm_hiponatremia":"tecm-emergencias-eletrolitos-eme-aorta","tecm_endocardite":"tecm-endocardite-meningite-tropicais","tecm_disseccao_aorta":"tecm-emergencias-eletrolitos-eme-aorta"};
+const OSCE_ESTUDO={"cmb_tb":"cm-tuberculose","cmb_tep_alto":"cm-tev","cmb_ic_frio":"cm-ic","cm_sca":"cm-sca","cm_cad":"cm-dm2","cm_hipert":"cm-has","cm_dpoc":"cm-asma-dpoc","cm_avc":"cm-avc","cm_pac":"cm-pac","cmb_ic":"cm-ic","cmb_dpoc":"cm-asma-dpoc","cmb_tep":"cm-tev","cmb_pac":"cm-pac","cmb_asma":"cm-asma-dpoc","cir_atls":"cir-trauma","cir_colecistite":"cir-biliar","cir_pancreatite":"cir-pancreatite","cir_queimadura":"cir-queimados","cir_apendicite":"cir-abdome","cir_obstrucao":"cir-obstrucao","cir_hernia":"cir-hernia","cir_tce":"cir-tce","ped_desidrat":"ped-desidratacao","ped_bronquiolite":"ped-respiratorio","ped_crisefebril":"ped-febre","ped_asma":"cm-asma-dpoc","ped_pueri":"ped-desenvolvimento","ped_ictericia":"ped-ictericia","ped_maustratos":"ped-violencia","ped_pneumonia":"ped-respiratorio","go_prenatal":"go-prenatal","go_preeclampsia":"go-preeclampsia","go_aborto":"go-hemorragias","go_parto":"go-partograma","go_corrimento":"go-corrimentos","go_contracep":"go-contracepcao","go_hpp":"go-hpp","go_colo_alterado":"go-rastreio","aps4_acolhimento":"mfc-atributos","aps4_prenatal":"go-prenatal","aps4_mulher":"go-rastreio","aps4_puericultura":"ped-desenvolvimento","aps4_idoso":"tecm-polifarmacia","aps4_saudemental":"tv-saudemental","aps4_hiperdia_adesao":"mfc-mccp","aps4_coordenacao":"mfc-atributos","aps4_prevencao":"mfc-rastreio","aps_hasdm":"cm-has","aps_tabaco":"tv-substancias","aps_tb":"cm-tuberculose","aps_dengue":"cm-dengue","aps_depressao":"tv-saudemental","aps_itu":"cm-itu","aps_lombalgia":"mfc-lombalgia","aps_violencia":"mfc-vigilancia","aps_spikes":"mfc-mccp","uesm_pcr":"tecm-pos-pcr","uesm_choque":"cm-sepse","uesm_mal":"tecm-epilepsia-adulto","uesm_taqui":"cm-fa","uesm_choque_hemorragico":"cir-trauma","uesm_avc":"cm-avc","uesm_iamcsst":"cm-sca","uesm_iamssst":"cm-sca","uesm_ic_eap":"cm-ic","tecm_fa_rvr":"cm-fa","tecm_dpoc_exac":"tecm-dpoc","tecm_cirrose_pbe":"cm-cirrose","tecm_hipercalemia_drc":"cm-drc","tecm_ehh":"cm-dm2","tecm_delirium_itu":"cm-itu","tecm_hiponatremia":"tecm-emergencias-eletrolitos-eme-aorta","tecm_endocardite":"tecm-endocardite-meningite-tropicais","tecm_disseccao_aorta":"tecm-emergencias-eletrolitos-eme-aorta"};
 function estudoDaEstacao(caso){
   try{ const id=OSCE_ESTUDO[caso&&caso.id]; const a=id&&assuntoPorId(id); return a?{id:a.id,nome:a.nome}:null; }catch(e){ return null; }
 }
@@ -7230,6 +7264,12 @@ function OSCEEstacao({caso, onVoltar}){
   const [fase,setFase]=useState("conversa"); // conversa | corrigindo | resultado
   const [resultado,setResultado]=useState(null); // {itens:[{texto,ok}], nota, pct, feedback}
   const fimRef = useRef(null);
+  /* cronômetro da estação: começa na 1ª fala do aluno; ao zerar só avisa (como o fiscal), não bloqueia */
+  const limiteSeg=(parseInt(String(caso.duracao||"").replace(/\D+/g," ").trim().split(" ")[0],10)||8)*60;
+  const [inicio,setInicio]=useState(null); const [,tiqueRel]=useState(0);
+  useEffect(()=>{ if(!inicio||fase!=="conversa") return; const t=setInterval(()=>tiqueRel(x=>x+1),1000); return ()=>clearInterval(t); },[inicio,fase]);
+  const restante=inicio?Math.max(0,limiteSeg-Math.floor((Date.now()-inicio)/1000)):limiteSeg;
+  const mmss=x=>String(Math.floor(x/60)).padStart(2,"0")+":"+String(x%60).padStart(2,"0");
 
   useEffect(()=>{ if(fimRef.current) fimRef.current.scrollIntoView({behavior:"smooth",block:"end"}); },[msgs,carregando]);
 
@@ -7249,6 +7289,7 @@ function OSCEEstacao({caso, onVoltar}){
     const q=(typeof txtVoz==="string"?txtVoz:entrada).trim(); if(!q||carregando) return;
     if(!workerOk){ setMsgs(m=>[...m,{de:"paciente",txt:"(Configure a WORKER_URL para ativar o paciente por IA.)"}]); return; }
     const novo=[...msgs,{de:"aluno",txt:q}];
+    if(!inicio) setInicio(Date.now());
     setMsgs(novo); setEntrada(""); setCarregando(true);
     try{
       const contexto =
@@ -7404,7 +7445,14 @@ function OSCEEstacao({caso, onVoltar}){
     <button className="btn ghost sm" onClick={()=>{ if(msgs.length>0&&!confirm("Sair da estação? A conversa com o paciente será perdida.")) return; onVoltar(); }}>← Estações</button>
     <div style={{margin:"14px 0 6px"}}>
       <div className="tag" style={{color:caso.cor}}>ESTAÇÃO OSCE · {caso.titulo.toUpperCase()}</div>
-      <h2 style={{fontSize:20,marginTop:4}}>Paciente simulado</h2>
+      <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:8,flexWrap:"wrap",marginTop:4}}>
+        <h2 style={{fontSize:20,margin:0}}>Paciente simulado</h2>
+        <span className="pill" title="Começa na sua primeira fala" style={{fontFamily:"var(--mono)",fontWeight:700,
+          color:!inicio?"var(--muted)":restante===0?"var(--bad)":restante<=60?"var(--warn)":"var(--acc)",
+          borderColor:!inicio?"var(--line)":restante===0?"var(--bad)":restante<=60?"var(--warn)":"var(--acc)"}}>⏱ {mmss(restante)}{!inicio?" · inicia na 1ª fala":""}</span>
+      </div>
+      {inicio && restante===0 && <div style={{fontSize:12.5,color:"var(--bad)",marginTop:6}}>Tempo esgotado: no OSCE real a estação terminaria aqui. Encerre e corrija para ver o que faltou.</div>}
+      {inicio && restante>0 && restante<=60 && <div style={{fontSize:12.5,color:"var(--warn)",marginTop:6}}>Último minuto: verbalize a hipótese e a conduta.</div>}
     </div>
 
     <div className="hero" style={{marginBottom:12}}>
