@@ -33,7 +33,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.14.1";
+  window.APP_VERSION="2026.10.14.2";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2575,6 +2575,14 @@ async function obEnviar(sb,uid,aoMudar){
   } finally { __obEmCurso[uid]=false; }
 }
 
+const NOMES_EDICAO={"STRIX_BA":"ABAEM 2026 · Acesso Direto (BA)","STRIX_AL":"ALAEM 2026 · Acesso Direto (AL)","ENARE_2024_2025":"ENARE 2024/2025 · Acesso Direto","REVALIDA_2024_1":"Revalida 2024/1","REVALIDA_2025_1":"Revalida 2025/1","TPI_2026_1":"TPI 2026.1 · Afya","TPI_2025_1":"TPI 2025.1 · Afya","ENAMED_2025_2":"ENAMED 2025.2 · INEP","ENAMED_2026":"ENAMED 2026 · INEP (gabarito preliminar)"};
+/* filtro "Prova" do Praticar: flag de origem (transv) e edição (FLAG_ANO) */
+const PROVAS_FILTRO=[["ENAMED","ENAMED"],["REVALIDA","Revalida"],["ENARE","ENARE"],["TPI","TPI (Afya)"],["STRIX","Strix (SUS-BA/AL)"],["TECM","Título de Clínica Médica"]];
+const FLAGS_PROVA=PROVAS_FILTRO.map(p=>p[0]);
+function flagsProva(q){ const t=(q&&q.transv)||[]; return FLAGS_PROVA.filter(f=>t.indexOf(f)>=0); }
+function casaProva(q,prova){ if(prova==="todas") return true; const fl=flagsProva(q); if(prova==="oficiais") return fl.length>0; if(prova==="ineditas") return fl.length===0; return fl.indexOf(prova)>=0; }
+function edicoesDe(q,flag){ return ((q&&q.transv)||[]).filter(t=>(""+t).indexOf(flag+"_")===0); }
+function nomeEdicao(ed){ return NOMES_EDICAO[ed]||String(ed).replace(/_/g," "); }
 function progressoProva(chave){ try{ const v=JSON.parse(PLS.get("preceptor_prova_"+chave)||"null"); if(v&&v.resp) return {n:Object.keys(v.resp).length,i:v.i||0}; }catch(e){} return null; }
 function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
   const lsAberta="preceptor_prova_aberta_"+flag;
@@ -2591,7 +2599,7 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
     const num=q=>{const m=/_q(\d+)$/.exec(q.id||"");return m?+m[1]:9999;};
     return Object.keys(grupos).map(function(ed){
       const qs=grupos[ed].slice().sort((a,b)=>num(a)-num(b));
-      let nome=({"STRIX_BA":"ABAEM 2026 · Acesso Direto (BA)","STRIX_AL":"ALAEM 2026 · Acesso Direto (AL)","ENARE_2024_2025":"ENARE 2024/2025 · Acesso Direto","REVALIDA_2024_1":"Revalida 2024/1","REVALIDA_2025_1":"Revalida 2025/1","TPI_2026_1":"TPI 2026.1 · Afya","TPI_2025_1":"TPI 2025.1 · Afya","ENAMED_2025_2":"ENAMED 2025.2 · INEP","ENAMED_2026":"ENAMED 2026 · INEP (gabarito preliminar)"})[ed] || ((qs[0]&&qs[0].tema)?qs[0].tema:ed).replace(/\s·\sParte\s.*$/,"").trim();
+      let nome=(NOMES_EDICAO)[ed] || ((qs[0]&&qs[0].tema)?qs[0].tema:ed).replace(/\s·\sParte\s.*$/,"").trim();
       return {ed:ed, nome:nome, qs:qs};
     }).sort((a,b)=>a.nome<b.nome?1:(a.nome>b.nome?-1:0));
   },[pool,flag]);
@@ -7541,59 +7549,78 @@ function Treinar({pool,store,registrar,bloqueadas,isPro,acesso,onAssinar,onNovas
   /* volta para o último filtro em andamento (ou o que veio do "Continuar" do Início) */
   const iniRef=useRef(null);
   if(iniRef.current===null){ let p=null; try{ p=window.__PRATICAR_PENDENTE||null; window.__PRATICAR_PENDENTE=null; }catch(e){}
-    if(!p){ const s=sessaoPendentes().find(x=>x.tipo==="praticar"); if(s) p={area:s.area,tema:s.tema}; }
+    if(!p){ const s=sessaoPendentes().find(x=>x.tipo==="praticar"); if(s) p={area:s.area,tema:s.tema,prova:s.prova,edicao:s.edicao}; }
     iniRef.current=p||false; }
   const [area,setArea]=useState(()=>(iniRef.current&&iniRef.current.area)||"todas");
   const [tema,setTema]=useState(()=>(iniRef.current&&iniRef.current.tema)||"todos");
+  const [prova,setProva]=useState(()=>(iniRef.current&&iniRef.current.prova)||"todas");   // origem: ENAMED, Revalida...
+  const [edicao,setEdicao]=useState(()=>(iniRef.current&&iniRef.current.edicao)||"todas");
+  /* as provas oficiais do ENAMED vivem à parte do banco: entram aqui quando o aluno filtra por prova */
+  const poolP=useMemo(()=>{ if(!acesso||prova==="todas"||prova==="ineditas") return pool;
+    const ids=new Set(pool.map(q=>q.id)); return pool.concat((window.ENAMED_OFICIAL||[]).filter(q=>!ids.has(q.id))); },[pool,prova,acesso]);
+  const poolArea=useMemo(()=>area==="todas"?poolP:poolP.filter(q=>q.area===area),[poolP,area]);
+  const contProva=useMemo(()=>{ const c={oficiais:0,ineditas:0}; FLAGS_PROVA.forEach(f=>c[f]=0);
+    const ids=new Set(pool.map(q=>q.id));
+    const todas=acesso?pool.concat((window.ENAMED_OFICIAL||[]).filter(q=>!ids.has(q.id))):pool;
+    (area==="todas"?todas:todas.filter(q=>q.area===area)).forEach(q=>{ const fl=flagsProva(q); if(fl.length) c.oficiais++; else c.ineditas++; fl.forEach(f=>c[f]++); }); return c; },[pool,area,acesso]);
+  const poolProva=useMemo(()=>poolArea.filter(q=>casaProva(q,prova)),[poolArea,prova]);
+  const edicoes=useMemo(()=>{ if(FLAGS_PROVA.indexOf(prova)<0) return []; const c={};
+    poolProva.forEach(q=>edicoesDe(q,prova).forEach(e=>c[e]=(c[e]||0)+1));
+    return Object.keys(c).sort((a,b)=>a<b?1:-1).map(e=>[e,c[e]]); },[poolProva,prova]);
   const [extra,setExtra]=useState([]);   // questoes geradas na sessao
   const [gerando,setGerando]=useState(false);
   const [msg,setMsg]=useState("");
   const [seed,setSeed]=useState(1);       // trava a ordem ate o usuario pedir novo baralho
 
   // temas disponiveis para a area escolhida (do banco)
+  const poolEd=useMemo(()=>edicao==="todas"?poolProva:poolProva.filter(q=>edicoesDe(q,prova).indexOf(edicao)>=0),[poolProva,edicao,prova]);
   const temasDaArea = useMemo(()=>{
     if(area==="todas") return [];
-    const set=new Set(pool.filter(q=>q.area===area).map(q=>q.tema).filter(Boolean));
+    const set=new Set(poolEd.map(q=>q.tema).filter(Boolean));
     return Array.from(set).sort();
-  },[pool,area]);
+  },[poolEd,area]);
 
   // base filtrada por area E tema
   const base = useMemo(()=>{
-    let b = area==="todas" ? pool : pool.filter(q=>q.area===area);
+    let b = poolEd;
     if(area!=="todas" && tema!=="todos") b = b.filter(q=>q.tema===tema);
     return b;
-  },[pool,area,tema]);
+  },[poolEd,area,tema]);
 
   // embaralha de forma ESTAVEL (so muda quando area/tema/seed mudam, nao a cada render)
   const fila = useMemo(()=>{
     /* as geradas pela IA também chegam pelo pool (onNovasQuestoes): ficam fora do embaralhamento
        e entram no FIM, para não duplicar nem mudar a questão em que o aluno está */
     const idsExtra=new Set(extra.map(q=>q.id));
-    const novas=extra.filter(q=>(area==="todas"||q.area===area)&&(tema==="todos"||q.tema===tema));
+    const novas=extra.filter(q=>(area==="todas"||q.area===area)&&(tema==="todos"||q.tema===tema)&&casaProva(q,prova)&&(edicao==="todas"||edicoesDe(q,prova).indexOf(edicao)>=0));
     // ordenacao estavel baseada no seed (nao usa Math.random a cada render)
     const arr=base.filter(q=>!idsExtra.has(q.id));
     let s=seed*9973;
     const rnd=()=>{ s=(s*9301+49297)%233280; return s/233280; };
     for(let k=arr.length-1;k>0;k--){ const j=Math.floor(rnd()*(k+1)); [arr[k],arr[j]]=[arr[j],arr[k]]; }
     return arr.concat(novas);
-  },[base,extra,area,tema,seed]);
+  },[base,extra,area,tema,prova,edicao,seed]);
 
   const [i,setI]=useState(0);
   const [resp,setResp]=useState({});
   const [retomado,setRetomado]=useState(false);
-  const chaveS="praticar:"+area+"|"+tema;
+  const chaveS="praticar:"+area+"|"+tema+(prova!=="todas"?"|"+prova+(edicao!=="todas"?"|"+edicao:""):"");
   /* ao entrar num filtro: retoma a lista dele se houver uma em andamento */
   useEffect(()=>{ const s=sessaoLer(chaveS);
     if(s&&s.resp&&Object.keys(s.resp).length){ setSeed(s.seed||1); setI(s.i||0); setResp(s.resp); setRetomado(true); }
     else { setI(0); setResp({}); setRetomado(false); } },[chaveS]);
   const primeiraArea=useRef(true);
   useEffect(()=>{ if(primeiraArea.current){ primeiraArea.current=false; return; } setTema("todos"); },[area]);  // ao trocar area, reseta tema
+  const primeiraProva=useRef(true);
+  useEffect(()=>{ if(primeiraProva.current){ primeiraProva.current=false; return; } setEdicao("todas"); setTema("todos"); },[prova]);
+  /* filtro que ficou vazio (ex.: edição sem questões nesta área): volta para "todas" */
+  useEffect(()=>{ if(edicao!=="todas"&&!edicoes.some(e=>e[0]===edicao)) setEdicao("todas"); },[edicoes]);
   const q=fila[i];
   const feito=!!(q&&resp[q.id]);
   useEffect(()=>{ const n=Object.keys(resp).length; if(!n) return;
     if(fila.length&&i>=fila.length){ sessaoApagar(chaveS); return; }
     const certas=Object.values(resp).filter(x=>x.ok).length;
-    sessaoGravar(chaveS,{seed,i,resp},{tipo:"praticar",area,tema,rotulo:"Praticar · "+(area==="todas"?"todas as áreas":areaNome(area))+(tema!=="todos"?" · "+temaCurtoPlano(tema):""),i,total:fila.length,respondidas:n,certas}); },[i,resp,seed]);
+    sessaoGravar(chaveS,{seed,i,resp},{tipo:"praticar",area,tema,prova,edicao,rotulo:"Praticar · "+(area==="todas"?"todas as áreas":areaNome(area))+(prova!=="todas"?" · "+(edicao!=="todas"?nomeEdicao(edicao):(PROVAS_FILTRO.find(p=>p[0]===prova)||[0,prova==="oficiais"?"provas oficiais":"inéditas"])[1]):"")+(tema!=="todos"?" · "+temaCurtoPlano(tema):""),i,total:fila.length,respondidas:n,certas}); },[i,resp,seed]);
   const recomecar=()=>{ setSeed(s=>s+1); setI(0); setResp({}); setRetomado(false); sessaoApagar(chaveS); };
   const workerOk=!WORKER_URL.startsWith("COLE_");
 
@@ -7628,6 +7655,17 @@ function Treinar({pool,store,registrar,bloqueadas,isPro,acesso,onAssinar,onNovas
           <option value="todas">Todas as áreas</option>
           {AREAS.map(a=><option key={a.k} value={a.k}>{a.nome}</option>)}
         </select>
+        <select value={prova} onChange={e=>setProva(e.target.value)} style={{maxWidth:220}} aria-label="Filtrar por prova">
+          <option value="todas">Todas as provas</option>
+          {contProva.oficiais>0 && <option value="oficiais">Só questões de provas ({contProva.oficiais})</option>}
+          {PROVAS_FILTRO.filter(p=>contProva[p[0]]>0||prova===p[0]).map(p=><option key={p[0]} value={p[0]}>{p[1]} ({contProva[p[0]]||0})</option>)}
+          {contProva.ineditas>0 && <option value="ineditas">Inéditas do Preceptor ({contProva.ineditas})</option>}
+        </select>
+        {edicoes.length>1 &&
+          <select value={edicao} onChange={e=>setEdicao(e.target.value)} style={{maxWidth:240}} aria-label="Edição da prova">
+            <option value="todas">Todas as edições</option>
+            {edicoes.map(([e,n])=><option key={e} value={e}>{nomeEdicao(e)} ({n})</option>)}
+          </select>}
         {area!=="todas" && temasDaArea.length>0 &&
           <select value={tema} onChange={e=>setTema(e.target.value)} style={{maxWidth:240}}>
             <option value="todos">Todos os temas</option>
