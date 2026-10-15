@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8" />
+<script>/* forca HTTPS: em http o navegador bloqueia o microfone e a IA recusa o acesso */(function(){try{var l=location;if(l.protocol==='http:'&&!/^(localhost|127\.|0\.0\.0\.0|192\.168\.|10\.)/.test(l.hostname)){l.replace('https://'+l.host+l.pathname+l.search+l.hash);}}catch(e){}})();</script>
 <script>
 /* Visitante novo vê a landing; quem já usou o app, abre pelo app instalado ou chega por
    link de e-mail (confirmação, troca de senha) segue direto para o app. */
@@ -33,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.15.2";
+  window.APP_VERSION="2026.10.15.3";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
