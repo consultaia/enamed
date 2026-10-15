@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.15.4";
+  window.APP_VERSION="2026.10.15.5";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -7210,18 +7210,67 @@ function juntarFalas(partes){ let acc="";
 const EH_APP_INSTALADO=(()=>{ try{ return !!(navigator.standalone||window.matchMedia("(display-mode: standalone)").matches); }catch(e){ return false; } })();
 /* iPhone só deixa o site falar se a 1ª fala nascer de um toque: "destrava" a voz no clique */
 let __ttsDestravado=false;
-function destravarVoz(){ if(__ttsDestravado) return; try{ const u=new SpeechSynthesisUtterance(" "); u.volume=0; u.lang="pt-BR"; window.speechSynthesis.speak(u); __ttsDestravado=true; }catch(e){} }
+/* um único <audio> para a voz natural: no iPhone ele só toca depois se for "destravado" num toque */
+let __audioPac=null;
+function audioPac(){ if(!__audioPac){ try{ __audioPac=new Audio(); __audioPac.preload="auto"; }catch(e){} } return __audioPac; }
+const WAV_MUDO="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+function destravarVoz(){ try{ const a=audioPac(); if(a&&!a.__ok){ a.src=WAV_MUDO; const p=a.play(); a.__ok=true; if(p&&p.catch) p.catch(()=>{ a.__ok=false; }); } }catch(e){}
+  if(__ttsDestravado) return; try{ const u=new SpeechSynthesisUtterance(" "); u.volume=0; u.lang="pt-BR"; window.speechSynthesis.speak(u); __ttsDestravado=true; }catch(e){} }
+/* ---- Voz natural grátis: modelo Piper (pt-BR, Faber) roda NO APARELHO do aluno (ONNX/WASM).
+   Sem servidor e sem custo: baixa ~60 MB uma vez (fica guardado no navegador). Qualquer falha → voz do sistema. */
+const VOZ_IA="__piper_faber"; const VOZ_IA_ID="pt_BR-faber-medium";
+let __vozIA=null;
+function vozIA(){ if(__vozIA) return __vozIA;
+  let w=null, seq=0, morto=false; const pend={};
+  try{
+    const src="import * as tts from 'https://cdn.jsdelivr.net/npm/@diffusionstudio/vits-web@1.0.3/+esm';\n"+
+      "self.onmessage=async e=>{ const d=e.data; try{\n"+
+      " if(d.tipo==='tem'){ const s=await tts.stored(); self.postMessage({id:d.id,ok:true,tem:s.indexOf(d.voz)>=0}); }\n"+
+      " else if(d.tipo==='baixar'){ await tts.download(d.voz,p=>self.postMessage({id:d.id,progresso:p&&p.total?p.loaded/p.total:0})); self.postMessage({id:d.id,ok:true}); }\n"+
+      " else { const wav=await tts.predict({text:d.texto,voiceId:d.voz}); self.postMessage({id:d.id,ok:true,wav}); }\n"+
+      "}catch(err){ self.postMessage({id:d.id,erro:String((err&&err.message)||err)}); } };";
+    w=new Worker(URL.createObjectURL(new Blob([src],{type:"text/javascript"})),{type:"module"});
+    w.onmessage=e=>{ const d=e.data||{}, p=pend[d.id]; if(!p) return;
+      if("progresso" in d){ p.vivo(); p.prog&&p.prog(d.progresso); return; }
+      p.fim(); delete pend[d.id]; if(d.erro) p.ko(new Error(d.erro)); else p.ok(d); };
+    /* biblioteca não carregou (sem internet, bloqueio): rejeita tudo e não tenta mais nesta sessão */
+    w.onerror=ev=>{ try{ ev&&ev.preventDefault&&ev.preventDefault(); }catch(_e){} morto=true;
+      Object.keys(pend).forEach(k=>{ pend[k].fim(); pend[k].ko(new Error("a voz natural não carregou")); delete pend[k]; }); };
+  }catch(e){ w=null; }
+  /* tempo-limite sem sinal de vida: 20 s para consultar, 45 s parado no download, 40 s para gerar a fala */
+  const LIM={tem:20000,baixar:45000,falar:40000};
+  const chamar=(tipo,extra,prog)=>new Promise((ok,ko)=>{ if(!w||morto) return ko(new Error("a voz natural não carregou"));
+    const id=++seq; let t=null;
+    const vivo=()=>{ clearTimeout(t); t=setTimeout(()=>{ if(pend[id]){ delete pend[id]; ko(new Error("demorou demais")); } },LIM[tipo]||30000); };
+    pend[id]={ok,ko,prog,vivo,fim:()=>clearTimeout(t)}; vivo();
+    try{ w.postMessage(Object.assign({id,tipo,voz:VOZ_IA_ID},extra||{})); }catch(e){ clearTimeout(t); delete pend[id]; ko(e); } });
+  __vozIA={ get suporta(){ return !!w&&!morto; }, tem:()=>chamar("tem").then(d=>!!d.tem), baixar:prog=>chamar("baixar",null,prog), falar:t=>chamar("falar",{texto:t}).then(d=>d.wav) };
+  return __vozIA; }
+function pararVozPaciente(){ try{ window.speechSynthesis.cancel(); }catch(e){} try{ const a=__audioPac; if(a){ a.pause(); a.onended=null; } }catch(e){} }
 function reconhecedorVoz(){ try{ return window.SpeechRecognition||window.webkitSpeechRecognition||null; }catch(e){ return null; } }
 function vozPacienteCfg(caso){ const c=normExame(caso.cenario||"");
   /* pediatria: quem responde é a mãe; senão, pelo sexo do paciente no cenário */
   const fem=/\b(mulher|gestante|primigesta|secundigesta|puerpera|menina|senhora|paciente do sexo feminino|mae)\b|\bG\d/i.test(c)||/^(lactente|crianca|menino|menina|rn|recem|escolar|pre-escolar|adolescente)/.test(c)||/\bpediatr/.test(c);
   const idoso=/\b([6-9]\d) anos/.test(c);
   return {fem, rate:idoso?0.95:1}; }
-function falarPaciente(txt,caso,aoTerminar){ try{
+function falarPaciente(txt,caso,aoTerminar){
+  let escolhida=""; try{ escolhida=PLS.get(VOZ_NOME_KEY)||""; }catch(e){}
+  if(escolhida===VOZ_IA){ const limpo=String(txt||"").replace(/[*_#>`]/g,"").replace(/\([^)]*\)/g," ").replace(/\s+/g," ").trim();
+    if(!limpo){ aoTerminar&&aoTerminar(); return; }
+    let fim=false; const acabar=()=>{ if(fim) return; fim=true; aoTerminar&&aoTerminar(); };
+    pararVozPaciente();
+    vozIA().falar(limpo.slice(0,900)).then(wav=>{ const a=audioPac(); if(!a) throw new Error("sem áudio");
+      a.onended=acabar; a.onerror=acabar; a.src=URL.createObjectURL(wav);
+      const p=a.play(); if(p&&p.catch) p.catch(()=>{ falarSistema(limpo,caso,acabar); });
+      setTimeout(acabar, 4000+limpo.length*110); })
+    .catch(()=>{ falarSistema(limpo,caso,acabar); });   /* falhou: cai na voz do aparelho */
+    return; }
+  falarSistema(txt,caso,aoTerminar); }
+function falarSistema(txt,caso,aoTerminar){ try{
   if(!("speechSynthesis" in window)){ aoTerminar&&aoTerminar(); return; }
   const limpo=String(txt||"").replace(/[*_#>`]/g,"").replace(/\s+/g," ").trim(); if(!limpo){ aoTerminar&&aoTerminar(); return; }
   window.speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(limpo); const v=escolherVoz(); if(v){ u.voice=v; u.lang=v.lang; } else u.lang="pt-BR";
+  const u=new SpeechSynthesisUtterance(limpo); const v=escolherVoz(); if(v){ u.voice=v; u.lang=v.lang; } else u.lang="pt-BR";  /* VOZ_IA não está na lista: escolherVoz cai na melhor do sistema */
   /* tom e velocidade naturais: mexer no pitch deixava a voz robótica */
   u.pitch=1; u.rate=vozPacienteCfg(caso).rate;
   let fim=false; const acabar=()=>{ if(fim) return; fim=true; aoTerminar&&aoTerminar(); };
@@ -7240,11 +7289,20 @@ function OSCEEstacao({caso, onVoltar}){
   const vozesLista=useVozesPt();
   const [vozNomeOsce,setVozNomeOsce]=useState(()=>{ try{ return PLS.get(VOZ_NOME_KEY)||""; }catch(e){ return ""; } });
   const vozAtualOsce=vozesLista.find(v=>v.name===vozNomeOsce)||vozesLista[0]||null;
-  const trocarVoz=n=>{ setVozNomeOsce(n); try{ PLS.set(VOZ_NOME_KEY,n); }catch(e){} destravarVoz(); setFalando(true); falarPaciente("Bom dia, doutor. É assim que eu vou falar com você.",caso,()=>setFalando(false)); };
+  const [baixandoIA,setBaixandoIA]=useState(null);   // null | 0..1 durante o download da voz natural
+  const testarVoz=()=>{ setFalando(true); falarPaciente("Bom dia, doutor. É assim que eu vou falar com você.",caso,()=>setFalando(false)); };
+  const trocarVoz=async n=>{ destravarVoz();
+    if(n===VOZ_IA){ const ia=vozIA(); if(!ia.suporta){ setAvisoVoz("Este navegador não roda a voz natural. Use o Chrome atualizado."); return; }
+      let tem=false; try{ tem=await ia.tem(); }catch(e){}
+      if(!tem){ if(!confirm("Baixar a voz natural do paciente?\n\n• Grátis, roda no seu aparelho\n• Cerca de 60 MB, uma vez só (prefira Wi-Fi)\n• Funciona até sem internet depois")) return;
+        setBaixandoIA(0); setAvisoVoz("");
+        try{ await ia.baixar(p=>setBaixandoIA(p||0)); }catch(e){ setBaixandoIA(null); setAvisoVoz("Não consegui baixar a voz natural agora ("+e.message+"). Continua a voz do aparelho."); return; }
+        setBaixandoIA(null); } }
+    setVozNomeOsce(n); try{ PLS.set(VOZ_NOME_KEY,n); }catch(e){} testarVoz(); };
   const recRef=useRef(null); const conversaRef=useRef(false); const enviarRef=useRef(null);
   useEffect(()=>{ conversaRef.current=conversaVoz; },[conversaVoz]);
-  useEffect(()=>()=>{ try{ recRef.current&&recRef.current.abort(); }catch(e){} try{ window.speechSynthesis.cancel(); }catch(e){} },[]);
-  const setVoz=v=>{ if(v) destravarVoz(); setVozOn(v); try{ PLS.set("preceptor_osce_voz",v?"1":"0"); }catch(e){} if(!v){ try{ window.speechSynthesis.cancel(); }catch(e){} setFalando(false); } };
+  useEffect(()=>()=>{ try{ recRef.current&&recRef.current.abort(); }catch(e){} pararVozPaciente(); },[]);
+  const setVoz=v=>{ if(v) destravarVoz(); setVozOn(v); try{ PLS.set("preceptor_osce_voz",v?"1":"0"); }catch(e){} if(!v){ pararVozPaciente(); setFalando(false); } };
   /* ouvir o aluno: transcreve ao vivo na caixa; encerra após ~2 s de silêncio.
      autoEnviar: no modo conversa, manda a fala sozinha ao terminar. */
   const [avisoVoz,setAvisoVoz]=useState("");
@@ -7258,7 +7316,7 @@ function OSCEEstacao({caso, onVoltar}){
      No iPhone o modo contínuo duplica/corta o texto: lá usa uma frase por vez. */
   const ouvir=(autoEnviar)=>{
     if(!Rec) return; try{ recRef.current&&recRef.current.abort(); }catch(e){}
-    try{ window.speechSynthesis.cancel(); }catch(e){} setFalando(false); setAvisoVoz("");
+    pararVozPaciente(); setFalando(false); setAvisoVoz("");
     let r; try{ r=new Rec(); }catch(e){ setAvisoVoz(avisoMicNegado()); setConversaVoz(false); return; }
     r.lang="pt-BR"; r.continuous=!(EH_IOS||EH_ANDROID); r.interimResults=true; try{ r.maxAlternatives=1; }catch(e){}
     let texto="", timer=null, teveResultado=false, acabou=false;
@@ -7281,7 +7339,7 @@ function OSCEEstacao({caso, onVoltar}){
     try{ r.start(); }catch(e){ acabou=true; setOuvindo(false); setAvisoVoz(avisoMicNegado()); setConversaVoz(false); }
   };
   const pararOuvir=()=>{ try{ recRef.current&&recRef.current.stop(); }catch(e){} };
-  const alternarConversa=()=>{ if(conversaVoz){ setConversaVoz(false); try{ recRef.current&&recRef.current.abort(); }catch(e){} try{ window.speechSynthesis.cancel(); }catch(e){} setFalando(false); return; }
+  const alternarConversa=()=>{ if(conversaVoz){ setConversaVoz(false); try{ recRef.current&&recRef.current.abort(); }catch(e){} pararVozPaciente(); setFalando(false); return; }
     destravarVoz(); setConversaVoz(true); conversaRef.current=true; setVoz(true); ouvir(true); };
   const [msgs,setMsgs]=useState([]);      // [{de:'aluno'|'paciente', txt}]
   const [entrada,setEntrada]=useState("");
@@ -7358,7 +7416,7 @@ function OSCEEstacao({caso, onVoltar}){
     const achou=ws.filter(w=>falaAluno.indexOf(w)>=0).length; return achou/ws.length>=0.8;
   };
   const encerrar = async ()=>{
-    setConversaVoz(false); conversaRef.current=false; try{ recRef.current&&recRef.current.abort(); }catch(e){} try{ window.speechSynthesis.cancel(); }catch(e){}
+    setConversaVoz(false); conversaRef.current=false; try{ recRef.current&&recRef.current.abort(); }catch(e){} pararVozPaciente();
     const itens = caso.etapas.flatMap(e=>e.checklist);
     const falasAluno = msgs.filter(m=>m.de==="aluno");
     if(!workerOk){ setFase("resultado"); setResultado({itens:itens.map(t=>({texto:t,ok:false,nivel:0})),nota:0,pct:0,feedback:"Ative a IA para correção automática."}); return; }
@@ -7516,9 +7574,11 @@ function OSCEEstacao({caso, onVoltar}){
       {Rec && <button className={"btn sm"+(conversaVoz?"":" ghost")} disabled={!workerOk} onClick={alternarConversa}>{conversaVoz?"⏹ Parar conversa por voz":"🗣️ Conversa por voz"}</button>}
       {Rec && !conversaVoz && <button className={"btn sm"+(ouvindo?"":" ghost")} onClick={()=>ouvindo?pararOuvir():ouvir(false)}>{ouvindo?"⏹ Parar de ditar":"🎤 Ditar"}</button>}
       {temTTS && <button className={"btn sm"+(vozOn?"":" ghost")} onClick={()=>setVoz(!vozOn)}>{vozOn?"🔊 Paciente fala":"🔇 Paciente em texto"}</button>}
-      {temTTS && vozOn && vozesLista.length>1 && <select value={vozAtualOsce?vozAtualOsce.name:""} onChange={e=>trocarVoz(e.target.value)} aria-label="Voz do paciente" title="Voz do paciente" style={{maxWidth:210,fontSize:13,padding:"6px 8px"}}>
+      {temTTS && vozOn && <select value={vozNomeOsce===VOZ_IA?VOZ_IA:(vozAtualOsce?vozAtualOsce.name:"")} onChange={e=>trocarVoz(e.target.value)} aria-label="Voz do paciente" title="Voz do paciente" style={{maxWidth:210,fontSize:13,padding:"6px 8px"}}>
+        <option value={VOZ_IA}>✨ Voz natural (grátis, no aparelho)</option>
         {vozesLista.map(v=><option key={v.name} value={v.name}>{rotuloVoz(v)}</option>)}
       </select>}
+      {baixandoIA!==null && <span className="muted" style={{fontSize:12}}>Baixando a voz natural… {Math.round((baixandoIA||0)*100)}%</span>}
       <span className="muted" style={{fontSize:12}}>{ouvindo?"🎙️ Ouvindo… fale e faça uma pausa":falando?"🔊 Paciente falando…":carregando&&conversaVoz?"Paciente pensando…":conversaVoz?"Conversa por voz ligada":""}</span>
     </div>}
     {avisoVoz && <div style={{fontSize:12.5,marginBottom:8,color:"var(--warn)",lineHeight:1.45}}>⚠️ {avisoVoz}</div>}
