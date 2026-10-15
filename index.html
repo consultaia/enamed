@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.15.3";
+  window.APP_VERSION="2026.10.15.4";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -7196,6 +7196,17 @@ function GuiaOSCE({area}){
 
 /* ---- OSCE por voz: o paciente fala (síntese do navegador) e o aluno fala (reconhecimento pt-BR) ---- */
 const EH_IOS=(()=>{ try{ return /iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1); }catch(e){ return false; } })();
+const EH_ANDROID=(()=>{ try{ return /Android/i.test(navigator.userAgent); }catch(e){ return false; } })();
+/* Chrome do Android reenvia o trecho já dito em cada resultado ("boa boa noite boa noite..."):
+   junta os pedaços descartando o que já estava no texto */
+function juntarFalas(partes){ let acc="";
+  const n=t=>t.toLowerCase().replace(/[^\p{L}\p{N} ]/gu,"").replace(/\s+/g," ").trim();
+  partes.forEach(p=>{ const t=String(p||"").trim(); if(!t) return; const a=n(acc), b=n(t);
+    if(!a){ acc=t; return; }
+    if(b.startsWith(a)){ acc=t; return; }          // resultado novo contém o anterior
+    if(a.endsWith(b)||a.indexOf(b)>=0) return;       // repetição do que já foi dito
+    acc=acc+" "+t; });
+  return acc.replace(/\s+/g," ").trim(); }
 const EH_APP_INSTALADO=(()=>{ try{ return !!(navigator.standalone||window.matchMedia("(display-mode: standalone)").matches); }catch(e){ return false; } })();
 /* iPhone só deixa o site falar se a 1ª fala nascer de um toque: "destrava" a voz no clique */
 let __ttsDestravado=false;
@@ -7205,13 +7216,14 @@ function vozPacienteCfg(caso){ const c=normExame(caso.cenario||"");
   /* pediatria: quem responde é a mãe; senão, pelo sexo do paciente no cenário */
   const fem=/\b(mulher|gestante|primigesta|secundigesta|puerpera|menina|senhora|paciente do sexo feminino|mae)\b|\bG\d/i.test(c)||/^(lactente|crianca|menino|menina|rn|recem|escolar|pre-escolar|adolescente)/.test(c)||/\bpediatr/.test(c);
   const idoso=/\b([6-9]\d) anos/.test(c);
-  return {pitch:fem?1.12:0.88, rate:idoso?0.95:1.04}; }
+  return {fem, rate:idoso?0.95:1}; }
 function falarPaciente(txt,caso,aoTerminar){ try{
   if(!("speechSynthesis" in window)){ aoTerminar&&aoTerminar(); return; }
   const limpo=String(txt||"").replace(/[*_#>`]/g,"").replace(/\s+/g," ").trim(); if(!limpo){ aoTerminar&&aoTerminar(); return; }
   window.speechSynthesis.cancel();
   const u=new SpeechSynthesisUtterance(limpo); const v=escolherVoz(); if(v){ u.voice=v; u.lang=v.lang; } else u.lang="pt-BR";
-  const cfg=vozPacienteCfg(caso); u.pitch=cfg.pitch; u.rate=cfg.rate;
+  /* tom e velocidade naturais: mexer no pitch deixava a voz robótica */
+  u.pitch=1; u.rate=vozPacienteCfg(caso).rate;
   let fim=false; const acabar=()=>{ if(fim) return; fim=true; aoTerminar&&aoTerminar(); };
   u.onend=acabar; u.onerror=acabar;
   /* alguns navegadores não disparam onend: libera o microfone após o tempo estimado da fala */
@@ -7225,6 +7237,10 @@ function OSCEEstacao({caso, onVoltar}){
   const [conversaVoz,setConversaVoz]=useState(false); // mãos livres: fala → envia → paciente responde → microfone reabre
   const [ouvindo,setOuvindo]=useState(false);
   const [falando,setFalando]=useState(false);
+  const vozesLista=useVozesPt();
+  const [vozNomeOsce,setVozNomeOsce]=useState(()=>{ try{ return PLS.get(VOZ_NOME_KEY)||""; }catch(e){ return ""; } });
+  const vozAtualOsce=vozesLista.find(v=>v.name===vozNomeOsce)||vozesLista[0]||null;
+  const trocarVoz=n=>{ setVozNomeOsce(n); try{ PLS.set(VOZ_NOME_KEY,n); }catch(e){} destravarVoz(); setFalando(true); falarPaciente("Bom dia, doutor. É assim que eu vou falar com você.",caso,()=>setFalando(false)); };
   const recRef=useRef(null); const conversaRef=useRef(false); const enviarRef=useRef(null);
   useEffect(()=>{ conversaRef.current=conversaVoz; },[conversaVoz]);
   useEffect(()=>()=>{ try{ recRef.current&&recRef.current.abort(); }catch(e){} try{ window.speechSynthesis.cancel(); }catch(e){} },[]);
@@ -7244,14 +7260,14 @@ function OSCEEstacao({caso, onVoltar}){
     if(!Rec) return; try{ recRef.current&&recRef.current.abort(); }catch(e){}
     try{ window.speechSynthesis.cancel(); }catch(e){} setFalando(false); setAvisoVoz("");
     let r; try{ r=new Rec(); }catch(e){ setAvisoVoz(avisoMicNegado()); setConversaVoz(false); return; }
-    r.lang="pt-BR"; r.continuous=!EH_IOS; r.interimResults=true; try{ r.maxAlternatives=1; }catch(e){}
+    r.lang="pt-BR"; r.continuous=!(EH_IOS||EH_ANDROID); r.interimResults=true; try{ r.maxAlternatives=1; }catch(e){}
     let texto="", timer=null, teveResultado=false, acabou=false;
     const base=autoEnviar?"":(document.querySelector("textarea[data-osce]")||{}).value||"";
     const junto=()=>((base?base.trim()+" ":"")+texto).trim();
     const silencio=(ms)=>{ clearTimeout(timer); timer=setTimeout(()=>{ try{ r.stop(); }catch(e){} setTimeout(()=>{ if(!acabou) fim(); },1500); },ms); };
     /* reconstrói o texto a partir de todos os resultados (evita repetir trechos no Safari) */
-    r.onresult=e=>{ teveResultado=true; let t=""; for(let i=0;i<e.results.length;i++) t+=e.results[i][0].transcript+(e.results[i].isFinal?" ":"");
-      texto=t.replace(/\s+/g," ").trim(); setEntrada(junto()); silencio(2200); };
+    r.onresult=e=>{ teveResultado=true; const partes=[]; for(let i=0;i<e.results.length;i++) partes.push(e.results[i][0].transcript);
+      texto=juntarFalas(partes); setEntrada(junto()); silencio(2200); };
     r.onerror=e=>{ const er=e&&e.error;
       if(er==="not-allowed"||er==="service-not-allowed"){ setAvisoVoz(avisoMicNegado()); setConversaVoz(false); conversaRef.current=false; }
       else if(er==="no-speech"){ setAvisoVoz("Não ouvi nada. Toque de novo e fale mais perto do microfone."); }
@@ -7500,6 +7516,9 @@ function OSCEEstacao({caso, onVoltar}){
       {Rec && <button className={"btn sm"+(conversaVoz?"":" ghost")} disabled={!workerOk} onClick={alternarConversa}>{conversaVoz?"⏹ Parar conversa por voz":"🗣️ Conversa por voz"}</button>}
       {Rec && !conversaVoz && <button className={"btn sm"+(ouvindo?"":" ghost")} onClick={()=>ouvindo?pararOuvir():ouvir(false)}>{ouvindo?"⏹ Parar de ditar":"🎤 Ditar"}</button>}
       {temTTS && <button className={"btn sm"+(vozOn?"":" ghost")} onClick={()=>setVoz(!vozOn)}>{vozOn?"🔊 Paciente fala":"🔇 Paciente em texto"}</button>}
+      {temTTS && vozOn && vozesLista.length>1 && <select value={vozAtualOsce?vozAtualOsce.name:""} onChange={e=>trocarVoz(e.target.value)} aria-label="Voz do paciente" title="Voz do paciente" style={{maxWidth:210,fontSize:13,padding:"6px 8px"}}>
+        {vozesLista.map(v=><option key={v.name} value={v.name}>{rotuloVoz(v)}</option>)}
+      </select>}
       <span className="muted" style={{fontSize:12}}>{ouvindo?"🎙️ Ouvindo… fale e faça uma pausa":falando?"🔊 Paciente falando…":carregando&&conversaVoz?"Paciente pensando…":conversaVoz?"Conversa por voz ligada":""}</span>
     </div>}
     {avisoVoz && <div style={{fontSize:12.5,marginBottom:8,color:"var(--warn)",lineHeight:1.45}}>⚠️ {avisoVoz}</div>}
