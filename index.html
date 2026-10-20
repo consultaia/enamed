@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.21.1";
+  window.APP_VERSION="2026.10.21.2";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -5507,7 +5507,7 @@ function fatiarFala(paragrafos){
    por isso esperamos o "voiceschanged". As vozes "Natural/Online" (Edge) e "Google"
    (Chrome) soam humanas; as "Microsoft Maria/Daniel" de desktop soam robóticas. */
 const VOZ_NOME_KEY="preceptor_voz_nome";
-function notaVoz(v){ const n=v.name||""; return (/natural|neural/i.test(n)?8:0)+(/online/i.test(n)?4:0)+(/google/i.test(n)?3:0)+(/francisca|thalita|antonio|luciana|felipe/i.test(n)?1:0)+(v.localService===false?1:0)-(/maria|daniel|desktop|espeak/i.test(n)&&!/natural|online/i.test(n)?3:0); }
+function notaVoz(v){ const n=v.name||""; return (/natural|neural|premium|aprimorad|enhanced|melhorad/i.test(n)?8:0)-(/eddy|flo\b|reed|sandy|shelley|rocko|grandma|grandpa|vov[óo]/i.test(n)?6:0)+(/online/i.test(n)?4:0)+(/google/i.test(n)?3:0)+(/francisca|thalita|antonio|luciana|felipe/i.test(n)?1:0)+(v.localService===false?1:0)-(/maria|daniel|desktop|espeak/i.test(n)&&!/natural|online/i.test(n)?3:0); }
 function vozesPt(){ try{ const vs=window.speechSynthesis.getVoices()||[]; let pt=vs.filter(v=>/^pt[-_]BR/i.test(v.lang)); if(!pt.length) pt=vs.filter(v=>/^pt/i.test(v.lang)); return pt.slice().sort((a,b)=>notaVoz(b)-notaVoz(a)); }catch(e){ return []; } }
 function rotuloVoz(v){ const n=(v.name||"").replace(/^Microsoft\s+/,"").replace(/\s*-\s*Portuguese.*$/i,"").replace(/\s*\(Brazil\)|\s*\(Brasil\)/i,"").replace(/Online \(Natural\)/i,"natural").trim(); return (notaVoz(v)>=3?"⭐ ":"")+n; }
 function escolherVoz(){
@@ -5517,6 +5517,23 @@ function escolherVoz(){
 let __vozesP=null;
 function vozesProntas(){ if(__vozesP) return __vozesP; __vozesP=new Promise(res=>{ try{ if((window.speechSynthesis.getVoices()||[]).length) return res(); const f=()=>{ try{window.speechSynthesis.removeEventListener("voiceschanged",f);}catch(e){} res(); }; window.speechSynthesis.addEventListener("voiceschanged",f); setTimeout(res,1500); }catch(e){ res(); } }); return __vozesP; }
 function useVozesPt(){ const [l,setL]=useState(()=>vozesPt()); useEffect(()=>{ let vivo=true; const at=()=>{ if(vivo) setL(vozesPt()); }; vozesProntas().then(at); try{ window.speechSynthesis.addEventListener("voiceschanged",at); }catch(e){} return ()=>{ vivo=false; try{ window.speechSynthesis.removeEventListener("voiceschanged",at); }catch(e){} }; },[]); return l; }
+/* Dica de voz natural grátis: as vozes neurais já vêm no aparelho, só precisam ser baixadas/ativadas */
+function DicaVozNatural({vozes}){
+  const [aberta,setAberta]=useState(false);
+  const ua=navigator.userAgent||""; const ios=/iPhone|iPad|iPod/i.test(ua)||(/Macintosh/.test(ua)&&"ontouchend" in document); const and=/Android/i.test(ua);
+  const temBoa=(vozes||[]).some(v=>notaVoz(v)>=8);
+  const passos= ios ? ["Abra Ajustes → Acessibilidade → Conteúdo Falado → Vozes.","Toque em Português (Brasil).","Baixe a Luciana ou o Felipe na versão \"Aprimorada\" (ou \"Premium\", se aparecer). É grátis (prefira Wi-Fi, o arquivo é grande).","Feche e abra o Preceptor de novo e escolha a voz com ⭐ na lista."]
+    : and ? ["Abra a Play Store e atualize \"Serviços de voz do Google\" (Speech Services by Google).","Configurações → Acessibilidade → Saída de conversão de texto em voz (ou procure \"texto em voz\" nas Configurações).","Mecanismo preferido: Google. Toque na engrenagem ⚙ → Instalar dados de voz → Português (Brasil) → baixe e escolha uma voz (experimente as opções).","Feche e abra o Preceptor de novo."]
+    : ["No computador, abra o Preceptor no Microsoft Edge: ele traz as vozes naturais Francisca, Thalita e Antonio, de graça.","No Chrome, prefira a voz \"Google português do Brasil\".","Depois escolha a voz com ⭐ na lista."];
+  return <span style={{fontSize:11.5}}>
+    <span className="link" onClick={()=>setAberta(a=>!a)}>{temBoa?"🎧 Trocar de voz":"🎧 Voz robótica? Deixe natural de graça"}</span>
+    {aberta && <div className="block" style={{marginTop:6,fontSize:12.5,lineHeight:1.5,textAlign:"left"}}>
+      <b>{ios?"No iPhone":and?"No Android":"No computador"}:</b>
+      <ol style={{margin:"6px 0 0 18px",padding:0}}>{passos.map((p,i)=><li key={i}>{p}</li>)}</ol>
+      <div className="muted" style={{marginTop:6}}>Essas vozes são as mesmas dos assistentes do aparelho e funcionam até sem internet.</div>
+    </div>}
+  </span>;
+}
 function OuvirTexto({paragrafos,onAtual,rotulo}){
   const suporta=typeof window!=="undefined"&&"speechSynthesis" in window&&typeof window.SpeechSynthesisUtterance!=="undefined";
   const [status,setStatus]=useState("parado"); // parado | tocando | pausado
@@ -5571,13 +5588,11 @@ function OuvirTexto({paragrafos,onAtual,rotulo}){
     setVozNome(n); try{ PLS.set(VOZ_NOME_KEY,n); }catch(e){} cacheIA.current={}; if(status==="tocando") falar(idx.current); };
   const seletorVoz=<><select value={vozNome===VOZ_IA?VOZ_IA:(vozAtual?vozAtual.name:"")} onChange={e=>mudarVoz(e.target.value)} aria-label="Voz da leitura" title="Voz da leitura"
       style={{background:"var(--panel)",color:"var(--ink)",border:"1px solid var(--line)",borderRadius:8,padding:"3px 4px",fontSize:12,maxWidth:170}}>
-      <option value={VOZ_IA} style={{background:"var(--panel)",color:"var(--ink)"}}>✨ Voz natural (grátis)</option>
       {vozes.map(v=><option key={v.name} value={v.name} style={{background:"var(--panel)",color:"var(--ink)"}}>{rotuloVoz(v)}</option>)}
+      <option value={VOZ_IA} style={{background:"var(--panel)",color:"var(--ink)"}}>⬇️ Voz extra masculina (baixar 60 MB)</option>
     </select>{baixandoIA!==null&&<span className="muted" style={{fontSize:11.5}}>Baixando voz… {Math.round((baixandoIA||0)*100)}%</span>}</>;
   const celular=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||"");
-  const dicaVoz=celular&&vozes.length<=1
-    ? <span className="muted" style={{fontSize:11.5}}>No celular a voz é a do sistema. Para trocar: {/iPhone|iPad|iPod/i.test(navigator.userAgent||"")?"Ajustes → Acessibilidade → Conteúdo Falado → Vozes → Português (Brasil) e baixe uma voz \"Melhorada\" ou \"Premium\".":"Configurações → Acessibilidade → Saída de conversão de texto em voz → Mecanismo Google → ⚙ → Instalar dados de voz → Português (Brasil), e escolha a voz."}</span>
-    : (vozes.length&&!vozes.some(v=>notaVoz(v)>=3)?<span className="muted" style={{fontSize:11.5}}>Voz robótica? No Microsoft Edge do computador a leitura usa vozes naturais (Francisca e Antonio).</span>:null);
+  const dicaVoz=<DicaVozNatural vozes={vozes}/>;
   const seletorVel=<select value={vel} onChange={e=>mudarVel(parseFloat(e.target.value))} aria-label="Velocidade da leitura"
       style={{background:"var(--panel)",color:"var(--ink)",border:"1px solid var(--line)",borderRadius:8,padding:"3px 4px",fontSize:12}}>
       {[0.9,1,1.25,1.5,1.75,2].map(v=><option key={v} value={v} style={{background:"var(--panel)",color:"var(--ink)"}}>{String(v).replace(".",",")}x</option>)}
@@ -7267,10 +7282,10 @@ function vozIA(){ if(__vozIA) return __vozIA;
   __vozIA={ get suporta(){ return !!w&&!morto; }, tem:()=>chamar("tem").then(d=>!!d.tem), baixar:prog=>chamar("baixar",null,prog), falar:t=>chamar("falar",{texto:t}).then(d=>d.wav) };
   return __vozIA; }
 /* baixa a voz natural (uma vez, com confirmação); devolve true se ela está pronta */
-async function garantirVozIA(onProg){ const ia=vozIA(); if(!ia.suporta) throw new Error("este navegador não roda a voz natural (use o Chrome atualizado)");
+async function garantirVozIA(onProg){ const ia=vozIA(); if(!ia.suporta) throw new Error("este navegador não roda a voz extra (use o Chrome atualizado)");
   let tem=false; try{ tem=await ia.tem(); }catch(e){}
   if(tem) return true;
-  if(!confirm("Baixar a voz natural?\n\n• Grátis, roda no seu aparelho\n• Cerca de 60 MB, uma vez só (prefira Wi-Fi)\n• Depois funciona até sem internet")) return false;
+  if(!confirm("Baixar a voz extra masculina?\n\n• Grátis, roda no seu aparelho\n• Cerca de 60 MB, uma vez só (prefira Wi-Fi)\n• Depois funciona até sem internet")) return false;
   await ia.baixar(onProg); return true; }
 function pararVozPaciente(){ try{ window.speechSynthesis.cancel(); }catch(e){} try{ const a=__audioPac; if(a){ a.pause(); a.onended=null; } }catch(e){} }
 function reconhecedorVoz(){ try{ return window.SpeechRecognition||window.webkitSpeechRecognition||null; }catch(e){ return null; } }
@@ -7601,10 +7616,12 @@ function OSCEEstacao({caso, onVoltar}){
       {Rec && !conversaVoz && <button className={"btn sm"+(ouvindo?"":" ghost")} onClick={()=>ouvindo?pararOuvir():ouvir(false)}>{ouvindo?"⏹ Parar de ditar":"🎤 Ditar"}</button>}
       {temTTS && <button className={"btn sm"+(vozOn?"":" ghost")} onClick={()=>setVoz(!vozOn)}>{vozOn?"🔊 Paciente fala":"🔇 Paciente em texto"}</button>}
       {temTTS && vozOn && <select value={vozNomeOsce===VOZ_IA?VOZ_IA:(vozAtualOsce?vozAtualOsce.name:"")} onChange={e=>trocarVoz(e.target.value)} aria-label="Voz do paciente" title="Voz do paciente" style={{maxWidth:210,fontSize:13,padding:"6px 8px"}}>
-        <option value={VOZ_IA}>✨ Voz natural (grátis, no aparelho)</option>
+        {vozesLista.length===0 && <option value="">🔈 Voz do aparelho</option>}
         {vozesLista.map(v=><option key={v.name} value={v.name}>{rotuloVoz(v)}</option>)}
+        <option value={VOZ_IA}>⬇️ Voz extra masculina (baixar 60 MB)</option>
       </select>}
-      {baixandoIA!==null && <span className="muted" style={{fontSize:12}}>Baixando a voz natural… {Math.round((baixandoIA||0)*100)}%</span>}
+      {temTTS && vozOn && <DicaVozNatural vozes={vozesLista}/>}
+      {baixandoIA!==null && <span className="muted" style={{fontSize:12}}>Baixando a voz… {Math.round((baixandoIA||0)*100)}%</span>}
       <span className="muted" style={{fontSize:12}}>{ouvindo?"🎙️ Ouvindo… fale e faça uma pausa":falando?"🔊 Paciente falando…":carregando&&conversaVoz?"Paciente pensando…":conversaVoz?"Conversa por voz ligada":""}</span>
     </div>}
     {avisoVoz && <div style={{fontSize:12.5,marginBottom:8,color:"var(--warn)",lineHeight:1.45}}>⚠️ {avisoVoz}</div>}
@@ -7705,12 +7722,13 @@ function PergunteVoz({isPro,onAssinar,temasFracos}){
       <div className="row" style={{gap:8,justifyContent:"center",flexWrap:"wrap",marginTop:12}}>
         <button className={"btn sm "+(continuo?"":"ghost")} onClick={()=>setContinuo(v=>!v)}>{continuo?"✓ Conversa contínua":"Conversa contínua"}</button>
         {temTTS && <select value={vozNome===VOZ_IA?VOZ_IA:(vozAtual?vozAtual.name:"")} onChange={e=>trocarVoz(e.target.value)} aria-label="Voz do professor" style={{maxWidth:220,fontSize:13,padding:"6px 8px"}}>
-          <option value={VOZ_IA}>✨ Voz natural (grátis)</option>
           {vozesLista.length===0 && <option value="">🔈 Voz do aparelho</option>}
           {vozesLista.map(v=><option key={v.name} value={v.name}>{rotuloVoz(v)}</option>)}
+          <option value={VOZ_IA}>⬇️ Voz extra masculina (baixar 60 MB)</option>
         </select>}
         {baixando!==null && <span className="muted" style={{fontSize:12}}>Baixando voz… {Math.round((baixando||0)*100)}%</span>}
       </div>
+      {temTTS && <div style={{marginTop:8}}><DicaVozNatural vozes={vozesLista}/></div>}
       {aviso && <div style={{color:"var(--warn)",fontSize:13,marginTop:10}}>⚠️ {aviso}</div>}
     </div>
     {hist.length===0 && <div className="card" style={{marginTop:10}}>
@@ -7730,7 +7748,7 @@ function PergunteVoz({isPro,onAssinar,temasFracos}){
       <input value={texto} onChange={e=>setTexto(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&texto.trim()&&!ocupado){ destravarVoz(); perguntar(texto); } }} placeholder="Ou digite sua pergunta…" style={{flex:1}}/>
       <button className="btn" disabled={!texto.trim()||ocupado} onClick={()=>{ destravarVoz(); perguntar(texto); }}>Enviar</button>
     </div>
-    <div className="muted" style={{fontSize:11.5,marginTop:10,textAlign:"center"}}>A voz usa o próprio aparelho (ou a voz natural grátis, que roda no celular). Confira doses e condutas na diretriz.</div>
+    <div className="muted" style={{fontSize:11.5,marginTop:10,textAlign:"center"}}>A voz usa o próprio aparelho (baixe uma voz "Aprimorada" no aparelho para ficar natural). Confira doses e condutas na diretriz.</div>
   </div>;
 }
 
