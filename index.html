@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.20.1";
+  window.APP_VERSION="2026.10.20.2";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -7933,21 +7933,31 @@ function Diagnostico({pool,registrar,onFim,modo,questoesFixas,flag,chave,rotulo}
 /* =================== SIMULADO =================== */
 function Simulado({pool,registrar,isPro}){
   const [run,setRun]=useState(false);const [prova,setProva]=useState([]);const [resp,setResp]=useState({});const [fim,setFim]=useState(false);
+  const [naHora,setNaHora]=useState(false); // gabarito na hora (modo estudo)
   const alvo=isPro?4:2; // por área; PRO monta simulado maior
-  const montar=()=>{let sel=[];AREAS.forEach(a=>{const p=pool.filter(q=>q.area===a.k).sort(()=>Math.random()-0.5);sel=sel.concat(p.slice(0,alvo));});setProva(sel.sort(()=>Math.random()-0.5));setResp({});setFim(false);setRun(true);};
+  const montar=()=>{setFim(false);let sel=[];AREAS.forEach(a=>{const p=pool.filter(q=>q.area===a.k).sort(()=>Math.random()-0.5);sel=sel.concat(p.slice(0,alvo));});setProva(sel.sort(()=>Math.random()-0.5));setResp({});setFim(false);setRun(true);};
   const finalizar=()=>{const faltam=prova.filter(q=>resp[q.id]===undefined).length;if(faltam>0&&!confirm("Ainda há "+faltam+" questões sem resposta, e elas contam como erro. Finalizar mesmo assim?"))return;prova.forEach(q=>{if(resp[q.id]!==undefined)registrar(q,acertouQ(q,resp[q.id]));});setFim(true);};
   if(!run)return <div className="card"><h3 style={{fontSize:17,marginBottom:8}}>Simulado no formato oficial</h3>
     <div className="muted" style={{fontSize:14,marginBottom:14,lineHeight:1.6}}>Respeita a proporção de 20/área (escalada ao banco). {isPro?"":"No plano free o simulado é reduzido — o completo é PRO."}</div>
     <button className="btn" onClick={montar}>Gerar simulado</button></div>;
   const L=["A","B","C","D","E"];const ac=prova.filter(q=>q.anulada||resp[q.id]===q.correta).length;
-  return <div>{!fim&&<div className="muted" style={{fontSize:13,marginBottom:12}}>{prova.length} questões · responda e finalize.</div>}
+  const nResp=prova.filter(q=>resp[q.id]!==undefined).length; const certasAte=prova.filter(q=>resp[q.id]!==undefined&&(q.anulada||resp[q.id]===q.correta)).length;
+  const pctAte=nResp?Math.round(certasAte/nResp*100):0;
+  return <div>{!fim&&<div className="card" style={{marginBottom:12,padding:12}}>
+      <div className="row" style={{gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <span className="muted" style={{fontSize:13}}>{prova.length} questões · Gabarito:</span>
+        <button className={"btn sm "+(naHora?"":"ghost")} onClick={()=>setNaHora(true)}>Na hora</button>
+        <button className={"btn sm "+(!naHora?"":"ghost")} onClick={()=>setNaHora(false)}>Só no fim</button>
+        {naHora&&nResp>0&&<span className="pill" style={{marginLeft:"auto",color:pctAte>=70?"var(--acc)":pctAte>=50?"var(--warn)":"var(--bad)",borderColor:"currentColor",fontWeight:700}}>✓ {certasAte}/{nResp} · {pctAte}%</span>}
+      </div></div>}
     {prova.map((q,idx)=><div key={q.id} className="card" style={{marginBottom:14}}>
       <div className="row" style={{gap:8,marginBottom:8}}><span className="muted" style={{fontSize:13}}>{idx+1}.</span><span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(q.area)}</span></div>
       <div style={{fontSize:15,lineHeight:1.55,marginBottom:4}}>{q.enun}</div>
       <ImgQuestao src={q.imagem}/>
-      {q.alts.map((a,i)=>{let c="alt";if(fim){if(i===q.correta)c+=" correct";else if(resp[q.id]===i)c+=" wrong";else c+=" dim";}else if(resp[q.id]===i)c+=" correct";
-        return <button key={i} className={c} disabled={fim} onClick={()=>setResp(r=>({...r,[q.id]:i}))}><b style={{opacity:.7,marginRight:8}}>{L[i]}</b>{a}</button>;})}
-      {fim&&<div className="comment"><TextoComentario t={q.coment}/></div>}</div>)}
+      {(()=>{ const gab=fim||(naHora&&resp[q.id]!==undefined); return <>
+      {q.alts.map((a,i)=>{let c="alt";if(gab){if(i===q.correta)c+=" correct";else if(resp[q.id]===i)c+=" wrong";else c+=" dim";}else if(resp[q.id]===i)c+=" correct";
+        return <button key={i} className={c} disabled={gab} onClick={()=>setResp(r=>({...r,[q.id]:i}))}><b style={{opacity:.7,marginRight:8}}>{L[i]}</b>{a}</button>;})}
+      {gab&&<div className="comment"><TextoComentario t={q.coment}/></div>}</>; })()}</div>)}
     {!fim?<button className="btn" onClick={finalizar}>Finalizar e corrigir</button>
       :<div className="card"><div className="row" style={{gap:30}}>
         <div><div className="tag muted">Nota</div><div className="kpi" style={{color:sem(Math.round(ac/prova.length*100))}}>{ac}/{prova.length}</div></div>
@@ -8034,8 +8044,10 @@ function SimuladoEnamed({pool, registrar}){
   </div>;
 }
 
-function RunnerEnamed({prova, gabModo, registrar, onVoltar}){
+function RunnerEnamed({prova, gabModo:gabInicial, registrar, onVoltar}){
   const qs = prova.qs;
+  /* o aluno pode ligar/desligar o gabarito na hora durante a prova */
+  const [gabModo,setGabModo]=useState(gabInicial||"fim");
   /* Progresso salvo no aparelho: sair da tela, trocar de aba ou o celular matar o app
      não perde a prova. O cronômetro é medido pelo relógio (não por "tiques"), e o tempo
      com o app fechado não conta. */
@@ -8087,6 +8099,8 @@ function RunnerEnamed({prova, gabModo, registrar, onVoltar}){
   };
 
   const respondidas=Object.keys(resp).length;
+  const certasAte=qs.filter(q=>resp[q.id]!==undefined&&(q.anulada||resp[q.id]===q.correta)).length;
+  const pctAte=respondidas?Math.round(certasAte/respondidas*100):0;
   const acertos=qs.filter(q=>q.anulada||resp[q.id]===q.correta).length;
   const pct=Math.round(acertos/qs.length*100);
   const cor=pct>=70?"var(--acc)":pct>=50?"var(--warn)":"var(--bad)";
@@ -8111,6 +8125,15 @@ function RunnerEnamed({prova, gabModo, registrar, onVoltar}){
       <div className="tag" style={{color:"var(--acc)"}}>ENAMED</div>
       <h2 style={{fontSize:22,marginTop:4}}>{prova.nome}</h2>
     </div>
+    {!fim && <div className="card" style={{marginBottom:12,padding:12}}>
+      <div className="row" style={{gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <span className="muted" style={{fontSize:13}}>Gabarito:</span>
+        <button className={"btn sm "+(gabModo==="imediato"?"":"ghost")} onClick={()=>setGabModo("imediato")}>Na hora</button>
+        <button className={"btn sm "+(gabModo==="fim"?"":"ghost")} onClick={()=>setGabModo("fim")}>Só no fim</button>
+        {gabModo==="imediato" && respondidas>0 && <span className="pill" style={{marginLeft:"auto",color:pctAte>=70?"var(--acc)":pctAte>=50?"var(--warn)":"var(--bad)",borderColor:"currentColor",fontWeight:700}}>✓ {certasAte}/{respondidas} · {pctAte}%</span>}
+      </div>
+      {gabModo==="imediato" && <div className="muted" style={{fontSize:12,marginTop:6}}>Cada questão mostra a resposta certa e o comentário assim que você responde.</div>}
+    </div>}
 
     {/* resultado no topo quando finalizado */}
     {fim &&
