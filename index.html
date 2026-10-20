@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.15.6";
+  window.APP_VERSION="2026.10.20.1";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -7957,7 +7957,18 @@ function Simulado({pool,registrar,isPro}){
 }
 
 /* =================== SIMULADO ENAMED (provas completas) =================== */
+/* Simulado provável do 8º simulado da faculdade (análise dos 7 anteriores, 20/10/2026):
+   A = ENAMED 2026 completo (a prova oficial mais recente, ainda não usada — padrão dos simulados 3 e 7);
+   B = questões do INEP ainda não usadas (Revalida 2024/1 e 2025/1, ENAMED 2025) + ENARE 2024/25, na proporção média das 7 provas. */
+const SIM_PROVAVEL=[
+  {nome:"Simulado 8 provável · versão A (ENAMED 2026 completo)", ids:["enamed_2026_q075", "enamed_2026_q071", "enamed_2026_q092", "enamed_2026_q022", "enamed_2026_q035", "enamed_2026_q081", "enamed_2026_q042", "enamed_2026_q019", "enamed_2026_q026", "enamed_2026_q084", "enamed_2026_q003", "enamed_2026_q095", "enamed_2026_q007", "enamed_2026_q070", "enamed_2026_q013", "enamed_2026_q004", "enamed_2026_q024", "enamed_2026_q096", "enamed_2026_q062", "enamed_2026_q057", "enamed_2026_q041", "enamed_2026_q080", "enamed_2026_q045", "enamed_2026_q093", "enamed_2026_q100", "enamed_2026_q055", "enamed_2026_q094", "enamed_2026_q009", "enamed_2026_q018", "enamed_2026_q052", "enamed_2026_q087", "enamed_2026_q061", "enamed_2026_q064", "enamed_2026_q063", "enamed_2026_q008", "enamed_2026_q033", "enamed_2026_q058", "enamed_2026_q040", "enamed_2026_q027", "enamed_2026_q091", "enamed_2026_q029", "enamed_2026_q054", "enamed_2026_q046", "enamed_2026_q025", "enamed_2026_q090", "enamed_2026_q021", "enamed_2026_q077", "enamed_2026_q066", "enamed_2026_q098", "enamed_2026_q044", "enamed_2026_q010", "enamed_2026_q031", "enamed_2026_q088", "enamed_2026_q020", "enamed_2026_q036", "enamed_2026_q038", "enamed_2026_q006", "enamed_2026_q023", "enamed_2026_q049", "enamed_2026_q005", "enamed_2026_q072", "enamed_2026_q069", "enamed_2026_q050", "enamed_2026_q051", "enamed_2026_q048", "enamed_2026_q047", "enamed_2026_q034", "enamed_2026_q053", "enamed_2026_q028", "enamed_2026_q099", "enamed_2026_q085", "enamed_2026_q002", "enamed_2026_q060", "enamed_2026_q014", "enamed_2026_q039", "enamed_2026_q016", "enamed_2026_q011", "enamed_2026_q001", "enamed_2026_q032", "enamed_2026_q059", "enamed_2026_q078", "enamed_2026_q065", "enamed_2026_q073", "enamed_2026_q076", "enamed_2026_q056", "enamed_2026_q074", "enamed_2026_q083", "enamed_2026_q079", "enamed_2026_q030", "enamed_2026_q015", "enamed_2026_q086", "enamed_2026_q068", "enamed_2026_q067", "enamed_2026_q043", "enamed_2026_q017"]},
+  {nome:"Simulado 8 provável · versão B (INEP ainda não usado)", ids:["revalida_2024_1_q23", "revalida_2024_1_q38", "revalida_2024_1_q96", "revalida_2025_1_q19", "revalida_2025_1_q97", "revalida_2024_1_q56", "enamed_2025_2_q41", "revalida_2024_1_q51", "enare_2024_2025_q68", "revalida_2024_1_q42", "revalida_2025_1_q72", "revalida_2025_1_q62", "enare_2024_2025_q18", "enare_2024_2025_q62", "revalida_2025_1_q90", "enare_2024_2025_q65", "revalida_2024_1_q71", "revalida_2025_1_q10", "revalida_2024_1_q94", "revalida_2025_1_q52", "enare_2024_2025_q5", "revalida_2025_1_q37", "revalida_2024_1_q100", "enare_2024_2025_q20", "enare_2024_2025_q6", "enare_2024_2025_q13", "revalida_2025_1_q22", "revalida_2024_1_q86", "enare_2024_2025_q1", "revalida_2024_1_q16", "revalida_2025_1_q65", "revalida_2024_1_q37", "enare_2024_2025_q11", "revalida_2024_1_q20", "enamed_2025_2_q22", "revalida_2025_1_q96", "revalida_2024_1_q66", "revalida_2024_1_q99", "revalida_2025_1_q69", "revalida_2024_1_q62", "revalida_2024_1_q28", "revalida_2025_1_q99", "revalida_2025_1_q94", "enamed_2025_2_q71", "enamed_2025_2_q1", "enare_2024_2025_q17", "revalida_2024_1_q11", "enare_2024_2025_q15", "revalida_2024_1_q39", "revalida_2025_1_q92", "enamed_2025_2_q85", "enare_2024_2025_q12", "enare_2024_2025_q2", "revalida_2024_1_q82", "revalida_2025_1_q64", "revalida_2025_1_q56", "enare_2024_2025_q19", "revalida_2025_1_q67", "enare_2024_2025_q67", "enare_2024_2025_q16", "revalida_2024_1_q31", "revalida_2025_1_q100", "revalida_2024_1_q48", "enare_2024_2025_q74", "revalida_2025_1_q41", "enare_2024_2025_q70", "revalida_2024_1_q41", "revalida_2024_1_q26", "revalida_2025_1_q59", "revalida_2024_1_q67", "revalida_2024_1_q47", "revalida_2025_1_q32", "revalida_2025_1_q93", "revalida_2024_1_q13", "revalida_2025_1_q60", "revalida_2025_1_q91", "enare_2024_2025_q3", "revalida_2024_1_q72", "revalida_2024_1_q19", "revalida_2025_1_q80", "revalida_2024_1_q15", "enare_2024_2025_q75", "revalida_2025_1_q47", "revalida_2024_1_q91", "enamed_2025_2_q46", "enamed_2025_2_q8", "enare_2024_2025_q4", "revalida_2025_1_q14", "enare_2024_2025_q14", "enare_2024_2025_q69", "revalida_2025_1_q95", "revalida_2025_1_q73", "revalida_2024_1_q77", "revalida_2025_1_q98", "revalida_2024_1_q32", "revalida_2024_1_q3", "revalida_2025_1_q54", "revalida_2024_1_q52", "enare_2024_2025_q64", "revalida_2024_1_q33"]}
+];
 function SimuladoEnamed({pool, registrar}){
+  const provaveis = useMemo(()=>{
+    const por={}; (pool||[]).concat(window.ENAMED_OFICIAL||[]).forEach(q=>{ if(q&&q.id) por[q.id]=q; });
+    return SIM_PROVAVEL.map(s=>({tema:s.nome, nome:s.nome, provavel:true, qs:s.ids.map(id=>por[id]).filter(Boolean)})).filter(s=>s.qs.length>=50);
+  },[pool]);
   const provas = useMemo(()=>{
     const m={};
     (pool||[]).forEach(q=>{
@@ -7978,7 +7989,7 @@ function SimuladoEnamed({pool, registrar}){
     return <RunnerEnamed prova={sel} gabModo={gabModo} registrar={registrar} onVoltar={()=>setSel(null)}/>;
   }
 
-  if(provas.length===0){
+  if(provas.length===0&&provaveis.length===0){
     return <div className="card muted">Os simulados ENAMED não estão disponíveis no momento. Se o problema continuar, fale com o suporte.</div>;
   }
 
@@ -7995,6 +8006,20 @@ function SimuladoEnamed({pool, registrar}){
       </div>
     </div>
 
+    {provaveis.length>0 && <div className="card" style={{marginBottom:14,borderColor:"var(--gold)"}}>
+      <div className="tag" style={{color:"var(--gold)"}}>🔮 SIMULADO 8 · PROVÁVEL</div>
+      <div className="muted" style={{fontSize:13,lineHeight:1.6,margin:"6px 0 10px"}}>
+        Montado a partir do padrão dos 7 simulados anteriores: a faculdade usa questões do INEP, embaralha a ordem e, nos simulados 3 e 7, aplicou a prova oficial mais recente inteira (ENAMED 2025 e Revalida 2026/1). A prova oficial mais recente ainda não usada é o <b>ENAMED 2026</b>.
+      </div>
+      <div className="grid" style={{gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))"}}>
+        {provaveis.map(p=><div key={p.nome} className="topico" style={{cursor:"pointer",borderColor:"var(--gold)"}} onClick={()=>setSel(p)}>
+          <div style={{fontWeight:700,fontSize:15}}>{p.nome.replace("Simulado 8 provável · ","")}</div>
+          <div className="row" style={{justifyContent:"space-between",marginTop:12}}>
+            <span className="pill" style={{color:"var(--gold)",borderColor:"var(--gold)"}}>{p.qs.length} questões</span>
+            <span className="muted" style={{fontSize:12}}>Iniciar →</span>
+          </div></div>)}
+      </div>
+    </div>}
     <div className="grid" style={{gridTemplateColumns:"repeat(auto-fill,minmax(240px,1fr))"}}>
       {provas.map(p=>
         <div key={p.tema} className="topico" style={{cursor:"pointer"}} onClick={()=>{setSel(p);irAoTopo();}}>
