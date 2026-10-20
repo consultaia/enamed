@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.21.3";
+  window.APP_VERSION="2026.10.21.4";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -5518,13 +5518,20 @@ function DicaVozNatural({vozes}){
   const ua=navigator.userAgent||""; const ios=/iPhone|iPad|iPod/i.test(ua)||(/Macintosh/.test(ua)&&"ontouchend" in document); const and=/Android/i.test(ua);
   const temBoa=(vozes||[]).some(v=>notaVoz(v)>=8);
   const passos= ios ? ["Abra Ajustes → Acessibilidade → Conteúdo Falado → Vozes.","Toque em Português (Brasil).","Baixe a Luciana ou o Felipe na versão \"Aprimorada\" (ou \"Premium\", se aparecer). É grátis (prefira Wi-Fi, o arquivo é grande).","Feche e abra o Preceptor de novo e escolha a voz com ⭐ na lista."]
-    : and ? ["Abra a Play Store e atualize \"Serviços de voz do Google\" (Speech Services by Google).","Configurações → Acessibilidade → Saída de conversão de texto em voz (ou procure \"texto em voz\" nas Configurações).","Mecanismo preferido: Google. Toque na engrenagem ⚙ → Instalar dados de voz → Português (Brasil) → baixe e escolha uma voz (experimente as opções).","Feche e abra o Preceptor de novo."]
+    : and ? ["Instale ou atualize o app \"Serviços de voz do Google\" (botão abaixo). Às vezes ele aparece como \"Speech Services by Google\" ou \"Reconhecimento e síntese de voz do Google\".",
+       "Abra as Configurações do celular e digite \"texto em voz\" (ou \"conversão de texto\") na lupa de busca lá no topo. O caminho muda conforme a marca: Samsung: Gerenciamento geral → Idioma → Conversão de texto em voz. Motorola e outros: Sistema → Idiomas e entrada → Saída de texto para fala. Xiaomi: Configurações adicionais → Idiomas e entrada.",
+       "Em \"Mecanismo preferido\", escolha Google (no Samsung, troque o mecanismo da Samsung pelo do Google). Toque na engrenagem ⚙ ao lado → Instalar dados de voz → Português (Brasil) → baixe e escolha uma das vozes.",
+       "Feche o navegador por completo e abra o Preceptor de novo."]
     : ["No computador, abra o Preceptor no Microsoft Edge: ele traz as vozes naturais Francisca, Thalita e Antonio, de graça.","No Chrome, prefira a voz \"Google português do Brasil\".","Depois escolha a voz com ⭐ na lista."];
   return <span style={{fontSize:11.5}}>
     <span className="link" onClick={()=>setAberta(a=>!a)}>{temBoa?"🎧 Trocar de voz":"🎧 Voz robótica? Deixe natural de graça"}</span>
     {aberta && <div className="block" style={{marginTop:6,fontSize:12.5,lineHeight:1.5,textAlign:"left"}}>
       <b>{ios?"No iPhone":and?"No Android":"No computador"}:</b>
       <ol style={{margin:"6px 0 0 18px",padding:0}}>{passos.map((p,i)=><li key={i}>{p}</li>)}</ol>
+      {and && <div className="row" style={{gap:8,flexWrap:"wrap",marginTop:8}}>
+        <a className="btn sm" href="https://play.google.com/store/apps/details?id=com.google.android.tts" target="_blank" rel="noopener">Abrir na Play Store</a>
+        <a className="btn sm ghost" href="intent:#Intent;action=com.android.settings.TTS_SETTINGS;end">Abrir configuração de voz</a>
+      </div>}
       <div className="muted" style={{marginTop:6}}>Essas vozes são as mesmas dos assistentes do aparelho e funcionam até sem internet.</div>
     </div>}
   </span>;
@@ -7249,6 +7256,7 @@ function destravarVoz(){ try{ const a=audioPac(); if(a&&!a.__ok){ a.src=WAV_MUDO
 /* ---- Voz natural grátis: modelo Piper (pt-BR, Faber) roda NO APARELHO do aluno (ONNX/WASM).
    Sem servidor e sem custo: baixa ~60 MB uma vez (fica guardado no navegador). Qualquer falha → voz do sistema. */
 const VOZ_IA="__piper_faber"; const VOZ_IA_ID="pt_BR-faber-medium";
+try{ if(PLS.get("preceptor_voz_mig1")!=="1"){ if(PLS.get(VOZ_NOME_KEY)===VOZ_IA) PLS.set(VOZ_NOME_KEY,""); PLS.set("preceptor_voz_mig1","1"); } }catch(e){}
 let __vozIA=null;
 function vozIA(){ if(__vozIA) return __vozIA;
   let w=null, seq=0, morto=false; const pend={};
