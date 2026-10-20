@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.20.2";
+  window.APP_VERSION="2026.10.21.1";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -3735,12 +3735,17 @@ function Shell({session}){
       {tab==="suporte" && <Suporte uid={uid}/>}
       {tab==="gemeas" && sprintGemeas && <div><button className="btn ghost sm" style={{marginBottom:10}} onClick={()=>{const v=sprintGemeas&&sprintGemeas.volta;setSprintGemeas(null);if(v==="revisao"){setRevisando(true);}else{setTab("praticar");}}}>{sprintGemeas&&sprintGemeas.volta==="revisao"?"← Voltar à revisão":"← Voltar"}</button><RodizioSprint qs={sprintGemeas.qs} label={sprintGemeas.label} registrar={registrar} onVoltar={()=>{setSprintGemeas(null);setTab("praticar");}}/></div>}
       {tab==="dicas" && <DicasDoDia/>}
+      {tab==="voz" && <PergunteVoz isPro={acesso} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
       {tab==="inicio" && <ProximoPasso session={session} uid={uid} store={store} srs={srs} poolVisivel={poolVisivel}
         temasFracos={temasFracos} metaProg={metaProg} acertoArea={acertoArea} streak={streak}
         irRevisar={()=>setRevisando(true)}
         irAssunto={(t)=>abrirAssunto(t.id)}
         irPraticar={()=>setTab("praticar")}
         irTodas={()=>{ try{document.getElementById("tour-diag")&&document.getElementById("tour-diag").scrollIntoView({behavior:"smooth",block:"center"});}catch(e){} }}/>}
+      {tab==="inicio" && <div className="card" style={{margin:"0 0 14px",cursor:"pointer",borderColor:"var(--acc)"}} onClick={()=>{ setTab("voz"); setTimeout(irAoTopo,0); }}>
+        <div className="row" style={{gap:12,alignItems:"center"}}><span style={{fontSize:30}}>🎙️</span>
+          <div style={{flex:1}}><div style={{fontWeight:700}}>Pergunte ao Preceptor, por voz</div><div className="muted" style={{fontSize:13}}>Tire dúvidas e faça sabatina oral falando, sem olhar a tela.</div></div>
+          <span className="muted">→</span></div></div>}
       {tab==="inicio" && <MensagemDoDia uid={uid}/>}
       {tab==="trilha" && <Trilha uid={uid} store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={acesso} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
       {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} metaHoje={metaProg} bloqueadas={acesso?0:bloqueadasFree} isPro={isPro} acesso={acesso} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
@@ -5519,11 +5524,20 @@ function OuvirTexto({paragrafos,onAtual,rotulo}){
   const fatias=useMemo(()=>fatiarFala(paragrafos),[JSON.stringify(paragrafos||[])]);
   const idx=useRef(0), token=useRef(0), velRef=useRef(vel), meu=useRef(null);
   velRef.current=vel;
-  const parar=(manterPosicao)=>{ token.current++; try{ window.speechSynthesis.cancel(); }catch(e){} if(!manterPosicao){ idx.current=0; onAtual&&onAtual(null); } };
+  const parar=(manterPosicao)=>{ token.current++; try{ window.speechSynthesis.cancel(); }catch(e){} try{ const a=__audioPac; if(a){ a.pause(); a.onended=null; } }catch(e){} if(!manterPosicao){ idx.current=0; onAtual&&onAtual(null); } };
+  /* voz natural (Piper no aparelho): gera a fala por trecho e já prepara o próximo, para não ter pausa longa */
+  const cacheIA=useRef({});
+  const wavIA=(i)=>{ if(i>=fatias.length) return null; if(!cacheIA.current[i]) cacheIA.current[i]=vozIA().falar(fatias[i].t.slice(0,900)); return cacheIA.current[i]; };
+  const falarIA=(i,tk)=>{ onAtual&&onAtual(fatias[i].p);
+    wavIA(i).then(wav=>{ if(tk!==token.current) return; const a=audioPac(); a.onended=()=>{ if(tk===token.current) falar(i+1); }; a.onerror=a.onended;
+      a.src=URL.createObjectURL(wav); a.playbackRate=velRef.current; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); wavIA(i+1); })
+    .catch(()=>{ if(tk!==token.current) return; try{ PLS.set(VOZ_NOME_KEY,""); }catch(e){} setVozNome(""); falar(i); }); };
   const falar=(i)=>{
     if(i>=fatias.length){ parar(false); setStatus("parado"); if(window.__leitorAtivo===meu.current) window.__leitorAtivo=null; return; }
     idx.current=i; const tk=++token.current;
     try{ window.speechSynthesis.cancel(); }catch(e){}
+    let vn=""; try{ vn=PLS.get(VOZ_NOME_KEY)||""; }catch(e){}
+    if(vn===VOZ_IA){ falarIA(i,tk); return; }
     const u=new SpeechSynthesisUtterance(fatias[i].t);
     u.lang="pt-BR"; const v=escolherVoz(); if(v){ try{ u.voice=v; }catch(e){} if(v.lang) u.lang=v.lang; } u.__voz=v&&v.name; u.rate=velRef.current;
     u.onend=()=>{ if(tk===token.current) falar(i+1); };
@@ -5544,17 +5558,22 @@ function OuvirTexto({paragrafos,onAtual,rotulo}){
   const mudarVel=(v)=>{ setVel(v); velRef.current=v; try{ PLS.set(VOZ_KEY,String(v)); }catch(e){} if(status==="tocando") falar(idx.current); };
   useEffect(()=>{ try{ window.speechSynthesis.getVoices(); }catch(e){} return ()=>{ token.current++; if(window.__leitorAtivo===meu.current){ try{ window.speechSynthesis.cancel(); }catch(e){} window.__leitorAtivo=null; } }; },[]);
   /* conteúdo novo (outro assunto/etapa): recomeça do início */
-  useEffect(()=>{ if(status!=="parado") encerrar(); idx.current=0; },[fatias]);
+  useEffect(()=>{ if(status!=="parado") encerrar(); idx.current=0; cacheIA.current={}; },[fatias]);
   if(!suporta||!fatias.length) return null;
   const sm={fontSize:12,padding:"4px 10px"};
   const vozes=useVozesPt();
   const [vozNome,setVozNome]=useState(()=>{ try{ return PLS.get(VOZ_NOME_KEY)||""; }catch(e){ return ""; } });
   const vozAtual=(vozNome&&vozes.find(v=>v.name===vozNome))||vozes[0];
-  const mudarVoz=(n)=>{ setVozNome(n); try{ PLS.set(VOZ_NOME_KEY,n); }catch(e){} if(status==="tocando") falar(idx.current); };
-  const seletorVoz=vozes.length>1?<select value={vozAtual?vozAtual.name:""} onChange={e=>mudarVoz(e.target.value)} aria-label="Voz da leitura" title="Voz da leitura"
+  const [baixandoIA,setBaixandoIA]=useState(null);
+  const mudarVoz=async(n)=>{
+    if(n===VOZ_IA){ try{ setBaixandoIA(0); const ok=await garantirVozIA(p=>setBaixandoIA(p||0)); setBaixandoIA(null); if(!ok) return; }
+      catch(e){ setBaixandoIA(null); alert("Não consegui baixar a voz natural agora: "+e.message); return; } }
+    setVozNome(n); try{ PLS.set(VOZ_NOME_KEY,n); }catch(e){} cacheIA.current={}; if(status==="tocando") falar(idx.current); };
+  const seletorVoz=<><select value={vozNome===VOZ_IA?VOZ_IA:(vozAtual?vozAtual.name:"")} onChange={e=>mudarVoz(e.target.value)} aria-label="Voz da leitura" title="Voz da leitura"
       style={{background:"var(--panel)",color:"var(--ink)",border:"1px solid var(--line)",borderRadius:8,padding:"3px 4px",fontSize:12,maxWidth:170}}>
+      <option value={VOZ_IA} style={{background:"var(--panel)",color:"var(--ink)"}}>✨ Voz natural (grátis)</option>
       {vozes.map(v=><option key={v.name} value={v.name} style={{background:"var(--panel)",color:"var(--ink)"}}>{rotuloVoz(v)}</option>)}
-    </select>:null;
+    </select>{baixandoIA!==null&&<span className="muted" style={{fontSize:11.5}}>Baixando voz… {Math.round((baixandoIA||0)*100)}%</span>}</>;
   const celular=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||"");
   const dicaVoz=celular&&vozes.length<=1
     ? <span className="muted" style={{fontSize:11.5}}>No celular a voz é a do sistema. Para trocar: {/iPhone|iPad|iPod/i.test(navigator.userAgent||"")?"Ajustes → Acessibilidade → Conteúdo Falado → Vozes → Português (Brasil) e baixe uma voz \"Melhorada\" ou \"Premium\".":"Configurações → Acessibilidade → Saída de conversão de texto em voz → Mecanismo Google → ⚙ → Instalar dados de voz → Português (Brasil), e escolha a voz."}</span>
@@ -5920,9 +5939,9 @@ function ReportarErroQuestao({q,sel}){
    Cinco botões fixos, ao alcance do polegar e sempre visíveis ao rolar.
    Provas e "Mais" abrem uma folha com as demais abas. No desktop continua
    a coluna lateral (.nav). */
-const NAV_ITENS=[["inicio","🏠 Início"],["trilha","📚 Estudar"],["dicas","💡 Dicas do dia"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["enamed","📝 ENAMED"],["tpi","🎓 TPI"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["strix","🦉 Strix (SUS-BA/AL)"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Suporte"],["dash","📈 Meu progresso"]];
+const NAV_ITENS=[["inicio","🏠 Início"],["trilha","📚 Estudar"],["dicas","💡 Dicas do dia"],["voz","🎙️ Pergunte ao Preceptor"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["enamed","📝 ENAMED"],["tpi","🎓 TPI"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["strix","🦉 Strix (SUS-BA/AL)"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Suporte"],["dash","📈 Meu progresso"]];
 const NAV_PROVAS=["enamed","tpi","tecm","revalida","enare","strix"];
-const NAV_MAIS=["dicas","flash","videos","dash","suporte","admin"];
+const NAV_MAIS=["voz","dicas","flash","videos","dash","suporte","admin"];
 function BarraInferior({tab,isAdmin,irPara}){
   const [folha,setFolha]=useState(null);
   const rot=Object.fromEntries(NAV_ITENS.concat([["admin","📊 Métricas"]]));
@@ -7247,6 +7266,12 @@ function vozIA(){ if(__vozIA) return __vozIA;
     try{ w.postMessage(Object.assign({id,tipo,voz:VOZ_IA_ID},extra||{})); }catch(e){ clearTimeout(t); delete pend[id]; ko(e); } });
   __vozIA={ get suporta(){ return !!w&&!morto; }, tem:()=>chamar("tem").then(d=>!!d.tem), baixar:prog=>chamar("baixar",null,prog), falar:t=>chamar("falar",{texto:t}).then(d=>d.wav) };
   return __vozIA; }
+/* baixa a voz natural (uma vez, com confirmação); devolve true se ela está pronta */
+async function garantirVozIA(onProg){ const ia=vozIA(); if(!ia.suporta) throw new Error("este navegador não roda a voz natural (use o Chrome atualizado)");
+  let tem=false; try{ tem=await ia.tem(); }catch(e){}
+  if(tem) return true;
+  if(!confirm("Baixar a voz natural?\n\n• Grátis, roda no seu aparelho\n• Cerca de 60 MB, uma vez só (prefira Wi-Fi)\n• Depois funciona até sem internet")) return false;
+  await ia.baixar(onProg); return true; }
 function pararVozPaciente(){ try{ window.speechSynthesis.cancel(); }catch(e){} try{ const a=__audioPac; if(a){ a.pause(); a.onended=null; } }catch(e){} }
 function reconhecedorVoz(){ try{ return window.SpeechRecognition||window.webkitSpeechRecognition||null; }catch(e){ return null; } }
 function vozPacienteCfg(caso){ const c=normExame(caso.cenario||"");
@@ -7598,6 +7623,116 @@ function OSCEEstacao({caso, onVoltar}){
 }
 
 
+
+
+/* =================== PERGUNTE AO PRECEPTOR (professor por voz, grátis) ===================
+   Microfone do navegador → IA do tira-dúvida → voz do aparelho ou voz natural (Piper). Sem API paga. */
+const VOZ_SUGESTOES=["Me explica cetoacidose diabética de um jeito simples","Me faz 5 perguntas de pediatria, uma de cada vez","Qual a diferença entre ICFEr e ICFEp?","Como cai sepse no ENAMED?","Me ajuda a revisar os meus temas mais fracos"];
+function limparParaFala(t){ return String(t||"").replace(/<[^>]+>/g," ").replace(/[*_#>`|]/g,"").replace(/^\s*(?:[-•]|\d+[.)])\s+/gm,"").replace(/\s+/g," ").trim(); }
+function PergunteVoz({isPro,onAssinar,temasFracos}){
+  const Rec=reconhecedorVoz(); const temTTS=typeof window!=="undefined"&&"speechSynthesis" in window;
+  const [hist,setHist]=useState([]);            // [{de:'aluno'|'prof', txt}]
+  const [estado,setEstado]=useState("pronto");  // pronto | ouvindo | pensando | falando
+  const [parcial,setParcial]=useState("");
+  const [continuo,setContinuo]=useState(true);  // depois de responder, volta a ouvir
+  const [aviso,setAviso]=useState("");
+  const [texto,setTexto]=useState("");
+  const recRef=useRef(null), contRef=useRef(true), histRef=useRef([]), vivo=useRef(true);
+  contRef.current=continuo; histRef.current=hist;
+  const vozesLista=useVozesPt();
+  const [vozNome,setVozNome]=useState(()=>{ try{ return PLS.get(VOZ_NOME_KEY)||""; }catch(e){ return ""; } });
+  const [baixando,setBaixando]=useState(null);
+  useEffect(()=>()=>{ vivo.current=false; try{ recRef.current&&recRef.current.abort(); }catch(e){} pararVozPaciente(); },[]);
+  const fimRef=useRef(null);
+  useEffect(()=>{ try{ fimRef.current&&fimRef.current.scrollIntoView({behavior:"smooth",block:"end"}); }catch(e){} },[hist,estado]);
+
+  const parar=()=>{ try{ recRef.current&&recRef.current.abort(); }catch(e){} pararVozPaciente(); setEstado("pronto"); setParcial(""); };
+  const falar=(t,depois)=>{ setEstado("falando"); falarPaciente(t,{cenario:""},()=>{ if(!vivo.current) return; setEstado("pronto"); depois&&depois(); }); };
+  const perguntar=async(q)=>{
+    q=String(q||"").trim(); if(!q) return;
+    if(!isPro){ onAssinar&&onAssinar(); return; }
+    const novo=[...histRef.current,{de:"aluno",txt:q}].slice(-12); setHist(novo); setEstado("pensando"); setTexto(""); setAviso("");
+    try{
+      const conversa=novo.map(m=>(m.de==="aluno"?"ALUNO: ":"PROFESSOR: ")+m.txt).join("\n");
+      const fracos=(temasFracos||[]).slice(0,6).map(x=>typeof x==="string"?x:(x.tema||x.nome||"")).filter(Boolean).join("; ");
+      const contexto="Você é o Preceptor, um professor de Medicina conversando POR VOZ com um estudante brasileiro (ENAMED, internato, residência). "+
+        "A sua resposta será LIDA EM VOZ ALTA: escreva como se estivesse falando — frases curtas, linguagem simples e calorosa, sem listas, sem tópicos, sem símbolos, sem markdown, sem tabelas. "+
+        "No máximo 110 palavras por resposta; se o assunto for grande, explique o essencial e pergunte se ele quer que você continue. "+
+        "Se o aluno pedir perguntas, uma sabatina ou revisão: faça UMA pergunta por vez, espere a resposta, diga se acertou, explique em duas frases e faça a próxima. "+
+        "Siga as diretrizes brasileiras atuais; se não tiver certeza de um número, diga para conferir na diretriz."+
+        (fracos?" Temas em que o aluno mais erra: "+fracos+".":"")+"\n\nCONVERSA ATÉ AQUI:\n"+conversa;
+      const r=await wfetch("/tirar-duvida",{tema:"Preceptor voz",contexto,pergunta:q});
+      const d=await r.json();
+      if(!r.ok||d.error) throw new Error(d.error||"Não consegui responder agora.");
+      const resp=limparParaFala(d.resposta);
+      if(!vivo.current) return;
+      setHist(h=>[...h,{de:"prof",txt:resp}].slice(-12));
+      falar(resp,()=>{ if(contRef.current&&Rec) setTimeout(()=>{ if(vivo.current&&contRef.current) ouvir(); },300); });
+    }catch(e){ setEstado("pronto"); setAviso(e.message||"Falhou. Tente de novo."); }
+  };
+  const ouvir=()=>{
+    if(!Rec){ setAviso(EH_IOS?"Neste iPhone, toque na caixa de texto e use o 🎤 do teclado.":"Para falar, use o Chrome, o Edge ou o Safari."); return; }
+    destravarVoz(); pararVozPaciente(); try{ recRef.current&&recRef.current.abort(); }catch(e){}
+    let r; try{ r=new Rec(); }catch(e){ setAviso("Não consegui abrir o microfone."); return; }
+    r.lang="pt-BR"; r.continuous=!(EH_IOS||EH_ANDROID); r.interimResults=true;
+    let txt="", timer=null, acabou=false;
+    const fim=()=>{ if(acabou) return; acabou=true; clearTimeout(timer); recRef.current=null; setParcial("");
+      if(txt.trim()) perguntar(txt); else { setEstado("pronto"); } };
+    const silencio=ms=>{ clearTimeout(timer); timer=setTimeout(()=>{ try{ r.stop(); }catch(e){} setTimeout(fim,1200); },ms); };
+    r.onresult=e=>{ const partes=[]; for(let i=0;i<e.results.length;i++) partes.push(e.results[i][0].transcript); txt=juntarFalas(partes); setParcial(txt); silencio(1800); };
+    r.onerror=e=>{ const er=e&&e.error; if(er==="not-allowed"||er==="service-not-allowed"){ setAviso(EH_IOS?"O iPhone bloqueou o microfone. Ajustes → Safari → Microfone → Permitir.":"Permita o microfone no cadeado da barra de endereço."); setContinuo(false); } };
+    r.onend=fim; recRef.current=r; setEstado("ouvindo"); silencio(8000);
+    try{ r.start(); }catch(e){ setEstado("pronto"); }
+  };
+  const trocarVoz=async(n)=>{ destravarVoz();
+    if(n===VOZ_IA){ try{ setBaixando(0); const ok=await garantirVozIA(p=>setBaixando(p||0)); setBaixando(null); if(!ok) return; }catch(e){ setBaixando(null); setAviso("Não consegui baixar a voz natural: "+e.message); return; } }
+    setVozNome(n); try{ PLS.set(VOZ_NOME_KEY,n); }catch(e){} falar("Oi! É assim que eu vou falar com você."); };
+  const vozAtual=vozesLista.find(v=>v.name===vozNome)||vozesLista[0]||null;
+  const rot={pronto:"Toque e fale",ouvindo:"Ouvindo… fale e faça uma pausa",pensando:"Pensando…",falando:"Falando…"}[estado];
+  const ocupado=estado==="pensando";
+  return <div>
+    <div style={{textAlign:"center",padding:"18px 0 6px"}}>
+      <div className="tag" style={{color:"var(--acc)"}}>🎙️ PERGUNTE AO PRECEPTOR</div>
+      <h2 style={{fontSize:22,margin:"6px 0 4px"}}>Seu professor por voz</h2>
+      <div className="muted" style={{fontSize:13.5}}>Pergunte qualquer tema, peça uma sabatina oral ou uma revisão. Ele responde falando.</div>
+      <button onClick={()=>{ if(estado==="ouvindo"||estado==="falando") parar(); else if(!ocupado) ouvir(); }} aria-label={rot}
+        style={{margin:"22px auto 10px",width:118,height:118,borderRadius:"50%",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:46,
+          background:estado==="ouvindo"?"var(--bad)":estado==="falando"?"var(--gold)":"var(--acc)",color:"#05140e",
+          boxShadow:estado==="ouvindo"?"0 0 0 12px color-mix(in srgb, var(--bad) 25%, transparent)":estado==="falando"?"0 0 0 12px color-mix(in srgb, var(--gold) 25%, transparent)":"0 10px 30px rgba(0,0,0,.35)",transition:"all .2s"}}>
+        {estado==="ouvindo"?"⏹":estado==="falando"?"🔊":estado==="pensando"?"…":"🎤"}</button>
+      <div style={{fontWeight:700,fontSize:15}}>{rot}</div>
+      {parcial && <div className="muted" style={{fontSize:14,marginTop:6,fontStyle:"italic"}}>“{parcial}”</div>}
+      <div className="row" style={{gap:8,justifyContent:"center",flexWrap:"wrap",marginTop:12}}>
+        <button className={"btn sm "+(continuo?"":"ghost")} onClick={()=>setContinuo(v=>!v)}>{continuo?"✓ Conversa contínua":"Conversa contínua"}</button>
+        {temTTS && <select value={vozNome===VOZ_IA?VOZ_IA:(vozAtual?vozAtual.name:"")} onChange={e=>trocarVoz(e.target.value)} aria-label="Voz do professor" style={{maxWidth:220,fontSize:13,padding:"6px 8px"}}>
+          <option value={VOZ_IA}>✨ Voz natural (grátis)</option>
+          {vozesLista.length===0 && <option value="">🔈 Voz do aparelho</option>}
+          {vozesLista.map(v=><option key={v.name} value={v.name}>{rotuloVoz(v)}</option>)}
+        </select>}
+        {baixando!==null && <span className="muted" style={{fontSize:12}}>Baixando voz… {Math.round((baixando||0)*100)}%</span>}
+      </div>
+      {aviso && <div style={{color:"var(--warn)",fontSize:13,marginTop:10}}>⚠️ {aviso}</div>}
+    </div>
+    {hist.length===0 && <div className="card" style={{marginTop:10}}>
+      <div className="tag muted" style={{marginBottom:8}}>EXPERIMENTE DIZER</div>
+      <div style={{display:"grid",gap:8}}>{VOZ_SUGESTOES.map(t=><button key={t} className="alt" style={{textAlign:"left"}} onClick={()=>{ destravarVoz(); perguntar(t); }}>“{t}”</button>)}</div>
+    </div>}
+    {hist.length>0 && <div className="card" style={{marginTop:10}}>
+      {hist.map((m,i)=><div key={i} className="block" style={{marginTop:i?10:0,background:m.de==="aluno"?"var(--panel2)":"color-mix(in srgb, var(--acc) 10%, var(--panel))",borderLeft:"3px solid "+(m.de==="aluno"?"var(--line)":"var(--acc)")}}>
+        <div className="tag" style={{color:m.de==="aluno"?"var(--muted)":"var(--acc)",marginBottom:4}}>{m.de==="aluno"?"VOCÊ":"PRECEPTOR"}</div>
+        <div style={{fontSize:14.5,lineHeight:1.55}}>{m.txt}</div>
+        {m.de==="prof" && <span className="link" style={{fontSize:12}} onClick={()=>{ destravarVoz(); falar(m.txt); }}>🔊 Ouvir de novo</span>}
+      </div>)}
+      <div ref={fimRef}/>
+      <div className="row" style={{gap:8,marginTop:12}}><button className="btn ghost sm" onClick={()=>{ parar(); setHist([]); }}>Nova conversa</button></div>
+    </div>}
+    <div className="row" style={{gap:8,marginTop:12}}>
+      <input value={texto} onChange={e=>setTexto(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&texto.trim()&&!ocupado){ destravarVoz(); perguntar(texto); } }} placeholder="Ou digite sua pergunta…" style={{flex:1}}/>
+      <button className="btn" disabled={!texto.trim()||ocupado} onClick={()=>{ destravarVoz(); perguntar(texto); }}>Enviar</button>
+    </div>
+    <div className="muted" style={{fontSize:11.5,marginTop:10,textAlign:"center"}}>A voz usa o próprio aparelho (ou a voz natural grátis, que roda no celular). Confira doses e condutas na diretriz.</div>
+  </div>;
+}
 
 /* =================== PRATICAR (hub: treinar + simulado + foto) =================== */
 function Praticar(props){
