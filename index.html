@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.21.4";
+  window.APP_VERSION="2026.10.21.5";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -5876,6 +5876,47 @@ function Marcadas({pool}){
     </div>)}
   </div>;
 }
+/* Análise de cada alternativa (IA grátis, sob demanda). Fica guardada no aparelho para não gastar a cota de novo. */
+const ALT_CACHE="preceptor_altan_v1";
+function altCacheLer(id){ try{ const c=JSON.parse(localStorage.getItem(ALT_CACHE)||"{}"); return c[id]||null; }catch(e){ return null; } }
+function altCacheGravar(id,v){ try{ const c=JSON.parse(localStorage.getItem(ALT_CACHE)||"{}"); c[id]=v; const ks=Object.keys(c); if(ks.length>400) ks.slice(0,ks.length-400).forEach(k=>delete c[k]); localStorage.setItem(ALT_CACHE,JSON.stringify(c)); }catch(e){} }
+function lerAnaliseAlt(txt,n){ const L="ABCDE".slice(0,n); const out={}; let atual=null;
+  String(txt||"").replace(/\r/g,"").split("\n").forEach(lin=>{ const m=/^\s*[*_#>\-•]*\s*(?:alternativa|letra)?\s*\(?\**([A-E])\**\)?\s*\**\s*[:\-–—).]\s*(.*)$/i.exec(lin);
+    if(m){ const l=m[1].toUpperCase(); if(L.indexOf(l)>=0&&!out[l]){ atual=l; out[l]=m[2].replace(/\*\*/g,"").trim(); } else atual=null; }
+    else if(atual&&lin.trim()) out[atual]+=" "+lin.replace(/\*\*/g,"").trim(); });
+  return Object.keys(out).length>=Math.min(n,3)?out:null; }
+function AnaliseAlternativas({q,sel}){
+  const L=["A","B","C","D","E"]; const n=(q.alts||[]).length;
+  const [res,setRes]=useState(()=>altCacheLer(q.id)); const [carregando,setCarregando]=useState(false); const [erro,setErro]=useState("");
+  useEffect(()=>{ setRes(altCacheLer(q.id)); setErro(""); },[q.id]);
+  if(q.anulada||n<2||!(q.correta>=0)) return null;
+  if(!window.__PRO) return <div className="row" style={{gap:10,alignItems:"center",marginTop:10,padding:"8px 10px",border:"1px dashed var(--line)",borderRadius:10,fontSize:12.5}}>
+    <span>🔍 Por que cada alternativa está certa ou errada — <b>exclusivo do PRO</b>.</span>
+    <button className="btn sm" style={{marginLeft:"auto"}} onClick={()=>window.__ABRIR_ASSINAR&&window.__ABRIR_ASSINAR()}>Liberar</button></div>;
+  const gerar=async()=>{ setCarregando(true); setErro("");
+    try{
+      const contexto="QUESTÃO: "+q.enun+"\nALTERNATIVAS:\n"+q.alts.map((a,i)=>L[i]+") "+a).join("\n")+"\nGABARITO OFICIAL: "+L[q.correta]+"\nCOMENTÁRIO DO BANCO: "+(q.coment||"(sem comentário)")+
+        "\n\nTAREFA: analise CADA alternativa, na ordem. Responda SOMENTE com "+n+" linhas, uma por letra, neste formato exato:\n"+
+        "A: ERRADA — explicação\nB: CORRETA — explicação\n(e assim por diante, até a última letra)\n"+
+        "Use CORRETA apenas para a letra "+L[q.correta]+" (não altere o gabarito). Em cada linha, 1 a 3 frases: o dado do enunciado ou o conceito que torna a alternativa errada (ou em que situação ela seria a resposta), e por que a correta é a melhor. Sem introdução, sem conclusão, sem markdown.";
+      const r=await wfetch("/tirar-duvida",{tema:"Alternativas · "+(q.tema||""),contexto,pergunta:"Por que cada alternativa está certa ou errada?"});
+      const d=await r.json(); if(!r.ok||d.error) throw new Error(d.error||"Não consegui analisar agora.");
+      const p=lerAnaliseAlt(d.resposta,n); if(!p) throw new Error("A resposta veio fora do formato. Tente de novo.");
+      setRes(p); altCacheGravar(q.id,p);
+    }catch(e){ setErro(e.message||"Falhou. Tente de novo."); }
+    setCarregando(false); };
+  if(!res) return <div style={{marginTop:10}}>
+    <button className="btn ghost sm" disabled={carregando} onClick={gerar}>{carregando?"Analisando as alternativas…":"🔍 Por que cada alternativa está certa ou errada"}</button>
+    {erro&&<div style={{color:"var(--warn)",fontSize:12.5,marginTop:6}}>⚠️ {erro}</div>}</div>;
+  return <div className="block" style={{marginTop:10}}>
+    <div className="tag" style={{color:"var(--acc)",marginBottom:8}}>🔍 ANÁLISE DAS ALTERNATIVAS</div>
+    {q.alts.map((a,i)=>{ const ok=i===q.correta; const t=(res[L[i]]||"").replace(/^(CORRETA|ERRADA|INCORRETA)\s*[—\-–:]\s*/i,"");
+      return <div key={i} style={{marginTop:i?10:0,paddingLeft:10,borderLeft:"3px solid "+(ok?"var(--acc)":"var(--bad)")}}>
+        <div style={{fontSize:13.5,fontWeight:700,color:ok?"var(--acc)":"var(--bad)"}}>{L[i]} · {ok?"✓ Correta":"✗ Errada"}{i===sel&&!ok?" (você marcou)":""}</div>
+        <div style={{fontSize:14,lineHeight:1.55,marginTop:2}}>{t||<span className="muted">Sem análise para esta letra.</span>}</div></div>; })}
+    <div className="muted" style={{fontSize:11.5,marginTop:8}}>Análise gerada por IA a partir do gabarito oficial. Confira condutas na diretriz.</div>
+  </div>;
+}
 function QuestionCard({q,onResp,indice,total,selInicial}){
   const ini=(selInicial==null)?null:selInicial;
   const [sel,setSel]=useState(ini);useEffect(()=>setSel((selInicial==null)?null:selInicial),[q.id,selInicial]);const L=["A","B","C","D","E"];
@@ -5897,6 +5938,7 @@ function QuestionCard({q,onResp,indice,total,selInicial}){
             Comentário em preparação.{q.anulada?"":(q.correta>=0&&L[q.correta])?<> A resposta correta é a <b style={{color:"var(--acc)",fontStyle:"normal"}}>{L[q.correta]}</b>.</>:null} Use o <b style={{fontStyle:"normal"}}>Perguntar sobre esta questão</b> aqui embaixo para o raciocínio completo.
           </span>
     }</div>}
+    {sel!==null&&<AnaliseAlternativas q={q} sel={sel}/>}
     {sel!==null&&<StatsQuestao q={q}/>}
     {sel!==null&&!q.anulada&&sel!==q.correta&&<MotivoErro q={q}/>}
     {sel!==null&&<IAnaQuestao q={q} sel={sel}/>}
