@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.21.5";
+  window.APP_VERSION="2026.10.21.6";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -5876,6 +5876,20 @@ function Marcadas({pool}){
     </div>)}
   </div>;
 }
+/* Muitos comentários já trazem "A) INCORRETA. …  B) CORRETA. …" em texto corrido: separa por letra (sem IA). */
+function analiseDoComentario(q){ try{
+  const n=(q.alts||[]).length, t=String(q.coment||""); if(n<2||!t||comentCortado(t)) return null;
+  const L="ABCDE".slice(0,n); const rx=/(^|[\s.:;])([A-E])\)\s/g; const marcas=[]; const vistas={}; let m;
+  while((m=rx.exec(t))){ const l=m[2]; if(L.indexOf(l)<0||vistas[l]) continue; vistas[l]=1; marcas.push({l,ini:m.index+m[1].length,txt:m.index+m[0].length}); }
+  if(marcas.length<n-1) return null;
+  const por={}; let cauda="";
+  marcas.forEach((mk,i)=>{ let seg=t.slice(mk.txt, i+1<marcas.length?marcas[i+1].ini:t.length);
+    if(i===marcas.length-1){ const c=/\s(Alto rendimento|Pegadinha|Dica de prova|Dica|Mnemônico|Em resumo|Resumindo|Na prova|Regra de ouro|Guarde|Lembre|Atenção|Conceito-chave|Ponto-chave)\s*:/i.exec(seg); if(c){ cauda=seg.slice(c.index).trim(); seg=seg.slice(0,c.index); } }
+    seg=seg.trim().replace(/^[“"][^”"]{0,400}[”"]\s*/,"").replace(/^(é a alternativa correta|alternativa correta|correta|incorreta|errada|falsa|verdadeira)\b\s*[.:;,—–-]?\s*/i,"");
+    por[mk.l]=seg.charAt(0).toUpperCase()+seg.slice(1); });
+  const intro=t.slice(0,marcas[0].ini).trim();
+  return {intro,por,cauda};
+}catch(e){ return null; } }
 /* Análise de cada alternativa (IA grátis, sob demanda). Fica guardada no aparelho para não gastar a cota de novo. */
 const ALT_CACHE="preceptor_altan_v1";
 function altCacheLer(id){ try{ const c=JSON.parse(localStorage.getItem(ALT_CACHE)||"{}"); return c[id]||null; }catch(e){ return null; } }
@@ -5885,12 +5899,12 @@ function lerAnaliseAlt(txt,n){ const L="ABCDE".slice(0,n); const out={}; let atu
     if(m){ const l=m[1].toUpperCase(); if(L.indexOf(l)>=0&&!out[l]){ atual=l; out[l]=m[2].replace(/\*\*/g,"").trim(); } else atual=null; }
     else if(atual&&lin.trim()) out[atual]+=" "+lin.replace(/\*\*/g,"").trim(); });
   return Object.keys(out).length>=Math.min(n,3)?out:null; }
-function AnaliseAlternativas({q,sel}){
+function AnaliseAlternativas({q,sel,pronta}){
   const L=["A","B","C","D","E"]; const n=(q.alts||[]).length;
-  const [res,setRes]=useState(()=>altCacheLer(q.id)); const [carregando,setCarregando]=useState(false); const [erro,setErro]=useState("");
+  const [resIA,setRes]=useState(()=>altCacheLer(q.id)); const res=pronta||resIA; const [carregando,setCarregando]=useState(false); const [erro,setErro]=useState("");
   useEffect(()=>{ setRes(altCacheLer(q.id)); setErro(""); },[q.id]);
   if(q.anulada||n<2||!(q.correta>=0)) return null;
-  if(!window.__PRO) return <div className="row" style={{gap:10,alignItems:"center",marginTop:10,padding:"8px 10px",border:"1px dashed var(--line)",borderRadius:10,fontSize:12.5}}>
+  if(!res&&!window.__PRO) return <div className="row" style={{gap:10,alignItems:"center",marginTop:10,padding:"8px 10px",border:"1px dashed var(--line)",borderRadius:10,fontSize:12.5}}>
     <span>🔍 Por que cada alternativa está certa ou errada — <b>exclusivo do PRO</b>.</span>
     <button className="btn sm" style={{marginLeft:"auto"}} onClick={()=>window.__ABRIR_ASSINAR&&window.__ABRIR_ASSINAR()}>Liberar</button></div>;
   const gerar=async()=>{ setCarregando(true); setErro("");
@@ -5913,13 +5927,14 @@ function AnaliseAlternativas({q,sel}){
     {q.alts.map((a,i)=>{ const ok=i===q.correta; const t=(res[L[i]]||"").replace(/^(CORRETA|ERRADA|INCORRETA)\s*[—\-–:]\s*/i,"");
       return <div key={i} style={{marginTop:i?10:0,paddingLeft:10,borderLeft:"3px solid "+(ok?"var(--acc)":"var(--bad)")}}>
         <div style={{fontSize:13.5,fontWeight:700,color:ok?"var(--acc)":"var(--bad)"}}>{L[i]} · {ok?"✓ Correta":"✗ Errada"}{i===sel&&!ok?" (você marcou)":""}</div>
-        <div style={{fontSize:14,lineHeight:1.55,marginTop:2}}>{t||<span className="muted">Sem análise para esta letra.</span>}</div></div>; })}
-    <div className="muted" style={{fontSize:11.5,marginTop:8}}>Análise gerada por IA a partir do gabarito oficial. Confira condutas na diretriz.</div>
+        <div style={{fontSize:14,lineHeight:1.55,marginTop:2}}>{t?<TextoComentario t={t}/>:<span className="muted">{ok&&pronta?"Explicada no comentário acima.":"Sem análise para esta letra."}</span>}</div></div>; })}
+    {!pronta&&<div className="muted" style={{fontSize:11.5,marginTop:8}}>Análise gerada por IA a partir do gabarito oficial. Confira condutas na diretriz.</div>}
   </div>;
 }
 function QuestionCard({q,onResp,indice,total,selInicial}){
   const ini=(selInicial==null)?null:selInicial;
   const [sel,setSel]=useState(ini);useEffect(()=>setSel((selInicial==null)?null:selInicial),[q.id,selInicial]);const L=["A","B","C","D","E"];
+  const analise=useMemo(()=>q.anulada?null:analiseDoComentario(q),[q.id,q.coment]);
   return <div className="card">
     <div className="row" style={{justifyContent:"space-between",marginBottom:10}}>
       <div className="row" style={{gap:8}}><span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(q.area)}</span><span className="pill">{q.tema}</span>{(q.transv||[]).map(t=><span key={t} className="pill" style={{color:"var(--acc2)"}}>{t}</span>)}</div>
@@ -5930,7 +5945,8 @@ function QuestionCard({q,onResp,indice,total,selInicial}){
     {q.alts.map((a,i)=>{let c="alt";if(sel!==null){if(q.anulada)c+=" dim";else if(i===q.correta)c+=" correct";else if(i===sel)c+=" wrong";else c+=" dim";}
       return <button key={i} className={c} disabled={sel!==null} onClick={()=>{const ok=q.anulada?true:(i===q.correta);registrarSeq(ok);setSel(i);onResp(q,ok,i);}}><b style={{opacity:.7,marginRight:8}}>{L[i]}</b>{a}</button>;})}
     {sel!==null&&<div className="comment"><b style={{color:q.anulada?"var(--warn)":(sel===q.correta?"var(--acc)":"var(--bad)")}}>{q.anulada?"Questão anulada. ":(sel===q.correta?vozAcerto(q.id+":"+sel):vozErro(q.id+":"+sel))}</b>{
-      (q.coment && String(q.coment).trim())
+      analise ? <>{analise.intro&&<TextoComentario t={analise.intro}/>}{analise.cauda&&<div style={{marginTop:8}}><TextoComentario t={analise.cauda}/></div>}{!analise.intro&&!analise.cauda&&<span className="muted">Veja a análise de cada alternativa abaixo.</span>}</>
+      : (q.coment && String(q.coment).trim())
         ? (comentCortado(q.coment)
             ? <><TextoComentario t={q.coment}/><span className="muted" style={{fontStyle:"italic"}}> […] <b style={{fontStyle:"normal",color:"var(--warn)"}}>comentário incompleto</b> — este texto foi cortado na importação e já está sendo refeito.{q.anulada?"":(q.correta>=0&&L[q.correta])?<> A resposta correta é a <b style={{color:"var(--acc)",fontStyle:"normal"}}>{L[q.correta]}</b>.</>:null} Use o <b style={{fontStyle:"normal"}}>Perguntar sobre esta questão</b> aqui embaixo para o raciocínio completo.</span></>
             : <TextoComentario t={q.coment}/>)
@@ -5938,7 +5954,7 @@ function QuestionCard({q,onResp,indice,total,selInicial}){
             Comentário em preparação.{q.anulada?"":(q.correta>=0&&L[q.correta])?<> A resposta correta é a <b style={{color:"var(--acc)",fontStyle:"normal"}}>{L[q.correta]}</b>.</>:null} Use o <b style={{fontStyle:"normal"}}>Perguntar sobre esta questão</b> aqui embaixo para o raciocínio completo.
           </span>
     }</div>}
-    {sel!==null&&<AnaliseAlternativas q={q} sel={sel}/>}
+    {sel!==null&&<AnaliseAlternativas q={q} sel={sel} pronta={analise?analise.por:null}/>}
     {sel!==null&&<StatsQuestao q={q}/>}
     {sel!==null&&!q.anulada&&sel!==q.correta&&<MotivoErro q={q}/>}
     {sel!==null&&<IAnaQuestao q={q} sel={sel}/>}
