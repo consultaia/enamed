@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.22.3";
+  window.APP_VERSION="2026.10.23.1";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2577,14 +2577,22 @@ async function obEnviar(sb,uid,aoMudar){
   } finally { __obEmCurso[uid]=false; }
 }
 
-const NOMES_EDICAO={"STRIX_BA":"ABAEM 2026 · Acesso Direto (BA)","STRIX_AL":"ALAEM 2026 · Acesso Direto (AL)","ENARE_2021":"ENARE 2021 · Acesso Direto","ENARE_2022":"ENARE 2022 · Acesso Direto","ENARE_2023":"ENARE 2023 · Acesso Direto","ENARE_2024_2025":"ENARE 2024/2025 · Acesso Direto","ENARE_2026":"ENARE 2026 · R+ Clínica Médica","ENARE_2027":"ENARE 2027 · R+ Clínica Médica","REVALIDA_2024_1":"Revalida 2024/1","REVALIDA_2025_1":"Revalida 2025/1","TPI_2026_1":"TPI 2026.1 · Afya","TPI_2025_1":"TPI 2025.1 · Afya","ENAMED_2025_2":"ENAMED 2025.2 · INEP","ENAMED_2026":"ENAMED 2026 · INEP (gabarito preliminar)"};
+const NOMES_EDICAO={"ENARE_2021":"ENARE 2021 · Acesso Direto","ENARE_2022":"ENARE 2022 · Acesso Direto","ENARE_2023":"ENARE 2023 · Acesso Direto","ENARE_2024_2025":"ENARE 2024/2025 · Acesso Direto","ENARE_2026":"ENARE 2026 · R+ Clínica Médica","ENARE_2027":"ENARE 2027 · R+ Clínica Médica","REVALIDA_2024_1":"Revalida 2024/1","REVALIDA_2025_1":"Revalida 2025/1","TPI_2026_1":"TPI 2026.1 · Afya","TPI_2025_1":"TPI 2025.1 · Afya","ENAMED_2025_2":"ENAMED 2025.2 · INEP","ENAMED_2026":"ENAMED 2026 · INEP (gabarito preliminar)"};
 /* filtro "Prova" do Praticar: flag de origem (transv) e edição (FLAG_ANO) */
-const PROVAS_FILTRO=[["ENAMED","ENAMED"],["REVALIDA","Revalida"],["ENARE","ENARE"],["TPI","TPI (Afya)"],["STRIX","Strix (SUS-BA/AL)"],["TECM","Título de Clínica Médica"]];
+const PROVAS_FILTRO=[["ENAMED","ENAMED"],["REVALIDA","Revalida"],["ENARE","ENARE"],["TPI","TPI (Afya)"],["SUS","SUS (provas estaduais)"],["TECM","Título de Clínica Médica"]];
 const FLAGS_PROVA=PROVAS_FILTRO.map(p=>p[0]);
 function flagsProva(q){ const t=(q&&q.transv)||[]; return FLAGS_PROVA.filter(f=>t.indexOf(f)>=0); }
 function casaProva(q,prova){ if(prova==="todas") return true; const fl=flagsProva(q); if(prova==="oficiais") return fl.length>0; if(prova==="ineditas") return fl.length===0; return fl.indexOf(prova)>=0; }
 function edicoesDe(q,flag){ return ((q&&q.transv)||[]).filter(t=>(""+t).indexOf(flag+"_")===0); }
-function nomeEdicao(ed){ return NOMES_EDICAO[ed]||String(ed).replace(/_/g," "); }
+/* Provas estaduais do SUS: flag SUS + edição SUS_<UF>_<ano>[_ESP]. Novos estados entram só com a sigla aqui. */
+const UF_NOME={AC:"Acre",AL:"Alagoas",AM:"Amazonas",AP:"Amapá",BA:"Bahia",CE:"Ceará",DF:"Distrito Federal",ES:"Espírito Santo",GO:"Goiás",MA:"Maranhão",MG:"Minas Gerais",MS:"Mato Grosso do Sul",MT:"Mato Grosso",PA:"Pará",PB:"Paraíba",PE:"Pernambuco",PI:"Piauí",PR:"Paraná",RJ:"Rio de Janeiro",RN:"Rio Grande do Norte",RO:"Rondônia",RR:"Roraima",RS:"Rio Grande do Sul",SC:"Santa Catarina",SE:"Sergipe",SP:"São Paulo",TO:"Tocantins"};
+function partesSUS(ed){ const m=/^SUS_([A-Z]{2})_(\d{4})(?:_(.+))?$/.exec(String(ed||"")); return m?{uf:m[1],ano:+m[2],tipo:m[3]||""}:null; }
+function nomeEdicao(ed){ if(NOMES_EDICAO[ed]) return NOMES_EDICAO[ed]; const p=partesSUS(ed);
+  if(p) return "SUS "+(UF_NOME[p.uf]||p.uf)+" "+p.ano+" · "+(p.tipo==="ESP"?"Especialidades Clínicas (R+)":"Acesso Direto");
+  return String(ed).replace(/_/g," "); }
+/* questões antigas vieram como STRIX/STRIX_BA/STRIX_AL (prova de 2026): viram SUS */
+const STRIX_PARA_SUS={STRIX:"SUS",STRIX_BA:"SUS_BA_2026",STRIX_AL:"SUS_AL_2026"};
+function normTransv(t){ return (t||[]).map(x=>STRIX_PARA_SUS[x]||x); }
 function progressoProva(chave){ try{ const v=JSON.parse(PLS.get("preceptor_prova_"+chave)||"null"); if(v&&v.resp) return {n:Object.keys(v.resp).length,i:v.i||0}; }catch(e){} return null; }
 function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
   const lsAberta="preceptor_prova_aberta_"+flag;
@@ -2601,9 +2609,10 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
     const num=q=>{const m=/_q(\d+)$/.exec(q.id||"");return m?+m[1]:9999;};
     return Object.keys(grupos).map(function(ed){
       const qs=grupos[ed].slice().sort((a,b)=>num(a)-num(b));
-      let nome=(NOMES_EDICAO)[ed] || ((qs[0]&&qs[0].tema)?qs[0].tema:ed).replace(/\s·\sParte\s.*$/,"").trim();
-      return {ed:ed, nome:nome, qs:qs};
-    }).sort((a,b)=>a.nome<b.nome?1:(a.nome>b.nome?-1:0));
+      const sus=partesSUS(ed);
+      let nome=(NOMES_EDICAO[ed]||sus)? nomeEdicao(ed) : ((qs[0]&&qs[0].tema)?qs[0].tema:ed).replace(/\s·\sParte\s.*$/,"").trim();
+      return {ed:ed, nome:nome, qs:qs, uf:sus?sus.uf:"", ano:sus?sus.ano:0, esp:sus?sus.tipo:""};
+    }).sort((a,b)=>a.uf!==b.uf?((UF_NOME[a.uf]||a.uf)<(UF_NOME[b.uf]||b.uf)?-1:1):a.ano!==b.ano?b.ano-a.ano:a.esp!==b.esp?(a.esp?1:-1):(a.nome<b.nome?1:(a.nome>b.nome?-1:0)));
   },[pool,flag]);
   const prova=provaEd? (provas.filter(p=>p.ed===provaEd)[0]||null) : null;
   if(prova) return <div>
@@ -2617,10 +2626,10 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
     {!provas.length
       ? <p className="muted" style={{marginTop:10}}>Nenhuma prova disponível ainda. Assim que a edição for carregada no banco (SQL) e você recarregar o app, ela aparece aqui.</p>
       : <div style={{marginTop:14,display:"grid",gap:10}}>
-          {provas.map(function(p){ const pg=progressoProva(flag+":"+p.ed); return <button key={p.ed} className="alt" style={{textAlign:"left",display:"block",width:"100%",borderColor:pg?"var(--acc)":undefined}} onClick={()=>abrir(p)}>
+          {provas.map(function(p,i){ const pg=progressoProva(flag+":"+p.ed); const titUF=p.uf&&(i===0||provas[i-1].uf!==p.uf); return <React.Fragment key={p.ed}>{titUF&&<div className="tag" style={{marginTop:i?10:0,color:"var(--acc)"}}>📍 {UF_NOME[p.uf]||p.uf}</div>}<button className="alt" style={{textAlign:"left",display:"block",width:"100%",borderColor:pg?"var(--acc)":undefined}} onClick={()=>abrir(p)}>
             <div style={{fontWeight:700}}>{p.nome}</div>
             <div className="muted" style={{fontSize:13,marginTop:3}}>{p.qs.length} questões{pg?<span style={{color:"var(--acc)",fontWeight:600}}> · em andamento — {pg.n} respondida{pg.n===1?"":"s"} · continuar da questão {Math.min(pg.i+1,p.qs.length)}</span>:null}</div>
-          </button>; })}
+          </button></React.Fragment>; })}
         </div>}
     <p className="muted" style={{fontSize:12,marginTop:14}}>Dá pra refazer quando quiser.</p>
     {flag==="TECM" && <div>
@@ -3324,12 +3333,12 @@ function ContinuarCard({onAbrir}){
 /* provas oficiais já guardam o próprio progresso: aqui só entram no índice */
 function sessaoIndexar(chave,meta){ try{ const idx=sessaoIndice(); idx[chave]={...(idx[chave]||{}),...meta,t:Date.now()}; gravarJSON(SESSAO_IDX,idx); }catch(e){} }
 function sessaoDesindexar(chave){ try{ const idx=sessaoIndice(); if(idx[chave]){ delete idx[chave]; gravarJSON(SESSAO_IDX,idx); } }catch(e){} }
-const FLAG_TAB={ENAMED:"enamed",TPI:"tpi",TECM:"tecm",REVALIDA:"revalida",ENARE:"enare",STRIX:"strix"};
+const FLAG_TAB={ENAMED:"enamed",TPI:"tpi",TECM:"tecm",REVALIDA:"revalida",ENARE:"enare",SUS:"sus"};
 
 function Shell({session}){
   const uid=session.user.id;
-  const TABS_OK=["inicio","trilha","dicas","praticar","internato","enamed","tpi","tecm","revalida","enare","strix","flash","videos","suporte","dash"];
-  const [tab,setTab]=useState(()=>{try{const t=PLS.get("preceptor_tab");return (t&&TABS_OK.indexOf(t)>=0)?t:"inicio"}catch(e){return "inicio"}});
+  const TABS_OK=["inicio","trilha","dicas","praticar","internato","enamed","tpi","tecm","revalida","enare","sus","flash","videos","suporte","dash"];
+  const [tab,setTab]=useState(()=>{try{let t=PLS.get("preceptor_tab"); if(t==="strix") t="sus"; return (t&&TABS_OK.indexOf(t)>=0)?t:"inicio"}catch(e){return "inicio"}});
   useEffect(()=>{PLS.set("preceptor_tab",tab)},[tab]);
   const [tema,setTema]=useState(()=>{try{return localStorage.getItem("enamed_tema")||"escuro"}catch(e){return "escuro"}});
   useEffect(()=>{document.documentElement.setAttribute("data-tema",tema);try{localStorage.setItem("enamed_tema",tema)}catch(e){}},[tema]);
@@ -3422,7 +3431,7 @@ function Shell({session}){
       sb.from("caderno_erros").select("questao_id,area,tema,motivo,criado_em").eq("user_id",uid).order("criado_em",{ascending:false}).limit(400).then(r=>r,()=>({data:[]})),
       sb.from("assinaturas").select("plano,criado_em").eq("user_id",uid).not("plano","in","(free,cortesia)").order("criado_em",{ascending:true}).limit(1).then(r=>r,()=>({data:[]})),
     ]);
-    let qs=(q.data||[]).map(x=>({id:x.id,area:x.area,tema:x.tema,transv:x.transv||[],dif:x.dificuldade,enun:x.enunciado,alts:x.alternativas,correta:x.correta,coment:x.comentario,premium:x.premium,imagem:x.imagem||null,anulada:!(x.correta>=0)}));
+    let qs=(q.data||[]).map(x=>({id:x.id,area:x.area,tema:x.tema,transv:normTransv(x.transv),dif:x.dificuldade,enun:x.enunciado,alts:x.alternativas,correta:x.correta,coment:x.comentario,premium:x.premium,imagem:x.imagem||null,anulada:!(x.correta>=0)}));
     if(qs.length===0){ qs=SEED; }
     else { // garante que as questoes-de-assunto do SEED existam (mescla sem duplicar)
       const ids=new Set(qs.map(x=>x.id));
@@ -3750,7 +3759,7 @@ function Shell({session}){
       {tab==="tecm" && <ExameProvas pool={questoes} registrar={registrar} flag="TECM" icone="🏛️" titulo="Título de Especialista em Clínica Médica" subtitulo="TÍTULO DE ESPECIALISTA · SBCM"/>}
       {tab==="revalida" && <ExameProvas pool={questoes} registrar={registrar} flag="REVALIDA" icone="🏥" titulo="Revalida" subtitulo="REVALIDAÇÃO DE DIPLOMA MÉDICO · INEP"/>}
       {tab==="enare" && <ExameProvas pool={questoes} registrar={registrar} flag="ENARE" icone="📋" titulo="ENARE" subtitulo="EXAME NACIONAL DE RESIDÊNCIA"/>}
-      {tab==="strix" && <ExameProvas pool={questoes} registrar={registrar} flag="STRIX" icone="🦉" titulo="Strix — SUS/BA e AL" subtitulo="STRIX · SUS/BA · AL"/>}
+      {tab==="sus" && <ExameProvas pool={questoes} registrar={registrar} flag="SUS" icone="🏥" titulo="Provas do SUS" subtitulo="SUS · PROVAS ESTADUAIS DE RESIDÊNCIA"/>}
       {tab==="flash" && (acesso ? <Flashcards cards={FLASHCARDS} curriculo={CURRICULO} sb={sb} uid={uid}/> : <TravaFree titulo="Flashcards é PRO" texto="Revise todos os assuntos em cartões rápidos, com baralho diário e sequência de dias estudados." onAssinar={()=>setShowAssinar(true)}/>)}
       {tab==="dash" && (acesso ? <Dash store={store} temasFracos={temasFracos} onRefazer={()=>setDiag("rapido")}/> : <TravaFree titulo="Meu progresso é PRO" texto="Veja seu acerto por área, os temas onde mais erra e o quanto já dominou da trilha." onAssinar={()=>setShowAssinar(true)}/>)}
     </div>}
@@ -6030,8 +6039,8 @@ function ReportarErroQuestao({q,sel}){
    Cinco botões fixos, ao alcance do polegar e sempre visíveis ao rolar.
    Provas e "Mais" abrem uma folha com as demais abas. No desktop continua
    a coluna lateral (.nav). */
-const NAV_ITENS=[["inicio","🏠 Início"],["trilha","📚 Estudar"],["dicas","💡 Dicas do dia"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["enamed","📝 ENAMED"],["tpi","🎓 TPI"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["strix","🦉 Strix (SUS-BA/AL)"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Suporte"],["dash","📈 Meu progresso"]];
-const NAV_PROVAS=["enamed","tpi","tecm","revalida","enare","strix"];
+const NAV_ITENS=[["inicio","🏠 Início"],["trilha","📚 Estudar"],["dicas","💡 Dicas do dia"],["praticar","✍️ Praticar"],["internato","🩺 Internato"],["enamed","📝 ENAMED"],["tpi","🎓 TPI"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["sus","🏥 SUS (provas estaduais)"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Suporte"],["dash","📈 Meu progresso"]];
+const NAV_PROVAS=["enamed","tpi","tecm","revalida","enare","sus"];
 const NAV_MAIS=["dicas","flash","videos","dash","suporte","admin"];
 function BarraInferior({tab,isAdmin,irPara}){
   const [folha,setFolha]=useState(null);
