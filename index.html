@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.22.2";
+  window.APP_VERSION="2026.10.22.3";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2577,7 +2577,7 @@ async function obEnviar(sb,uid,aoMudar){
   } finally { __obEmCurso[uid]=false; }
 }
 
-const NOMES_EDICAO={"STRIX_BA":"ABAEM 2026 · Acesso Direto (BA)","STRIX_AL":"ALAEM 2026 · Acesso Direto (AL)","ENARE_2024_2025":"ENARE 2024/2025 · Acesso Direto","REVALIDA_2024_1":"Revalida 2024/1","REVALIDA_2025_1":"Revalida 2025/1","TPI_2026_1":"TPI 2026.1 · Afya","TPI_2025_1":"TPI 2025.1 · Afya","ENAMED_2025_2":"ENAMED 2025.2 · INEP","ENAMED_2026":"ENAMED 2026 · INEP (gabarito preliminar)"};
+const NOMES_EDICAO={"STRIX_BA":"ABAEM 2026 · Acesso Direto (BA)","STRIX_AL":"ALAEM 2026 · Acesso Direto (AL)","ENARE_2021":"ENARE 2021 · Acesso Direto","ENARE_2022":"ENARE 2022 · Acesso Direto","ENARE_2023":"ENARE 2023 · Acesso Direto","ENARE_2024_2025":"ENARE 2024/2025 · Acesso Direto","ENARE_2026":"ENARE 2026 · R+ Clínica Médica","ENARE_2027":"ENARE 2027 · R+ Clínica Médica","REVALIDA_2024_1":"Revalida 2024/1","REVALIDA_2025_1":"Revalida 2025/1","TPI_2026_1":"TPI 2026.1 · Afya","TPI_2025_1":"TPI 2025.1 · Afya","ENAMED_2025_2":"ENAMED 2025.2 · INEP","ENAMED_2026":"ENAMED 2026 · INEP (gabarito preliminar)"};
 /* filtro "Prova" do Praticar: flag de origem (transv) e edição (FLAG_ANO) */
 const PROVAS_FILTRO=[["ENAMED","ENAMED"],["REVALIDA","Revalida"],["ENARE","ENARE"],["TPI","TPI (Afya)"],["STRIX","Strix (SUS-BA/AL)"],["TECM","Título de Clínica Médica"]];
 const FLAGS_PROVA=PROVAS_FILTRO.map(p=>p[0]);
