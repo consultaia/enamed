@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.22.1";
+  window.APP_VERSION="2026.10.22.2";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -5879,8 +5879,13 @@ function Marcadas({pool}){
 /* Muitos comentários já trazem "A) INCORRETA. …  B) CORRETA. …" em texto corrido: separa por letra (sem IA). */
 function analiseDoComentario(q){ try{
   const n=(q.alts||[]).length, t=String(q.coment||""); if(n<2||!t||comentCortado(t)) return null;
-  const L="ABCDE".slice(0,n); const rx=/(^|[\s.:;])([A-E])\)\s/g; const marcas=[]; const vistas={}; let m;
-  while((m=rx.exec(t))){ const l=m[2]; if(L.indexOf(l)<0||vistas[l]) continue; vistas[l]=1; marcas.push({l,ini:m.index+m[1].length,txt:m.index+m[0].length}); }
+  const L="ABCDE".slice(0,n);
+  /* 1º tenta só os marcadores com veredito ("B) CORRETA", "C) \"…\" INCORRETA"): um "B) Intussuscepção" solto no texto não vira análise */
+  const achar=rx=>{ const out=[], vistas={}; let m; while((m=rx.exec(t))){ const l=m[2]; if(L.indexOf(l)<0||vistas[l]) continue; vistas[l]=1; out.push({l,ini:m.index+m[1].length,txt:m.index+m[0].length}); } return out; };
+  let marcas=achar(/(^|[\s.:;])([A-E])\)\s+(?=(?:[“"][^”"]{0,400}[”"]\s*)?(?:é a alternativa correta|alternativa correta|correta|incorreta|errada)\b)/gi);
+  const geral=achar(/(^|[\s.:;])([A-E])\)\s/g);
+  /* o padrão geral só vence se pegar mais letras sem deslocar nenhum marcador com veredito */
+  if(marcas.length<n-1||(geral.length>marcas.length&&marcas.every(x=>geral.some(y=>y.l===x.l&&y.ini===x.ini)))) marcas=geral;
   if(marcas.length<n-1) return null;
   const por={}; let cauda="";
   marcas.forEach((mk,i)=>{ let seg=t.slice(mk.txt, i+1<marcas.length?marcas[i+1].ini:t.length);
