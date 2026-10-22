@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.21.6";
+  window.APP_VERSION="2026.10.22.1";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -5890,6 +5890,13 @@ function analiseDoComentario(q){ try{
   const intro=t.slice(0,marcas[0].ini).trim();
   return {intro,por,cauda};
 }catch(e){ return null; } }
+/* Como o aluno prefere ver a correção: "correta" (só o comentário da certa) ou "todas" (cada alternativa). */
+const MODO_COMENT_KEY="preceptor_modo_coment";
+function lerModoComent(){ try{ return localStorage.getItem(MODO_COMENT_KEY)==="correta"?"correta":"todas"; }catch(e){ return "todas"; } }
+function SeletorModoComent({modo,setModo}){
+  const b=(v,rot)=><button type="button" className={"btn sm"+(modo===v?"":" ghost")} style={{padding:"4px 10px",fontSize:12.5}} onClick={()=>{ setModo(v); try{ localStorage.setItem(MODO_COMENT_KEY,v); }catch(e){} }}>{rot}</button>;
+  return <div className="row" style={{gap:6,alignItems:"center",flexWrap:"wrap",margin:"12px 0 -4px"}}><span className="muted" style={{fontSize:12}}>Ver correção:</span>{b("correta","✓ Só a correta")}{b("todas","🔍 Cada alternativa")}</div>;
+}
 /* Análise de cada alternativa (IA grátis, sob demanda). Fica guardada no aparelho para não gastar a cota de novo. */
 const ALT_CACHE="preceptor_altan_v1";
 function altCacheLer(id){ try{ const c=JSON.parse(localStorage.getItem(ALT_CACHE)||"{}"); return c[id]||null; }catch(e){ return null; } }
@@ -5935,6 +5942,8 @@ function QuestionCard({q,onResp,indice,total,selInicial}){
   const ini=(selInicial==null)?null:selInicial;
   const [sel,setSel]=useState(ini);useEffect(()=>setSel((selInicial==null)?null:selInicial),[q.id,selInicial]);const L=["A","B","C","D","E"];
   const analise=useMemo(()=>q.anulada?null:analiseDoComentario(q),[q.id,q.coment]);
+  const [modo,setModo]=useState(lerModoComent);
+  const textoCorreta=analise&&q.correta>=0?(analise.por[L[q.correta]]||""):"";
   return <div className="card">
     <div className="row" style={{justifyContent:"space-between",marginBottom:10}}>
       <div className="row" style={{gap:8}}><span className="pill" style={{color:"var(--acc)",borderColor:"var(--acc)"}}>{areaNome(q.area)}</span><span className="pill">{q.tema}</span>{(q.transv||[]).map(t=><span key={t} className="pill" style={{color:"var(--acc2)"}}>{t}</span>)}</div>
@@ -5944,8 +5953,10 @@ function QuestionCard({q,onResp,indice,total,selInicial}){
     {q.anulada&&<div style={{display:"inline-block",fontSize:12,fontWeight:600,color:"var(--warn)",border:"1px solid var(--warn)",borderRadius:6,padding:"2px 8px",marginBottom:8}}>⚠️ ANULADA pelo INEP — não pontua</div>}
     {q.alts.map((a,i)=>{let c="alt";if(sel!==null){if(q.anulada)c+=" dim";else if(i===q.correta)c+=" correct";else if(i===sel)c+=" wrong";else c+=" dim";}
       return <button key={i} className={c} disabled={sel!==null} onClick={()=>{const ok=q.anulada?true:(i===q.correta);registrarSeq(ok);setSel(i);onResp(q,ok,i);}}><b style={{opacity:.7,marginRight:8}}>{L[i]}</b>{a}</button>;})}
+    {sel!==null&&!q.anulada&&<SeletorModoComent modo={modo} setModo={setModo}/>}
     {sel!==null&&<div className="comment"><b style={{color:q.anulada?"var(--warn)":(sel===q.correta?"var(--acc)":"var(--bad)")}}>{q.anulada?"Questão anulada. ":(sel===q.correta?vozAcerto(q.id+":"+sel):vozErro(q.id+":"+sel))}</b>{
-      analise ? <>{analise.intro&&<TextoComentario t={analise.intro}/>}{analise.cauda&&<div style={{marginTop:8}}><TextoComentario t={analise.cauda}/></div>}{!analise.intro&&!analise.cauda&&<span className="muted">Veja a análise de cada alternativa abaixo.</span>}</>
+      analise&&modo==="correta" ? <>{analise.intro&&<TextoComentario t={analise.intro}/>}{textoCorreta&&<div style={{marginTop:analise.intro?8:0}}><b style={{color:"var(--acc)"}}>Por que a {L[q.correta]} está correta: </b><TextoComentario t={textoCorreta.replace(/^(CORRETA|É a alternativa correta)\s*[.:—–-]?\s*/i,"")}/></div>}{analise.cauda&&<div style={{marginTop:8}}><TextoComentario t={analise.cauda}/></div>}</>
+      : analise ? <>{analise.intro&&<TextoComentario t={analise.intro}/>}{analise.cauda&&<div style={{marginTop:8}}><TextoComentario t={analise.cauda}/></div>}{!analise.intro&&!analise.cauda&&<span className="muted">Veja a análise de cada alternativa abaixo.</span>}</>
       : (q.coment && String(q.coment).trim())
         ? (comentCortado(q.coment)
             ? <><TextoComentario t={q.coment}/><span className="muted" style={{fontStyle:"italic"}}> […] <b style={{fontStyle:"normal",color:"var(--warn)"}}>comentário incompleto</b> — este texto foi cortado na importação e já está sendo refeito.{q.anulada?"":(q.correta>=0&&L[q.correta])?<> A resposta correta é a <b style={{color:"var(--acc)",fontStyle:"normal"}}>{L[q.correta]}</b>.</>:null} Use o <b style={{fontStyle:"normal"}}>Perguntar sobre esta questão</b> aqui embaixo para o raciocínio completo.</span></>
@@ -5954,7 +5965,7 @@ function QuestionCard({q,onResp,indice,total,selInicial}){
             Comentário em preparação.{q.anulada?"":(q.correta>=0&&L[q.correta])?<> A resposta correta é a <b style={{color:"var(--acc)",fontStyle:"normal"}}>{L[q.correta]}</b>.</>:null} Use o <b style={{fontStyle:"normal"}}>Perguntar sobre esta questão</b> aqui embaixo para o raciocínio completo.
           </span>
     }</div>}
-    {sel!==null&&<AnaliseAlternativas q={q} sel={sel} pronta={analise?analise.por:null}/>}
+    {sel!==null&&modo==="todas"&&<AnaliseAlternativas q={q} sel={sel} pronta={analise?analise.por:null}/>}
     {sel!==null&&<StatsQuestao q={q}/>}
     {sel!==null&&!q.anulada&&sel!==q.correta&&<MotivoErro q={q}/>}
     {sel!==null&&<IAnaQuestao q={q} sel={sel}/>}
