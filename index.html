@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.24.1";
+  window.APP_VERSION="2026.10.26.1";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -4670,6 +4670,10 @@ function fonteDaQuestao(q){
     return {tipo:"oficial",nome:nome+" "+p.slice(1).join("/")};
   }
   if(tv.includes("TECM")) return {tipo:"oficial",nome:"TECM"};
+  const sus=tv.map(t=>/^SUS_([A-Z]{2})_(\d{4})(_ESP)?$/.exec(t)).find(Boolean);
+  if(sus) return {tipo:"oficial",nome:"SUS-"+sus[1]+" "+sus[2]+(sus[3]?" (R+)":"")};
+  const usp=tv.map(t=>/^USP_(\d{4})(?:_(.+))?$/.exec(t)).find(Boolean);
+  if(usp) return {tipo:"oficial",nome:"USP "+usp[1]+(usp[2]==="MI"?" (MI)":usp[2]==="ESP"?" (R+)":"")};
   if(/^enamed_\d{4}_\d_q/.test(id)){ const m=/^enamed_(\d{4})_(\d)/.exec(id); return {tipo:"oficial",nome:"ENAMED "+m[1]+"."+m[2]}; }
   if(/^enamed_\d{4}_q/.test(id)){ const m=/^enamed_(\d{4})_q/.exec(id); return {tipo:"oficial",nome:"ENAMED "+m[1]}; }
   if(/^enamed_s\d+/.test(id)||/^ENAMED — Simulado/.test(tema)){ const m=/Simulado (\d+)/.exec(tema)||/^enamed_s(\d+)/.exec(id); return {tipo:"simulado",nome:"Simulado ENAMED "+(m?m[1]:"")}; }
@@ -4677,9 +4681,25 @@ function fonteDaQuestao(q){
   return {tipo:"banco",nome:"Banco"};
 }
 function temaChave(t){ let s=""+(t||""); if(/^ENAMED\s*—\s*Simulado/i.test(s)) return ""; if(/^TPI\b/i.test(s)) return ""; if(/^ENAMED\s*20\d\d/i.test(s)) return ""; if(/^Internato/i.test(s)){ const p=s.split("·"); s=p.length>1?p.slice(1).join("·"):s.replace(/^Internato\s*—\s*/,""); } return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s*·\s*parte.*$/,"").replace(/[^a-z0-9]+/g," ").trim(); }
+/* Palavras-chave do tema para achar questões semelhantes: os temas vêm de fontes diferentes
+   ("Hérnia inguinal encarcerada", "Cirurgia — Hernia inguinal (classificacao)"), então o nome exato quase nunca bate. */
+const _GEM_FORA=new Set("de da do das dos e em na no nas nos com por para a o as os ao aos sem um uma pos pre tipo via vs x ou entre sobre diagnostico diagnostica diagnosticos tratamento tratamentos conduta condutas manejo avaliacao abordagem quadro clinica clinico paciente caso casos principais principal geral conceitos conceito parte questao indicacao indicacoes complicacoes complicacao fisiopatologia classificacao exames exame investigacao sindrome doenca doencas inicial efeito efeitos adverso adversos aguda agudo grave graves cirurgia cirurgico cirurgica cronica cronico adulto adultos crianca criancas acesso direto objetiva simulado gestacao gestante".split(" "));
+const _GEM_SIGLAS=new Set("has dm iam avc tep tvp dpoc hiv itu drc lra icc ic fa cad dip ist ave hda hdb sus aps tb rn dheg dpp tpp rpm".split(" "));
+const _gemCache=new Map();
+function temaTokens(t){
+  const key=""+(t||""); if(_gemCache.has(key)) return _gemCache.get(key);
+  let s=key.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/^internato\s*[—-][^·]*·\s*/,"").replace(/\s*·\s*parte.*$/,"").replace(/^(obstetricia|ginecologia|pediatria|cirurgia|clinica medica|preventiva|neonatologia)\s*[—-]\s*/,"");
+  const out=new Set();
+  if(!/(simulado|acesso direto|objetiva|^enamed\s*20|^tpi\b)/.test(s)) s.split(/[^a-z0-9]+/).forEach(w=>{
+    if(!w||_GEM_FORA.has(w)) return; if(w.length<4&&!_GEM_SIGLAS.has(w)) return;
+    if(w.length>4&&w.endsWith("s")) w=w.slice(0,-1); out.add(w); });
+  _gemCache.set(key,out); return out;
+}
+function temasParecidos(a,b){ if(!a.size||!b.size) return false; let i=0; a.forEach(w=>{ if(b.has(w)) i++; }); return i>0&&i/(a.size+b.size-i)>=0.5; }
 function gemeasDe(q){
-  const all=window.__ALLQ||[]; const k=temaChave(q.tema); if(!k||k.length<4) return [];
-  return all.filter(x=>x&&x.id!==q.id&&x.area===q.area&&temaChave(x.tema)===k);
+  const all=window.__ALLQ||[]; const k=temaChave(q.tema); const tk=temaTokens(q.tema);
+  if((!k||k.length<4)&&!tk.size) return [];
+  return all.filter(x=>x&&x.id!==q.id&&x.area===q.area&&((k&&k.length>=4&&temaChave(x.tema)===k)||temasParecidos(tk,temaTokens(x.tema))));
 }
 function QuestoesGemeas({q}){
   const g=useMemo(()=>gemeasDe(q),[q.id]);
@@ -4712,7 +4732,7 @@ function RaioXBanca({pool}){
   return <div>
     <div className="card" style={{marginBottom:14}}>
       <div className="tag" style={{color:"var(--gold)"}}>🔎 RAIO-X DA BANCA</div>
-      <div style={{fontSize:14,marginTop:4}}><b>{dados.totalOficial.toLocaleString("pt-BR")} questões de provas oficiais</b> (ENAMED, Revalida, ENARE, SUS-BA, TECM) contadas tema a tema. O que mais cai, com prova por prova.</div>
+      <div style={{fontSize:14,marginTop:4}}><b>{dados.totalOficial.toLocaleString("pt-BR")} questões de provas oficiais</b> (ENAMED, Revalida, ENARE, SUS, USP, TECM) contadas tema a tema. O que mais cai, com prova por prova.</div>
       <div className="row" style={{gap:6,flexWrap:"wrap",marginTop:10}}>
         <button className={"btn "+(areaSel==="todas"?"":"ghost")+" sm"} onClick={()=>setAreaSel("todas")}>Todas</button>
         {AREAS.map(a=><button key={a.k} className={"btn "+(areaSel===a.k?"":"ghost")+" sm"} onClick={()=>setAreaSel(a.k)}>{a.k} · {dados.porArea[a.k]||0}</button>)}
