@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.29.7";
+  window.APP_VERSION="2026.10.29.8";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -7227,17 +7227,32 @@ function aclsContextoIA(caso,s){
     "4) Não use markdown nem listas.";
 }
 /* debriefing conversado com o avaliador (IA) ao fim do cenário */
-function DebriefACLS({caso,s,itens,pct}){
+/* voz do avaliador: outra voz do aparelho (diferente da do paciente), para o aluno distinguir quem fala */
+function vozAvaliador(){ const pt=vozesPt(), pac=escolherVoz(); return pt.find(v=>!pac||v.name!==pac.name)||pac||null; }
+function falarAvaliador(txt,aoTerminar){ try{
+  if(!("speechSynthesis" in window)){ aoTerminar&&aoTerminar(); return; }
+  const limpo=String(txt||"").replace(/[*_#>`"]/g,"").replace(/\([^)]*\)/g," ").replace(/\bIV\b/g,"intravenosa").replace(/SatO2|SpO2/g,"saturação").replace(/ETCO2/g,"capnografia").replace(/\s+/g," ").trim();
+  if(!limpo){ aoTerminar&&aoTerminar(); return; }
+  pararVozPaciente();
+  const u=new SpeechSynthesisUtterance(limpo); const v=vozAvaliador(); if(v){ u.voice=v; u.lang=v.lang; } else u.lang="pt-BR"; u.rate=1.05;
+  let fim=false; const acabar=()=>{ if(fim) return; fim=true; aoTerminar&&aoTerminar(); };
+  u.onend=acabar; u.onerror=acabar; setTimeout(acabar,2500+limpo.length*90);
+  setTimeout(()=>{ try{ window.speechSynthesis.speak(u); }catch(e){ acabar(); } },60);
+}catch(e){ aoTerminar&&aoTerminar(); } }
+/* separa a resposta da IA em falas do paciente e do avaliador (linhas "AVALIADOR:"/"Examinador:") */
+function separarAvaliador(txt){ const out=[];
+  String(txt||"").split(/\n+/).forEach(lin=>{ const l=lin.trim(); if(!l) return;
+    const m=l.match(/^\(?\s*\**\s*(avaliador|examinador|estacao|estação)\s*\**\s*\)?\s*:\s*(.*)$/i), p=l.match(/^\**\s*(paciente|mae|mãe|acompanhante)\s*\**\s*:\s*(.*)$/i);
+    const de=m?"avaliador":"paciente", t=(m?m[2]:p?p[2]:l).trim(); if(!t) return;
+    if(out.length&&out[out.length-1].de===de) out[out.length-1].txt+="\n"+t; else out.push({de,txt:t}); });
+  return out.length?out:[{de:"paciente",txt:String(txt||"").trim()}]; }
+/* debriefing conversado com o avaliador (IA) no fim de uma estação */
+function DebriefIA({tema,base,primeira,exemplo}){
   const [msgs,setMsgs]=useState([]); const [txt,setTxt]=useState(""); const [carr,setCarr]=useState(false); const [erroD,setErroD]=useState("");
-  const base="Você é o AVALIADOR/INSTRUTOR de ACLS (AHA) fazendo o DEBRIEFING de um megacode com um estudante de Medicina brasileiro. Seja direto, gentil e técnico; português do Brasil; sem markdown; no máximo 8 frases por resposta.\n"+
-    "CENÁRIO: "+caso.titulo+". "+caso.intro+"\nNOTA: "+pct+"%.\nCHECKLIST: "+itens.map(x=>(x.ok?"[OK] ":"[FALHOU] ")+x.t).join(" | ")+
-    "\nERROS CRÍTICOS: "+([...new Set(s.criticos)].join(" | ")||"nenhum")+"\nOUTROS ERROS: "+([...new Set(s.erros)].join(" | ")||"nenhum")+
-    "\nLINHA DO TEMPO: "+s.log.map(l=>aclsMmss(l.t)+" "+l.txt).join(" | ");
   const mandar=async(pergunta)=>{ if(carr) return; setCarr(true); setErroD("");
     const hist=msgs.map(m=>(m.de==="aluno"?"ALUNO: ":"AVALIADOR: ")+m.txt).join("\n");
     const novo=pergunta?[...msgs,{de:"aluno",txt:pergunta}]:msgs; setMsgs(novo);
-    try{ const r=await wfetch("/tirar-duvida",{tema:"ACLS debriefing — "+caso.titulo,contexto:base+(hist?"\n\nCONVERSA ATÉ AQUI:\n"+hist:""),
-        pergunta:pergunta||"Faça o debriefing: comece pelo que o aluno fez bem, depois os 2 ou 3 pontos mais importantes a corrigir (com o porquê e o que fazer na próxima vez) e termine com uma pergunta de reflexão."});
+    try{ const r=await wfetch("/tirar-duvida",{tema,contexto:base+(hist?"\n\nCONVERSA ATÉ AQUI:\n"+hist:""),pergunta:pergunta||primeira});
       const d=await r.json(); if(!r.ok||d.error) throw new Error(d.error||"falha");
       setMsgs(m=>[...m,{de:"avaliador",txt:String(d.resposta||"").trim()}]); }
     catch(e){ setErroD("Não consegui falar com o avaliador agora ("+e.message+")."); }
@@ -7250,14 +7265,22 @@ function DebriefACLS({caso,s,itens,pct}){
   </div>;
   return <div className="card" style={{marginBottom:12}}>
     <div className="tag" style={{color:"var(--acc)"}}>💬 DEBRIEFING COM O AVALIADOR (IA)</div>
-    {msgs.map((m,k)=><div key={k} className="block" style={{marginTop:8,fontSize:13.5,lineHeight:1.55,background:m.de==="aluno"?"var(--panel2)":"color-mix(in srgb, var(--acc) 10%, var(--panel))"}}><b>{m.de==="aluno"?"Você":"Avaliador"}:</b> {m.txt}</div>)}
+    {msgs.map((m,k)=><div key={k} className="block" style={{marginTop:8,fontSize:13.5,lineHeight:1.55,whiteSpace:"pre-wrap",background:m.de==="aluno"?"var(--panel2)":"color-mix(in srgb, var(--acc) 10%, var(--panel))"}}><b>{m.de==="aluno"?"Você":"Avaliador"}:</b> {m.txt}</div>)}
     {carr && <div className="muted" style={{fontSize:13,marginTop:8}}>O avaliador está escrevendo…</div>}
     {erroD && <div className="muted" style={{fontSize:12.5,marginTop:6,color:"var(--bad)"}}>{erroD}</div>}
     <div className="row" style={{gap:6,marginTop:10}}>
-      <input value={txt} onChange={e=>setTxt(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&txt.trim()){ mandar(txt.trim()); setTxt(""); } }} placeholder="Pergunte ao avaliador (ex.: por que não chocar a AESP?)" style={{flex:1}}/>
+      <input value={txt} onChange={e=>setTxt(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&txt.trim()){ mandar(txt.trim()); setTxt(""); } }} placeholder={"Pergunte ao avaliador (ex.: "+(exemplo||"o que eu deveria ter perguntado")+")"} style={{flex:1,minWidth:0}}/>
       <button className="btn sm" disabled={!txt.trim()||carr} onClick={()=>{ mandar(txt.trim()); setTxt(""); }}>Enviar</button>
     </div>
   </div>;
+}
+const PEDIDO_DEBRIEF="Faça o debriefing: comece pelo que o aluno fez bem, depois os 2 ou 3 pontos mais importantes a corrigir (com o porquê e o que fazer na próxima vez) e termine com uma pergunta de reflexão.";
+function DebriefACLS({caso,s,itens,pct}){
+  const base="Você é o AVALIADOR/INSTRUTOR de ACLS (AHA) fazendo o DEBRIEFING de um megacode com um estudante de Medicina brasileiro. Seja direto, gentil e técnico; português do Brasil; sem markdown; no máximo 8 frases por resposta.\n"+
+    "CENÁRIO: "+caso.titulo+". "+caso.intro+"\nNOTA: "+pct+"%.\nCHECKLIST: "+itens.map(x=>(x.ok?"[OK] ":"[FALHOU] ")+x.t).join(" | ")+
+    "\nERROS CRÍTICOS: "+([...new Set(s.criticos)].join(" | ")||"nenhum")+"\nOUTROS ERROS: "+([...new Set(s.erros)].join(" | ")||"nenhum")+
+    "\nLINHA DO TEMPO: "+s.log.map(l=>aclsMmss(l.t)+" "+l.txt).join(" | ");
+  return <DebriefIA tema={"ACLS debriefing — "+caso.titulo} base={base} primeira={PEDIDO_DEBRIEF} exemplo="por que não chocar a AESP"/>;
 }
 function MegacodeACLS({caso,onVoltar}){
   const S=useRef(aclsNovoEstado(caso)); const [,render]=useState(0); const s=S.current;
@@ -7291,7 +7314,7 @@ function MegacodeACLS({caso,onVoltar}){
     recA.current=r; setOuvindo(true); try{ r.start(); }catch(e){ setOuvindo(false); recA.current=null; } };
   const dizer=(txt)=>{ txt=String(txt||"").trim(); if(!txt) return; setConversa(c=>[...c,{de:"avaliador",txt}]);
     if(!vozRef.current) return; try{ recA.current&&recA.current.abort(); }catch(e){} recA.current=null; setOuvindo(false);
-    setFalandoAv(true); falarPaciente(limparFala(txt),{cenario:""},()=>{ setFalandoAv(false); if(vozRef.current&&!S.current.fim) ouvirA(); }); };
+    setFalandoAv(true); falarAvaliador(limparFala(txt),()=>{ setFalandoAv(false); if(vozRef.current&&!S.current.fim) ouvirA(); }); };
   dizerRef.current=dizer;
   const pergunta=()=>{ const x=S.current; if(x.fim) return " Fim da estação. Veja a sua correção abaixo."; if(pcr&&x.fase==="rce") return " Quais os cuidados pós-parada, doutor?"; if(pcr&&x.pausado) return " Qual a sua conduta?"; return ""; };
   const executar=(acoes)=>{ const antes=S.current.log.length; acoes.forEach(([id,extra])=>ag(id,extra)); const novos=S.current.log.slice(antes);
@@ -8184,7 +8207,7 @@ function OSCEEstacao({caso, onVoltar}){
         try{ await ia.baixar(p=>setBaixandoIA(p||0)); }catch(e){ setBaixandoIA(null); setAvisoVoz("Não consegui baixar a voz natural agora ("+e.message+"). Continua a voz do aparelho."); return; }
         setBaixandoIA(null); } }
     setVozNomeOsce(n); try{ PLS.set(VOZ_NOME_KEY,n); }catch(e){} testarVoz(); };
-  const recRef=useRef(null); const conversaRef=useRef(false); const enviarRef=useRef(null);
+  const recRef=useRef(null); const conversaRef=useRef(false); const enviarRef=useRef(null); const avaliadorDizRef=useRef(null);
   useEffect(()=>{ conversaRef.current=conversaVoz; },[conversaVoz]);
   useEffect(()=>()=>{ try{ recRef.current&&recRef.current.abort(); }catch(e){} pararVozPaciente(); },[]);
   const setVoz=v=>{ if(v) destravarVoz(); setVozOn(v); try{ PLS.set("preceptor_osce_voz",v?"1":"0"); }catch(e){} if(!v){ pararVozPaciente(); setFalando(false); } };
@@ -8216,16 +8239,21 @@ function OSCEEstacao({caso, onVoltar}){
       else if(er==="no-speech"){ setAvisoVoz("Não ouvi nada. Toque de novo e fale mais perto do microfone."); }
       else if(er==="audio-capture"){ setAvisoVoz("Não encontrei o microfone do aparelho."); setConversaVoz(false); conversaRef.current=false; }
       else if(er==="network"){ setAvisoVoz("O reconhecimento de voz precisa de internet."); } };
-    const fim=()=>{ if(acabou) return; acabou=true; clearTimeout(timer); setOuvindo(false); recRef.current=null;
+    const fim=()=>{ if(acabou) return; acabou=true; clearTimeout(timer); setOuvindo(false); if(recRef.current===r) recRef.current=null;
+      if(interrompeuRef.current){ interrompeuRef.current=false; return; }  /* o avaliador falou por cima: não envia pedaço de frase */
       const fala=junto();
-      if(autoEnviar&&conversaRef.current){ if(fala) enviarRef.current&&enviarRef.current(fala); else { setConversaVoz(false); conversaRef.current=false; } } };
+      if(autoEnviar&&conversaRef.current){ if(fala) enviarRef.current&&enviarRef.current(fala);
+        else if(!silRef.current){ silRef.current=1; avaliadorDizRef.current&&avaliadorDizRef.current("Doutor, pode prosseguir com o atendimento."); }
+        else { silRef.current=0; setConversaVoz(false); conversaRef.current=false; } } };
     r.onend=fim;
     recRef.current=r; setOuvindo(true); silencio(EH_IOS?7000:9000); /* ninguém falou: desiste */
     try{ r.start(); }catch(e){ acabou=true; setOuvindo(false); setAvisoVoz(avisoMicNegado()); setConversaVoz(false); }
   };
   const pararOuvir=()=>{ try{ recRef.current&&recRef.current.stop(); }catch(e){} };
   const alternarConversa=()=>{ if(conversaVoz){ setConversaVoz(false); try{ recRef.current&&recRef.current.abort(); }catch(e){} pararVozPaciente(); setFalando(false); return; }
-    destravarVoz(); setConversaVoz(true); conversaRef.current=true; setVoz(true); ouvir(true); };
+    destravarVoz(); setConversaVoz(true); conversaRef.current=true; setVoz(true); silRef.current=0;
+    if(msgs.length===0&&avaliadorDizRef.current){ avaliadorDizRef.current("Estação: "+caso.titulo+". "+caso.cenario+" Você tem "+Math.round(limiteSeg/60)+" minutos. Pode começar."); return; }
+    ouvir(true); };
   const [msgs,setMsgs]=useState([]);      // [{de:'aluno'|'paciente', txt}]
   /* conversa ao vivo (beta): fala com fala, interrompível */
   const [aoVivo,setAoVivo]=useState(null); // null | conectando | ouvindo | falando
@@ -8259,10 +8287,12 @@ function OSCEEstacao({caso, onVoltar}){
   const papelPaciente=()=>"\n\nPAPEL (obrigatório): você é o PACIENTE do cenário acima"+(/^(lactente|crianca|menino|menina|rn|recem|escolar|pre-escolar)/.test(normExame(caso.cenario||""))?" (quem fala é a mãe ou o responsável pela criança)":"")+". Quem conversa com você é o MÉDICO, que é o estudante. "+
     "Você NUNCA é o médico, o enfermeiro nem o recepcionista: não convide a sentar, não pergunte 'o que aconteceu', 'o que te traz aqui' ou 'como posso ajudar' — quem pergunta é o médico. "+
     "Se o médico só cumprimentar ou se apresentar, responda ao cumprimento como paciente e diga em poucas palavras o que está sentindo (ex.: 'Boa noite, doutor. Tô com uma dor muito forte no peito.').";
-  const transcricao = (arr)=> arr.map(m=>(m.de==="aluno"?"ALUNO(médico): ":"PACIENTE/ESTAÇÃO: ")+m.txt).join("\n");
+  const transcricao = (arr)=> arr.map(m=>(m.de==="aluno"?"ALUNO(médico): ":m.de==="avaliador"?"AVALIADOR: ":"PACIENTE/ESTAÇÃO: ")+m.txt).join("\n");
 
   const enviar = async (txtVoz)=>{
     const q=(typeof txtVoz==="string"?txtVoz:entrada).trim(); if(!q||carregando) return;
+    silRef.current=0;
+    if(/^(eu )?(vou )?(quero )?(encerr|finaliz|termin)\w*( a| essa| esta)? (estacao|estação|prova)\b/i.test(normExame(q))&&msgs.some(m=>m.de==="aluno")){ setEntrada(""); encerrar(); return; }
     if(!workerOk){ setMsgs(m=>[...m,{de:"paciente",txt:"(Configure a WORKER_URL para ativar o paciente por IA.)"}]); return; }
     const novo=[...msgs,{de:"aluno",txt:q}];
     if(!inicio) setInicio(Date.now());
@@ -8272,18 +8302,36 @@ function OSCEEstacao({caso, onVoltar}){
         dossie() + papelPaciente() +
         "\n\nVocê está SIMULANDO uma estação de OSCE. Faça o papel do PACIENTE (e, quando o aluno pedir exame físico ou exames complementares, faça o papel do AVALIADOR informando apenas os achados pedidos). " +
         "Regras: responda em 1ª pessoa como paciente, de forma curta e realista. Revele SOMENTE a informação que o aluno perguntar — não entregue o diagnóstico nem adiante dados não solicitados. " +
-        "Se ele pedir um exame físico específico, informe o achado correspondente. Se pedir exame complementar, dê o resultado. Se perguntar algo fora do caso, responda de forma plausível sem inventar patologia nova. Não avalie nem comente o desempenho agora.\n\n" +
+        "Se ele pedir um exame físico específico, informe o achado correspondente. Se pedir exame complementar, dê o resultado. Se perguntar algo fora do caso, responda de forma plausível sem inventar patologia nova. Não avalie nem comente o desempenho agora.\n" +
+        "FORMATO: a fala do PACIENTE vai sem prefixo. Tudo o que o AVALIADOR disser (achados do exame físico, resultados de exames, orientações da estação) vai em linha separada começando com 'AVALIADOR:'. Se o aluno se dirigir ao avaliador, responda só como AVALIADOR. "+
+        "Se o aluno disser que terminou o atendimento ou se despedir do paciente sem ter dito a hipótese diagnóstica e a conduta, o AVALIADOR pergunta: 'Doutor, qual a sua hipótese diagnóstica e a conduta?' (sem sugerir quais são). O AVALIADOR nunca ensina, nunca corrige e nunca dá pistas durante a estação.\n\n" +
         "CONVERSA ATÉ AQUI:\n"+transcricao(novo);
       const r=await wfetch("/tirar-duvida",{tema:"OSCE paciente — "+caso.titulo, contexto, pergunta:q});
       const d=await r.json();
       if(!r.ok||d.error) throw new Error(d.error||"Falha na simulação.");
-      if(vozOn||conversaRef.current){ setFalando(true); falarPaciente(d.resposta,caso,()=>{ setFalando(false); if(conversaRef.current) setTimeout(()=>{ if(conversaRef.current) ouvir(true); },250); }); }
+      const partes=separarAvaliador(d.resposta);
+      if(vozOn||conversaRef.current){ setFalando(true); falarPartes(partes,()=>{ setFalando(false); if(!soltarAvisoPendente()&&conversaRef.current) setTimeout(()=>{ if(conversaRef.current) ouvir(true); },250); }); }
       /* o aluno pediu radiografia/gasometria/ECG e a estação tem o exame: mostra o resultado de verdade (uma vez) */
-      setMsgs(m=>anexarExames([...m,{de:"paciente",txt:d.resposta}],q,d.resposta));
+      setMsgs(m=>anexarExames([...m,...partes],q,d.resposta));
     }catch(e){ setMsgs(m=>[...m,{de:"paciente",txt:"(Não consegui responder agora: "+e.message+")"}]); setConversaVoz(false); }
     setCarregando(false);
   };
   enviarRef.current=enviar;
+  /* ---- avaliador que conduz a estação: avisos de tempo, cobra silêncio, fala com outra voz ---- */
+  const silRef=useRef(0), avisosRef=useRef({}), pendenteRef=useRef(null), interrompeuRef=useRef(false);
+  const falarPartes=(partes,fim)=>{ const p=partes[0]; if(!p){ fim&&fim(); return; }
+    const seg=()=>falarPartes(partes.slice(1),fim); p.de==="avaliador"?falarAvaliador(p.txt,seg):falarPaciente(p.txt,caso,seg); };
+  const avaliadorDiz=(txt)=>{ setMsgs(m=>[...m,{de:"avaliador",txt}]);
+    if(!(vozOn||conversaRef.current)) return;
+    if(recRef.current){ interrompeuRef.current=true; try{ recRef.current.abort(); }catch(e){} recRef.current=null; setOuvindo(false); }
+    setFalando(true); falarAvaliador(txt,()=>{ setFalando(false); if(conversaRef.current) setTimeout(()=>{ if(conversaRef.current&&!recRef.current) ouvir(true); },250); }); };
+  avaliadorDizRef.current=avaliadorDiz;
+  const soltarAvisoPendente=()=>{ const t=pendenteRef.current; if(!t) return false; pendenteRef.current=null; avaliadorDiz(t); return true; };
+  useEffect(()=>{ if(!inicio||fase!=="conversa"||aoVivo) return; const dec=Math.floor((Date.now()-inicio)/1000), A=avisosRef.current; let t=null;
+    if(limiteSeg>=360&&dec>=limiteSeg/2&&!A.metade){ A.metade=1; t="Metade do tempo, doutor."; }
+    else if(limiteSeg>=300&&limiteSeg-dec<=120&&limiteSeg-dec>0&&!A.dois){ A.dois=1; A.metade=1; t="Faltam dois minutos."; }
+    else if(dec>=limiteSeg&&!A.fim){ A.fim=1; A.dois=1; A.metade=1; t="Tempo esgotado. Quando quiser, encerre a estação para a correção."; }
+    if(!t) return; if(carregando||falando) pendenteRef.current=t; else avaliadorDiz(t); });
   /* resultados de exame que a estação tem e o aluno pediu (mesma regra da conversa por texto) */
   const anexarExames=(out,q,resp)=>{ const ped=examesPedidos(q), ex=caso.exames||{};
     const jaTem=t=>out.some(x=>x.de==="exame"&&x.tipo===t);
@@ -8311,7 +8359,7 @@ function OSCEEstacao({caso, onVoltar}){
       aoVivoRef.current=await iniciarAoVivo({instrucao, voz:fem?"Kore":"Charon",
         onEstado:e=>{ if(e==="parado"){ aoVivoRef.current=null; setAoVivo(null); } else setAoVivo(e); },
         onFalaAluno:t=>setMsgs(m=>anexarExames([...m,{de:"aluno",txt:t}],t)),
-        onFalaPaciente:t=>setMsgs(m=>anexarExames([...m,{de:"paciente",txt:t}],"",t)),
+        onFalaPaciente:t=>setMsgs(m=>anexarExames([...m,...separarAvaliador(t)],"",t)),
         onErro:msg=>setAvisoVoz(msg)});
     }catch(e){ aoVivoRef.current=null; setAoVivo(null);
       const nome=e&&e.name; setAvisoVoz(nome==="NotAllowedError"||nome==="SecurityError"?avisoMicNegado():(e&&e.message)||"Não consegui iniciar a conversa ao vivo."); }
@@ -8419,7 +8467,7 @@ function OSCEEstacao({caso, onVoltar}){
         <div className="row" style={{justifyContent:"space-between",alignItems:"center"}}>
           <div><div className="kpi" style={{color:cor}}>{resultado.pct}%</div>
             <div className="muted" style={{fontSize:13}}>{resultado.nota} de {resultado.itens.length} itens completos{resultado.itens.some(x=>x.nivel===1)?" · "+resultado.itens.filter(x=>x.nivel===1).length+" parciais":""}{resultado.aprovado!=null?(resultado.aprovado?" · ✅ aprovado (≥ 70%)":" · ❌ abaixo do corte de 70%"):""}</div></div>
-          <button className="btn ghost" onClick={()=>{setMsgs([]);setResultado(null);setFase("conversa");irAoTopo();}}>↻ Refazer</button>
+          <button className="btn ghost" onClick={()=>{setMsgs([]);setResultado(null);setFase("conversa");setInicio(null);avisosRef.current={};pendenteRef.current=null;irAoTopo();}}>↻ Refazer</button>
         </div>
         <div className="bar" style={{marginTop:12}}><i style={{width:resultado.pct+"%",background:cor}}/></div>
       </div>
@@ -8433,6 +8481,10 @@ function OSCEEstacao({caso, onVoltar}){
           <div className="tag" style={{color:"var(--acc)",marginBottom:8}}>💬 EXAMINADOR</div>
           <div style={{fontSize:14,lineHeight:1.55,whiteSpace:"pre-wrap"}}>{resultado.feedback}</div>
         </div>}
+      {workerOk && <DebriefIA tema={"OSCE debriefing — "+caso.titulo} primeira={PEDIDO_DEBRIEF} exemplo="o que eu deveria ter perguntado"
+        base={"Você é o AVALIADOR de OSCE fazendo o DEBRIEFING de uma estação com um estudante de Medicina brasileiro. Seja direto, gentil e técnico; português do Brasil; sem markdown; no máximo 8 frases por resposta. Baseie-se nas diretrizes brasileiras.\n"+dossie()+
+          "\nNOTA: "+resultado.pct+"%.\nCHECKLIST CORRIGIDO: "+resultado.itens.map(x=>(x.ok?"[FEZ] ":x.nivel===1?"[PARCIAL] ":"[NÃO FEZ] ")+x.texto).join(" | ")+
+          "\nERROS CRÍTICOS: "+((resultado.erros||[]).join(" | ")||"nenhum")+"\nFEEDBACK DA CORREÇÃO: "+(resultado.feedback||"")+"\nTRANSCRIÇÃO:\n"+transcricao(msgs).slice(-6000)}/>}
       <ExamesDaEstacao caso={caso}/>
       <PreparoOSCE caso={caso} aberto/>
       <AtendimentoModelo caso={caso}/>
@@ -8489,10 +8541,10 @@ function OSCEEstacao({caso, onVoltar}){
               :<ExameLab lab={(caso.exames.labs||[])[Number(String(m.tipo).slice(3))]||{titulo:"Exame",valores:[]}}/>}
           </div>
         : <div key={idx} className="block" style={{marginTop:idx?10:0,
-          background:m.de==="aluno"?"var(--panel2)":"color-mix(in srgb, var(--acc) 10%, var(--panel))",
-          borderLeft:m.de==="aluno"?"3px solid var(--line)":"3px solid var(--acc)"}}>
-          <div className="tag" style={{color:m.de==="aluno"?"var(--muted)":"var(--acc)",marginBottom:5}}>
-            {m.de==="aluno"?"VOCÊ (médico)":"PACIENTE / ESTAÇÃO"}</div>
+          background:m.de==="aluno"?"var(--panel2)":m.de==="avaliador"?"color-mix(in srgb, var(--warn) 9%, var(--panel))":"color-mix(in srgb, var(--acc) 10%, var(--panel))",
+          borderLeft:m.de==="aluno"?"3px solid var(--line)":m.de==="avaliador"?"3px solid var(--warn)":"3px solid var(--acc)"}}>
+          <div className="tag" style={{color:m.de==="aluno"?"var(--muted)":m.de==="avaliador"?"var(--warn)":"var(--acc)",marginBottom:5}}>
+            {m.de==="aluno"?"VOCÊ (médico)":m.de==="avaliador"?"🧑‍⚕️ AVALIADOR":"PACIENTE"}</div>
           <div style={{fontSize:14,lineHeight:1.55,whiteSpace:"pre-wrap"}}>{m.txt}</div>
         </div>
       )}
