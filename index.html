@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.29.2";
+  window.APP_VERSION="2026.10.29.3";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -7674,7 +7674,7 @@ function OSCEEstacao({caso, onVoltar}){
     if(falaAluno.indexOf(e)>=0) return true;
     /* tolera pequenas diferenças: 80% das palavras do trecho precisam estar nas falas, em sequência aproximada */
     const ws=e.split(" ").map(w=>w.replace(/^[,.]+|[,.]+$/g,"")).filter(w=>w.length>2); if(ws.length<2) return false;
-    const achou=ws.filter(w=>falaAluno.indexOf(w)>=0).length; return achou/ws.length>=0.8;
+    const achou=ws.filter(w=>falaAluno.indexOf(w)>=0||(w.length>5&&falaAluno.indexOf(w.slice(0,w.length-2))>=0)).length; return achou/ws.length>=0.75;
   };
   const encerrar = async ()=>{
     pararAoVivo();
@@ -7693,19 +7693,31 @@ function OSCEEstacao({caso, onVoltar}){
         "2) Só conta o que o ALUNO verbalizou. Informação que o paciente/estação deu sem o aluno pedir NÃO pontua. Pergunta genérica ('mais alguma coisa?', 'como está?', 'conte mais') NÃO cumpre item específico.\n" +
         "3) Itens de exame físico/complementar exigem que o aluno PEÇA o exame específico; itens de hipótese exigem que ele DIGA o diagnóstico; itens de conduta exigem a medida específica (com dose/via quando o item cita dose). Citar o nome de um remédio sem dose/via quando a dose é pedida = 1.\n" +
         "4) Conduta errada, perigosa ou contraindicada = 0 no item e registro em erros_criticos (também atraso grave, como esperar exame para tratar emergência). Simples omissão já perde o ponto do item e NÃO vai para erros_criticos, exceto deixar de estabilizar paciente instável.\n" +
-        "5) Para cada item com nota 1 ou 2, copie em 'evidencia' um trecho LITERAL (até 120 caracteres) de uma fala do ALUNO que comprova. Sem trecho literal do aluno, a nota é 0.\n" +
+        "5) Para cada item com nota 1 ou 2, copie em 'evidencia' um trecho LITERAL e CURTO (3 a 12 palavras) de uma fala do ALUNO que comprova, copiado exatamente como está na transcrição. Sem trecho literal do aluno, a nota é 0. Para itens com nota 0, deixe evidencia vazia.\n" +
         "6) Na dúvida, dê a nota MENOR. Atendimento curto ou superficial deve ter nota baixa — não seja complacente.\n\n" +
         "CHECKLIST (índice: item):\n"+itens.map((t,i)=>i+": "+t).join("\n") +
         "\n\nTRANSCRIÇÃO:\n"+transcricao(msgs) +
         "\n\nResponda ESTRITAMENTE em JSON válido, sem texto fora do JSON, no formato: " +
-        '{"itens":[{"i":0,"nota":0,"evidencia":""}],"erros_criticos":[],"feedback":"3 a 5 frases diretas como um examinador: principais falhas, o que custou pontos e o que fazer na prova"}' +
+        '{"itens":[{"i":0,"nota":0,"evidencia":""}],"erros_criticos":[],"feedback":"3 a 4 frases curtas como um examinador: principais falhas e o que fazer na prova"}' +
         " — inclua TODOS os índices de 0 a "+(itens.length-1)+". Em erros_criticos, descreva cada erro crítico em uma frase; se não houver nenhum, deixe a lista vazia [].";
-      const r=await wfetch("/tirar-duvida",{tema:"OSCE correção — "+caso.titulo, contexto, pergunta:"Corrija o checklist com rigor e devolva o JSON."});
-      const d=await r.json();
-      if(!r.ok||d.error) throw new Error(d.error||"Falha na correção.");
-      let raw=(d.resposta||"").trim().replace(/```json|```/g,"").trim();
-      const ini=raw.indexOf("{"), f=raw.lastIndexOf("}");
-      const parsed=JSON.parse(raw.slice(ini,f+1));
+      /* lê o JSON do examinador; se vier cortado, recupera os itens já escritos */
+      const lerCorrecao=(texto)=>{ let raw=String(texto||"").trim().replace(/```json|```/g,"").trim();
+        const ini=raw.indexOf("{"), f=raw.lastIndexOf("}");
+        try{ const p=JSON.parse(raw.slice(ini,f+1)); if(p&&Array.isArray(p.itens)) return p; }catch(e){}
+        const itensRec=[]; const rx=/\{\s*"i"\s*:\s*(\d+)\s*,\s*"nota"\s*:\s*(\d)\s*(?:,\s*"evidencia"\s*:\s*"((?:[^"\\]|\\.)*)")?/g; let m;
+        while((m=rx.exec(raw))) itensRec.push({i:+m[1],nota:+m[2],evidencia:(m[3]||"").replace(/\\"/g,'"')});
+        if(!itensRec.length) return null;
+        const fb=/"feedback"\s*:\s*"((?:[^"\\]|\\.)*)/.exec(raw); const er=/"erros_criticos"\s*:\s*\[([^\]]*)\]/.exec(raw);
+        return {itens:itensRec,feedback:fb?fb[1].replace(/\\n/g,"\n").replace(/\\"/g,'"'):"",erros_criticos:er?(er[1].match(/"((?:[^"\\]|\\.)*)"/g)||[]).map(x=>x.slice(1,-1)):[]};
+      };
+      let parsed=null, ultimoErro="";
+      for(let tentativa=0;tentativa<2&&!parsed;tentativa++){
+        try{ const r=await wfetch("/tirar-duvida",{tema:"OSCE correção — "+caso.titulo, contexto, pergunta:"Corrija o checklist com rigor e devolva o JSON."});
+          const d=await r.json(); if(!r.ok||d.error) throw new Error(d.error||"Falha na correção.");
+          parsed=lerCorrecao(d.resposta); if(!parsed) ultimoErro="resposta do examinador fora do formato";
+        }catch(e){ ultimoErro=e.message; }
+      }
+      if(!parsed) throw new Error(ultimoErro||"Falha na correção.");
       const fala=normTxt(falasAluno.map(m=>m.txt).join(" \n "));
       const porIdx={};
       (parsed.itens||[]).forEach(x=>{ const k=Number(x&&x.i); if(k>=0&&k<itens.length) porIdx[k]=x; });
