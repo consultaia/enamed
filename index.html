@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.29.5";
+  window.APP_VERSION="2026.10.29.6";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -7007,381 +7007,399 @@ function GeradorOSCE({areaInicial,onAbrir}){
 }
 function osceCasoPedido(){ try{ const id=window.__OSCE_CASO; window.__OSCE_CASO=null; if(!id||!window.__PRO) return null;
   return Object.values(window.OSCE_BANCO||{}).flat().find(c=>c&&c.id===id)||null; }catch(e){ return null; } }
-/* ---- ACLS: simulação de megacode (sem IA, sem custo). Algoritmos AHA (PCR, bradicardia e taquicardia com pulso). ---- */
-const ACLS_CAUSAS=[["hipovolemia","Hipovolemia"],["hipoxia","Hipóxia"],["acidose","H+ (acidose)"],["potassio","Hipo/hipercalemia"],["hipotermia","Hipotermia"],
-  ["pneumotorax","Tensão (pneumotórax)"],["tamponamento","Tamponamento cardíaco"],["toxinas","Toxinas"],["tep","Trombose pulmonar (TEP)"],["coronaria","Trombose coronária (IAM)"]];
-const ACLS_TRAT=[["cristaloide","Cristaloide em bolus (1 L)",["hipovolemia"]],["oxigenio","Oxigênio a 100% + via aérea avançada",["hipoxia"]],
-  ["bic","Bicarbonato de sódio IV",["acidose","potassio","toxinas"]],["calcio","Gluconato de cálcio 10% IV",["potassio"]],["potassioRep","Repor potássio e magnésio IV",["potassio"]],
-  ["aquecer","Reaquecimento ativo",["hipotermia"]],["descomp","Descompressão torácica com agulha",["pneumotorax"]],["pericardio","Pericardiocentese",["tamponamento"]],
-  ["antidoto","Antídoto específico",["toxinas"]],["trombolitico","Trombolítico (alteplase)",["tep"]]];
-const ACLS_POS=[
-  {id:"ecg",t:"ECG de 12 derivações",ok:true,por:"Busca supra de ST/causa coronária logo após o RCE."},
-  {id:"sat",t:"Titular O2 para SatO2 entre 92 e 98%",ok:true,por:"Evita hipóxia e hiperóxia."},
-  {id:"pa",t:"Manter PAS ≥ 90 mmHg / PAM ≥ 65 mmHg (volume e vasopressor)",ok:true,por:"Hipotensão pós-PCR piora o desfecho neurológico."},
-  {id:"co2",t:"Ventilar para PaCO2 de 35 a 45 mmHg (normocapnia)",ok:true,por:"Hiperventilar reduz o fluxo cerebral."},
-  {id:"temp",t:"Controle direcionado de temperatura, evitando febre, se não obedece comandos",ok:true,por:"Recomendação para o comatoso após o RCE."},
-  {id:"causa",t:"Investigar e tratar a causa (eletrólitos, gasometria, glicemia, imagem)",ok:true,por:"A causa que levou à parada pode causar nova parada."},
-  {id:"cate",t:"Acionar hemodinâmica para cateterismo de emergência",ok:"cate",por:"Indicado quando há supra de ST (ou forte suspeita de causa coronária)."},
-  {id:"hiperv",t:"Hiperventilar (FR 30/min) para 'lavar' o CO2",ok:false,por:"Hipocapnia causa vasoconstrição cerebral."},
-  {id:"bicrot",t:"Bicarbonato de sódio de rotina",ok:false,por:"Sem benefício de rotina; só em situações específicas."},
-  {id:"fio2",t:"Manter FiO2 100% indefinidamente, com SatO2 de 100%",ok:false,por:"Hiperóxia é deletéria; titule a FiO2."},
-  {id:"extubar",t:"Extubar logo após o RCE",ok:false,por:"Paciente ainda instável e, em geral, sem proteção de via aérea."},
-];
-const ACLS_CASOS=[
-  {id:"fv",tipo:"pcr",cor:"#ff7a7a",tag:"Ritmo chocável",titulo:"FV refratária no corredor",
-    intro:"Homem de 62 anos, que aguardava atendimento por dor no peito, cai no corredor da emergência. Você é o líder da equipe: há enfermeira, técnico e o carrinho de parada com desfibrilador bifásico (choque de 200 J).",
-    inicial:"fv",causa:"coronaria",causaTrat:[],cate:true,
-    pistas:{coronaria:"ECG da triagem, feito 20 minutos antes da parada: supra de ST de V1 a V4."},
-    proximo:s=>(s.choques>=3&&s.adrT.length>=1&&s.anti>=1)||s.choques>=5?"rce":"fv",
-    pos:"Pulso carotídeo presente. PA 86x52 mmHg, FC 98 bpm (sinusal), SatO2 90%, ETCO2 38 mmHg. Não abre os olhos. ECG de 12 derivações: supra de ST de V1 a V4."},
-  {id:"tv",tipo:"pcr",cor:"#ffb36b",tag:"Ritmo chocável",titulo:"TV sem pulso na enfermaria",
-    intro:"Homem de 58 anos, internado por IC descompensada (FE 25%), em uso de furosemida em dose alta. A técnica chama: o monitor mostra taquicardia de QRS largo e ele não responde. Você chega com o carrinho de parada (desfibrilador bifásico).",
-    inicial:"tv",causa:"potassio",causaTrat:["potassioRep"],cate:false,
-    pistas:{potassio:"Exames da manhã: K+ 2,8 mEq/L e Mg 1,2 mg/dL (diurético em dose alta).",coronaria:"Sem dor torácica antes; ECG de ontem sem alterações isquêmicas agudas."},
-    proximo:s=>(s.choques>=2&&s.adrT.length>=1)||s.choques>=4?"rce":"tv",
-    pos:"Pulso presente. PA 92x58 mmHg, FC 104 bpm (sinusal), SatO2 93%. ECG: sem supra de ST; QT longo e ondas U."},
-  {id:"aesp",tipo:"pcr",cor:"#c7a3ff",tag:"Não chocável",titulo:"AESP no renal crônico",
-    intro:"Mulher de 67 anos, em hemodiálise, faltou às duas últimas sessões. Chega à sala de emergência com fraqueza intensa e, durante a triagem, deixa de responder. O monitor já está conectado.",
-    inicial:"aesp",causa:"potassio",causaTrat:["calcio"],cate:false,monitorPronto:true,
-    pistas:{potassio:"Gasometria venosa colhida na chegada: K+ 8,4 mEq/L, pH 7,18.",acidose:"pH 7,18 com bicarbonato 14: acidose metabólica (acompanha a hipercalemia).",hipovolemia:"Sem sangramento; turgência jugular presente, edema de membros."},
-    proximo:s=>s.causaTratada&&s.adrT.length>=1?"rce":s.checks>=6?"assist":"aesp",
-    pos:"Pulso presente. PA 98x60 mmHg, FC 72 bpm, SatO2 94%. Ainda hipercalêmica: precisa de insulina com glicose, beta-agonista e hemodiálise de urgência."},
-  {id:"assist",tipo:"pcr",cor:"#7cc4ff",tag:"Não chocável",titulo:"Assistolia após broncoaspiração",
-    intro:"Mulher de 81 anos, com sequela de AVC, engasga durante a refeição na enfermaria e é encontrada cianótica e não responsiva. Você chega com o carrinho de parada.",
-    inicial:"assist",causa:"hipoxia",causaTrat:["oxigenio"],cate:false,
-    pistas:{hipoxia:"Cianose central e restos alimentares na orofaringe: obstrução/broncoaspiração. Hipóxia é a causa mais provável."},
-    proximo:s=>s.ritmo==="fv"?(s.choques>=1&&(s.causaTratada||s.via)?"rce":"fv"):(s.adrT.length>=1&&s.checks>=1?"fv":"assist"),
-    pos:"Pulso presente. PA 94x56 mmHg, FC 110 bpm, SatO2 89% em ventilação mecânica. Raio X: consolidação em base direita (broncoaspiração)."},
-  {id:"bradi",tipo:"bradi",cor:"#5fd4c4",tag:"Com pulso",titulo:"Bradicardia instável (BAV total)",
-    intro:"Mulher de 74 anos chega com tontura e um episódio de síncope. Está confusa, pálida e sudoreica. Há enfermeira, técnico e o carrinho de parada com marcapasso transcutâneo.",
-    inicial:"bavt",sinais:"Confusa, pele fria e sudoreica. PA 72x40 mmHg, FC 32 bpm, SatO2 89% em ar ambiente. Monitor: BAV total com escape de QRS largo."},
-  {id:"taqui",tipo:"taqui",cor:"#ffd166",tag:"Com pulso",titulo:"Taquicardia instável (TSV)",
-    intro:"Homem de 55 anos com palpitação há 2 horas. Agora está sudoreico, com dor no peito e confuso. Você é o líder; o desfibrilador tem modo sincronizado.",
-    inicial:"tsv",sinais:"Confuso, sudoreico, dor torácica. PA 78x50 mmHg, FC 186 bpm, SatO2 92%. Monitor: taquicardia regular de QRS estreito, sem onda P visível."},
-];
-const ACLS_NOME_RITMO={fv:"Fibrilação ventricular",tv:"Taquicardia ventricular (sem pulso)",aesp:"Ritmo organizado de QRS largo e lento (checar pulso)",assist:"Linha reta (assistolia)",
-  rce:"Ritmo organizado, sinusal (checar pulso)",sinus:"Ritmo sinusal",bavt:"BAV total, escape de QRS largo",mp:"Ritmo de marcapasso com captura",tsv:"Taquicardia regular de QRS estreito"};
-const _ga=(x,c,w)=>Math.exp(-((x-c)*(x-c))/(2*w*w));
-function aclsOnda(tipo,t,rcp){
-  const tau=2*Math.PI; let v=0, s, p;
-  if(tipo==="fv") v=.45*Math.sin(tau*4.8*t+1.3*Math.sin(.9*t))*(.55+.45*Math.sin(.37*t+1))+.18*Math.sin(tau*7.1*t+.5)+.1*Math.sin(tau*2.3*t);
-  else if(tipo==="tv"){ p=60/180; s=(t%p)/p; v=1.1*Math.sin(tau*s)+.25*Math.sin(2*tau*s); }
-  else if(tipo==="assist") v=.04*Math.sin(.8*t)+.015*Math.sin(5.3*t);
-  else if(tipo==="aesp"){ p=60/38; s=t%p; v=.75*_ga(s,.2,.04)-.3*_ga(s,.28,.04)+.6*_ga(s,.56,.05); }
-  else if(tipo==="bavt"){ s=t%.75; v=.13*_ga(s,.1,.02); s=t%(60/32); v+=-.25*_ga(s,.3,.03)+1*_ga(s,.36,.035)-.45*_ga(s,.43,.035)-.3*_ga(s,.7,.07); }
-  else if(tipo==="mp"){ p=60/70; s=t%p; v=1.6*_ga(s,.05,.0025)-.8*_ga(s,.12,.035)+.4*_ga(s,.42,.06); }
-  else if(tipo==="tsv"){ p=60/186; s=t%p; v=.95*_ga(s,.08,.01)-.2*_ga(s,.1,.01)+.22*_ga(s,.22,.03); }
-  else { p=60/(tipo==="rce"?98:88); s=t%p; v=.12*_ga(s,.1,.02)-.1*_ga(s,.18,.01)+1*_ga(s,.2,.012)-.25*_ga(s,.225,.012)+.25*_ga(s,.45,.05); }
-  if(rcp) v=.25*v+.95*Math.sin(tau*1.83*t)+.3*Math.sin(tau*3.66*t+.5);
-  return v;
-}
-function MonitorACLS({ritmo,rcp,ligado,legenda}){
-  const ref=useRef(null), est=useRef({ritmo,rcp,ligado}); est.current={ritmo,rcp,ligado};
-  useEffect(()=>{ let raf, vivo=true; const t0=performance.now();
-    const desenha=()=>{ if(!vivo) return; const c=ref.current; if(!c){ raf=requestAnimationFrame(desenha); return; }
-      const dpr=window.devicePixelRatio||1, W=c.clientWidth, H=c.clientHeight;
-      if(c.width!==Math.round(W*dpr)){ c.width=Math.round(W*dpr); c.height=Math.round(H*dpr); }
-      const g=c.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0); g.fillStyle="#04100c"; g.fillRect(0,0,W,H);
-      g.strokeStyle="rgba(60,255,160,.08)"; g.lineWidth=1; for(let x=0;x<W;x+=25){ g.beginPath(); g.moveTo(x,0); g.lineTo(x,H); g.stroke(); }
-      const e=est.current, agora=(performance.now()-t0)/1000, janela=5, px=W/janela;
-      g.strokeStyle=e.ligado?"#3dff9a":"#2a5a45"; g.lineWidth=2; g.beginPath();
-      for(let x=0;x<=W;x+=2){ const t=agora-janela+x/px; const v=e.ligado?aclsOnda(e.ritmo,t,e.rcp):0; const y=H*.55-v*H*.28; x?g.lineTo(x,y):g.moveTo(x,y); }
-      g.stroke(); g.fillStyle="#3dff9a"; g.font="12px sans-serif"; g.fillText("DII",8,16);
-      raf=requestAnimationFrame(desenha); };
-    raf=requestAnimationFrame(desenha); return ()=>{ vivo=false; cancelAnimationFrame(raf); }; },[]);
-  return <div style={{position:"relative"}}>
-    <canvas ref={ref} style={{width:"100%",height:130,display:"block",borderRadius:10}}/>
-    {legenda && <div style={{position:"absolute",right:10,top:6,fontSize:11.5,color:"#3dff9a",textAlign:"right",maxWidth:"70%"}}>{legenda}</div>}
-  </div>;
-}
-const aclsMmss=s=>{ s=Math.max(0,Math.round(s)); return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); };
-function aclsNovoEstado(caso){
-  return {t:0,fase:caso.tipo==="pcr"?"cena":"aval",ritmo:caso.inicial,rcp:false,monitor:!!caso.monitorPronto||caso.tipo!=="pcr",acesso:false,via:false,choques:0,adrT:[],amio:0,anti:0,
-    checks:0,cicloIni:null,pausado:false,aposChoque:false,handsOn:0,handsOff:0,tRcp:null,tParada:0,tPrimChoque:null,resp:false,ajuda:false,pulsoIni:false,trocas:0,
-    investigou:{},causaTratada:false,rce:false,tRce:null,pos:null,fim:false,log:[],erros:[],criticos:[],
-    /* com pulso */ avaliou:false,o2:false,ecg:false,atropina:0,mp:false,sedacao:false,droga:false,especialista:false,estavel:false,adenosina:0,cv:false};
-}
-function SimuladorACLS({onVoltar}){
-  const [caso,setCaso]=useState(null);
-  const [mostrarAlg,setMostrarAlg]=useState(false);
-  if(!caso) return <div>
-    <button className="btn ghost sm" onClick={onVoltar}>← Estações OSCE</button>
-    <div style={{margin:"14px 0 10px"}}>
-      <div className="tag" style={{color:"#ff7a7a"}}>OSCE · URGÊNCIA</div>
-      <h2 style={{fontSize:22,marginTop:4}}>🫀 Simulação ACLS (megacode)</h2>
-      <div className="muted" style={{fontSize:13.5,marginTop:6,lineHeight:1.55}}>Você é o líder da equipe. O monitor mostra o ritmo em tempo real e o relógio da simulação corre a cada ação. Siga o algoritmo: RCP de qualidade, ciclos de 2 minutos, choque na hora certa, drogas nos intervalos corretos, causas reversíveis e cuidados pós-PCR. No fim, você recebe a nota e a linha do tempo comentada.</div>
-    </div>
-    <div className="card" style={{marginBottom:12,cursor:"pointer"}} onClick={()=>setMostrarAlg(!mostrarAlg)}>
-      <div className="tag" style={{color:"var(--acc)"}}>📘 ALGORITMO EM 1 MINUTO {mostrarAlg?"▾":"▸"}</div>
-      {mostrarAlg && <div style={{fontSize:13.5,lineHeight:1.6,marginTop:8}}>
-        <b>PCR:</b> responsividade → chamar ajuda e desfibrilador → pulso e respiração em até 10 s → RCP 30:2 (100 a 120/min, 5 a 6 cm, retorno total do tórax, mínimo de pausas) → monitor/pás.<br/>
-        <b>FV/TV sem pulso:</b> choque (bifásico 120 a 200 J) → RCP 2 min logo após o choque, sem checar pulso → choque → adrenalina 1 mg a cada 3 a 5 min (após o 2º choque) → choque → amiodarona 300 mg (2ª dose 150 mg) ou lidocaína 1 a 1,5 mg/kg.<br/>
-        <b>AESP/assistolia:</b> adrenalina 1 mg o quanto antes, a cada 3 a 5 min; ritmo a cada 2 min; na linha reta, confira cabos, ganho e derivação; procure e trate 5H e 5T.<br/>
-        <b>Via aérea avançada:</b> capnografia; 1 ventilação a cada 6 s com compressões contínuas. ETCO2 abaixo de 10 mmHg sugere RCP ruim; subida abrupta sugere RCE.<br/>
-        <b>Pós-RCE:</b> SatO2 92 a 98%, PaCO2 35 a 45, PAS ≥ 90 / PAM ≥ 65, ECG de 12 derivações (cateterismo se supra), controle de temperatura no comatoso.<br/>
-        <b>Bradicardia instável:</b> atropina 1 mg (a cada 3 a 5 min, até 3 mg) → se falhar, marcapasso transcutâneo ou dopamina 5 a 20 mcg/kg/min ou adrenalina 2 a 10 mcg/min → especialista.<br/>
-        <b>Taquicardia instável:</b> cardioversão elétrica sincronizada (sedação se possível); QRS estreito regular: 50 a 100 J.
-      </div>}
-    </div>
-    {ACLS_CASOS.map(c=><div key={c.id} className="topico" style={{cursor:"pointer",borderLeft:"3px solid "+c.cor}} onClick={()=>{ setCaso(c); irAoTopo(); }}>
-      <div style={{fontWeight:700}}>{c.titulo}</div>
-      <div className="muted" style={{fontSize:12.5,margin:"4px 0 6px"}}>{c.intro.slice(0,120)}…</div>
-      <div className="row" style={{justifyContent:"space-between"}}><span className="pill" style={{color:c.cor,borderColor:c.cor}}>{c.tag}</span><span className="muted" style={{fontSize:12}}>Iniciar →</span></div>
-    </div>)}
-  </div>;
-  return <MegacodeACLS key={caso.id} caso={caso} onVoltar={()=>setCaso(null)}/>;
-}
-function MegacodeACLS({caso,onVoltar}){
-  const S=useRef(aclsNovoEstado(caso)); const [,render]=useState(0); const s=S.current;
-  const [painel,setPainel]=useState(null);
-  const [posSel,setPosSel]=useState({});
-  const [feedbackJa,setFeedbackJa]=useState(true);
-  const pcr=caso.tipo==="pcr", chocavel=r=>r==="fv"||r==="tv";
-  const commit=()=>render(x=>x+1);
-  const log=(txt,tipo)=>{ s.log.push({t:s.t,txt,tipo:tipo||"info"}); };
-  const erro=(txt,critico)=>{ (critico?s.criticos:s.erros).push(txt); log(txt,critico?"critico":"erro"); };
-  const adv=sec=>{ s.t+=sec; if(s.fase==="pcr"){ if(s.rcp) s.handsOn+=sec; else s.handsOff+=sec; } };
-  const comecarParada=()=>{ if(s.fase==="cena"){ s.fase="pcr"; } };
-  const ag=(id,extra)=>{ if(s.fim) return;
-    /* ---------- PCR ---------- */
-    if(pcr){
-      if(id==="resp"){ adv(5); s.resp=true; log("Cena segura. Toca os ombros e chama em voz alta: não responde."); }
-      else if(id==="ajuda"){ adv(4); s.ajuda=true; log("Equipe acionada: carrinho de parada e desfibrilador a caminho."+(caso.monitorPronto?"":" Chega em 20 s.")); }
-      else if(id==="pulsoIni"){ adv(8); s.pulsoIni=true; log("Pulso carotídeo ausente; respiração agônica (gasping). É PCR."); }
-      else if(id==="rcp"){ if(!s.pulsoIni&&s.fase==="cena") log("Antes de comprimir, confirme ausência de pulso e respiração (até 10 s).","alerta");
-        comecarParada(); const primeira=s.tRcp===null; if(primeira){ s.tRcp=s.t; s.cicloIni=s.t; }
-        if(s.pausado){ if(chocavel(s.ritmo)&&!s.choqueNestaPausa) erro("Retomou a RCP sem chocar um ritmo chocável ("+ACLS_NOME_RITMO[s.ritmo]+").",true); s.cicloIni=s.t; }
-        s.rcp=true; s.pausado=false; s.aposChoque=false; adv(1); log(primeira?"RCP iniciada: 30 compressões para 2 ventilações com bolsa-válvula-máscara.":"Compressões retomadas. Novo ciclo de 2 minutos."); }
-      else if(id==="monitor"){ if(s.fase==="cena") comecarParada(); adv(s.ajuda?10:25); s.monitor=true; log("Pás/eletrodos posicionados e monitor ligado."+(s.ajuda?"":" (Demorou: o desfibrilador não tinha sido pedido.)")); if(!s.ajuda) erro("Não pediu o desfibrilador ao chamar ajuda; atrasou a monitorização."); s.ajuda=true; }
-      else if(id==="ritmo"){ if(!s.monitor) { log("Sem monitor: instale as pás primeiro.","alerta"); commit(); return; }
-        comecarParada(); if(s.tRcp===null&&!caso.monitorPronto) erro("Analisou o ritmo antes de iniciar a RCP.");
-        if(s.checks>=1&&s.cicloIni!==null&&!s.pausado){ const dt=s.t-s.cicloIni; if(dt<100) erro("Checou o ritmo com "+aclsMmss(dt)+" de ciclo: interrompeu as compressões antes dos 2 min."); else if(dt>150) erro("Ciclo de "+aclsMmss(dt)+": a checagem do ritmo deve ser a cada 2 min."); }
-        const novo=s.checks===0?caso.inicial:caso.proximo(s); s.ritmo=novo; s.checks++; s.rcp=false; s.pausado=true; s.choqueNestaPausa=false; s.aposChoque=false; adv(4);
-        if(novo==="rce"&&s.capno) log("Ao parar as compressões, ETCO2 tinha subido de forma abrupta para 38 mmHg.","info");
-        log("Pausa para análise. Monitor: "+ACLS_NOME_RITMO[novo]+".","ritmo"); }
-      else if(id==="choque"){ if(!s.monitor){ log("Sem pás conectadas.","alerta"); commit(); return; }
-        if(!s.pausado){ erro("Chocou sem pausar e analisar o ritmo."); }
-        else if(!chocavel(s.ritmo)) erro("Choque em ritmo não chocável ("+ACLS_NOME_RITMO[s.ritmo]+"). Desfibrilação não trata AESP/assistolia.",true);
-        else if(s.choqueNestaPausa) erro("Segundo choque na mesma pausa: após o choque, retome a RCP por 2 min.");
-        else { s.choques++; s.choqueNestaPausa=true; s.aposChoque=true; if(s.tPrimChoque===null) s.tPrimChoque=s.t; if(s.choques===2) s.tSegChoque=s.t; log("\"Afastem-se!\" Choque "+s.choques+" aplicado (bifásico 200 J). Retome as compressões já."); }
-        adv(3); }
-      else if(id==="pulso"){ adv(8);
-        if(s.aposChoque) erro("Checou pulso logo após o choque: o certo é retomar a RCP imediatamente por 2 min.");
-        if(!s.pausado){ erro("Parou as compressões para checar pulso fora da análise de ritmo."); s.rcp=false; s.pausado=true; }
-        if(s.ritmo==="rce"){ s.rce=true; s.tRce=s.t; s.fase="rce"; s.rcp=false; s.ritmo="rce"; log("PULSO PRESENTE: retorno da circulação espontânea (RCE). "+caso.pos,"ok"); }
-        else if(s.ritmo==="aesp"){ s.viuAesp=true; log("Sem pulso: é AESP (atividade elétrica sem pulso). Volte às compressões."); }
-        else erro("Checou pulso em "+ACLS_NOME_RITMO[s.ritmo].toLowerCase()+": ritmo desorganizado não tem pulso; perdeu tempo sem compressão."); }
-      else if(id==="confirmaAssist"){ adv(3); if(s.ritmo!=="assist"){ log("Não é linha reta.","alerta"); } else { s.confirmouAssist=true; log("Cabos conectados, ganho aumentado e derivação trocada: assistolia confirmada (não é FV fina)."); } }
-      else if(id==="trocar"){ adv(1); if(s.pausado){ s.trocas++; log("Troca do compressor durante a pausa."); } else log("Troque o compressor na pausa da checagem do ritmo, para não interromper as compressões.","alerta"); }
-      else if(id==="acesso"){ adv(20); s.acesso=true; log("Acesso venoso periférico calibroso"+(s.pausado?" (com as compressões paradas!)":" sem interromper as compressões")+"."); if(s.pausado) erro("Obteve acesso com as compressões paradas."); }
-      else if(id==="io"){ adv(15); s.acesso=true; log("Acesso intraósseo obtido."); }
-      else if(id==="adr"){ if(!s.acesso){ log("Sem acesso venoso ou intraósseo.","alerta"); commit(); return; }
-        const ult=s.adrT[s.adrT.length-1];
-        if(ult!==undefined&&s.t-ult<170) erro("Adrenalina repetida com "+aclsMmss(s.t-ult)+": o intervalo é de 3 a 5 min.");
-        if(chocavel(s.ritmo)&&s.choques<2&&!s.adrT.length) log("Em ritmo chocável, a 1ª adrenalina entra após o 2º choque.","alerta");
-        if(s.fase==="rce"){ erro("Bolus de adrenalina de PCR com o paciente com pulso.",true); }
-        s.adrT.push(s.t); adv(8); log("Adrenalina 1 mg IV em bolus + 20 mL de SF e elevação do membro (dose "+s.adrT.length+")."); if(s.pausado) erro("Pausou as compressões para medicar; as drogas entram durante a RCP."); }
-      else if(id==="amio300"||id==="amio150"||id==="lido"){ if(!s.acesso){ log("Sem acesso venoso ou intraósseo.","alerta"); commit(); return; }
-        if(!chocavel(s.ritmo)&&!(s.ritmo==="rce")) erro("Antiarrítmico em ritmo não chocável: sem indicação.");
-        else if(id==="amio300"){ if(s.amio>=1) erro("A 2ª dose de amiodarona é 150 mg."); else if(s.choques<3) log("A amiodarona entra após o 3º choque (FV/TV refratária).","alerta"); s.amio++; s.anti++; log("Amiodarona 300 mg IV em bolus."); }
-        else if(id==="amio150"){ if(s.amio===0) erro("A 1ª dose de amiodarona na PCR é 300 mg."); s.amio++; s.anti++; log("Amiodarona 150 mg IV."); }
-        else { s.anti++; log("Lidocaína 1 a 1,5 mg/kg IV."); }
-        adv(8); }
-      else if(id==="atropina"){ adv(8); erro("Atropina não faz parte do algoritmo de PCR (AESP/assistolia).",true); }
-      else if(id==="iot"){ adv(s.pausado?15:20); s.via=true; s.capno=true; log("Intubação orotraqueal"+(s.pausado?" com as compressões paradas.":" sem parar as compressões.")+" Capnografia conectada: ETCO2 "+(s.rcp||!s.pausado?"18":"8")+" mmHg. A partir de agora, 1 ventilação a cada 6 s, compressões contínuas.");
-        if(s.pausado) erro("Pausou as compressões para intubar."); if(caso.causa==="hipoxia") { s.causaTratada=true; } }
-      else if(id==="supra"){ adv(15); s.via=true; s.capno=true; log("Dispositivo supraglótico posicionado; capnografia conectada. 1 ventilação a cada 6 s."); if(caso.causa==="hipoxia") s.causaTratada=true; }
-      else if(id==="continuar"){ if(!s.rcp){ log("A RCP está parada: retome as compressões.","alerta"); commit(); return; }
-        const falta=Math.max(0,120-(s.t-s.cicloIni)); adv(falta||10); log("Compressões de qualidade até completar o ciclo"+(s.capno?" (ETCO2 entre 15 e 20 mmHg)":"")+". Hora de checar o ritmo."); }
-      else if(id==="investigar"){ adv(5); s.investigou[extra]=true; const p=(caso.pistas||{})[extra];
-        log(ACLS_CAUSAS.find(c=>c[0]===extra)[1]+": "+(p||"sem dados que sugiram esta causa."),p?"ok":"info"); }
-      else if(id==="tratar"){ const tr=ACLS_TRAT.find(x=>x[0]===extra); adv(10);
-        if(extra==="oxigenio"){ s.via=true; s.capno=true; }
-        if(caso.causaTrat.includes(extra)){ s.causaTratada=true; log(tr[1]+": tratamento da causa ("+ACLS_CAUSAS.find(c=>c[0]===caso.causa)[1]+").","ok"); }
-        else if(tr[2].includes(caso.causa)) log(tr[1]+": medida de apoio, mas não resolve sozinha a causa principal.","alerta");
-        else erro(tr[1]+": sem indicação neste caso."); }
-      else if(id==="pos"){ s.pos=extra; s.fim=true; }
-      else if(id==="encerrarEsforcos"){ s.fim=true; log("Esforços de reanimação encerrados pelo líder.","alerta"); }
-    } else {
-    /* ---------- bradicardia / taquicardia com pulso ---------- */
-      const tq=caso.tipo==="taqui";
-      if(id==="avaliar"){ adv(10); s.avaliou=true; log(caso.sinais); }
-      else if(id==="o2"){ adv(5); s.o2=true; log("O2 por cateter/máscara para SatO2 ≥ 94%."); }
-      else if(id==="monitor"){ adv(5); s.monitorPas=true; log("Monitor cardíaco, oxímetro e pressão não invasiva; pás/eletrodos de marcapasso e de cardioversão posicionados."); }
-      else if(id==="acesso"){ adv(20); s.acesso=true; log("Acesso venoso periférico."); }
-      else if(id==="ecg"){ adv(30); s.ecg=true; log(tq?(s.estavel?"ECG de 12 derivações pós-reversão: ritmo sinusal, sem alterações isquêmicas agudas.":"ECG de 12 derivações: taquicardia regular de QRS estreito, 186 bpm, sem P visível (TSV por reentrada)."):"ECG de 12 derivações: BAV total, escape ventricular de QRS largo a 32 bpm."); if(!s.estavel&&tq) log("Paciente instável: não atrase a cardioversão por exames.","alerta"); }
-      else if(id==="atropina"){ if(!s.acesso){ log("Sem acesso venoso.","alerta"); commit(); return; } adv(60); s.atropina++;
-        if(tq) erro("Atropina em taquicardia: contraindicada.",true);
-        else if(s.atropina>3) erro("Atropina acima da dose máxima (3 mg).");
-        else log("Atropina 1 mg IV ("+s.atropina+" mg no total). Após 1 min: sem resposta, FC 32 bpm (BAV total infranodal costuma não responder)."); }
-      else if(id==="mp"){ adv(40);
-        if(tq){ erro("Marcapasso em taquicardia: sem indicação."); }
-        else { s.mp=true; s.estavel=true; s.ritmo="mp"; log("Marcapasso transcutâneo: FC 70, corrente aumentada até captura elétrica e mecânica (pulso femoral a 70). PA 104x62 mmHg."+(s.sedacao?"":" Paciente com dor intensa a cada estímulo.")); if(!s.sedacao) erro("Marcapasso transcutâneo sem analgesia/sedação."); } }
-      else if(id==="sedacao"){ adv(20); s.sedacao=true; log(tq?"Sedação breve (ex.: etomidato ou midazolam em dose baixa, com cuidado na hipotensão) e analgesia.":"Analgesia e sedação leve para o marcapasso (ex.: fentanil e midazolam em doses baixas)."); }
-      else if(id==="dopa"){ if(!s.acesso){ log("Sem acesso venoso.","alerta"); commit(); return; } adv(60); s.droga=true;
-        if(tq) erro("Dopamina em taquicardia: piora a frequência.",true);
-        else { s.estavel=s.estavel||false; log("Dopamina 5 a 20 mcg/kg/min: FC 46, PA 88x54 mmHg. Melhora parcial; mantenha preparado o marcapasso."); } }
-      else if(id==="adrInf"){ if(!s.acesso){ log("Sem acesso venoso.","alerta"); commit(); return; } adv(60); s.droga=true;
-        if(tq) erro("Adrenalina em taquicardia: piora a frequência.",true); else log("Adrenalina 2 a 10 mcg/min em infusão: FC 48, PA 90x56 mmHg. Melhora parcial."); }
-      else if(id==="especialista"){ adv(5); s.especialista=true; log(tq?"Cardiologia avisada para seguimento (estudo eletrofisiológico eletivo).":"Cardiologia acionada para marcapasso transvenoso/definitivo."); }
-      else if(id==="vagal"){ adv(20); log("Manobra vagal modificada: sem reversão. Paciente segue instável.","alerta"); if(!s.estavel) erro("Em taquicardia instável, a conduta é cardioversão sincronizada imediata; manobra vagal só atrasa."); }
-      else if(id==="adenosina"){ if(!s.acesso){ log("Sem acesso venoso.","alerta"); commit(); return; } adv(30); s.adenosina++; log("Adenosina "+(s.adenosina===1?"6":"12")+" mg em bolus rápido + flush: pausa de 3 s e a TSV volta. Paciente ainda instável.","alerta"); }
-      else if(id==="cv"){ adv(15);
-        if(!tq){ erro("Cardioversão em bradicardia: sem indicação.",true); }
-        else { if(!s.sedacao) erro("Cardioversão sem sedação em paciente consciente (seda se não atrasar).");
-          s.cv=true; s.estavel=true; s.ritmo="sinus"; log("Modo SINCRONIZADO ligado, \"afastem-se\", choque de 100 J: reversão para ritmo sinusal, FC 92 bpm, PA 118x72 mmHg."); } }
-      else if(id==="desfib"){ adv(5); erro("Choque NÃO sincronizado em paciente com pulso: risco de induzir FV (fenômeno R sobre T).",true); }
-      else if(id==="amio"){ if(!s.acesso){ log("Sem acesso venoso.","alerta"); commit(); return; } adv(60); if(tq) erro("Amiodarona no paciente instável atrasa a cardioversão (fica para o estável)."); else erro("Amiodarona em bradicardia: piora o bloqueio.",true); }
-      else if(id==="verap"){ if(!s.acesso){ log("Sem acesso venoso.","alerta"); commit(); return; } adv(30); erro(tq?"Verapamil/diltiazem com PA 78x50: piora a hipotensão.":"Bloqueador de canal de cálcio em bradicardia: contraindicado.",true); }
-      else if(id==="rcp"){ adv(10); erro("Compressões em paciente COM pulso.",true); }
-      else if(id==="concluir"){ s.fim=true; }
-    }
-    commit();
-  };
-
-  /* ---------- correção ---------- */
-  const correcao=()=>{ const it=[]; const add=(t,ok,por)=>it.push({t,ok,por});
-    if(pcr){
-      add("Avaliou responsividade e chamou ajuda pedindo o desfibrilador",s.resp&&s.ajuda,"Segurança da cena, responsividade e acionar equipe + desfibrilador vêm primeiro.");
-      add("Checou pulso e respiração (até 10 s) antes de comprimir",s.pulsoIni,"Pulso central e respiração ao mesmo tempo, em no máximo 10 s.");
-      add("Iniciou compressões em até 30 s da cena",s.tRcp!==null&&s.tRcp<=30,"Cada minuto sem RCP reduz muito a sobrevida. Seu tempo: "+(s.tRcp===null?"não iniciou":aclsMmss(s.tRcp))+".");
-      if(chocavel(caso.inicial)) add("Primeiro choque sem atraso (até 2 min do início da RCP)",s.tPrimChoque!==null&&s.tPrimChoque-(s.tRcp||0)<=120,"Em FV/TV sem pulso, a desfibrilação precoce é o que mais salva. Seu tempo: "+(s.tPrimChoque===null?"sem choque":aclsMmss(s.tPrimChoque-(s.tRcp||0)))+".");
-      else add("Não chocou ritmo não chocável"+(caso.inicial==="assist"?" e confirmou a assistolia (cabos, ganho, derivação)":""),!s.criticos.some(e=>/não chocável/.test(e))&&(caso.inicial!=="assist"||s.confirmouAssist),"AESP e assistolia: RCP + adrenalina + causas. Linha reta: confira cabos, ganho e derivação.");
-      const semRetomar=s.erros.some(e=>/logo após o choque/.test(e))||s.criticos.some(e=>/sem chocar/.test(e));
-      add("Após cada choque, retomou a RCP imediatamente sem checar pulso",s.choques>0?!semRetomar:!s.criticos.some(e=>/sem chocar/.test(e)),"Choque → 2 min de RCP → só então ritmo/pulso.");
-      const ciclos=s.erros.filter(e=>/ciclo|Ciclo/.test(e)).length;
-      add("Ciclos de 2 min com checagem do ritmo",s.checks>=2&&ciclos===0,"Checar cedo interrompe a perfusão; checar tarde atrasa choque e drogas.");
-      add("Trocou o compressor a cada checagem",s.trocas>=Math.max(1,s.checks-1),"Fadiga piora a qualidade em 1 a 2 min. Trocas: "+s.trocas+" em "+s.checks+" checagens.");
-      const fimPcr=s.tRce!==null?s.tRce:s.t; const adr=s.adrT; let adrOk=adr.length>0;
-      if(adrOk){ if(chocavel(caso.inicial)){ if(s.tSegChoque===undefined||adr[0]<s.tSegChoque) adrOk=false; } else if(adr[0]-(s.tRcp||0)>200) adrOk=false;
-        for(let i=1;i<adr.length;i++) if(adr[i]-adr[i-1]<170||adr[i]-adr[i-1]>330) adrOk=false; if(fimPcr-adr[adr.length-1]>330) adrOk=false; }
-      add(chocavel(caso.inicial)?"Adrenalina após o 2º choque, a cada 3 a 5 min":"Adrenalina o quanto antes, a cada 3 a 5 min",adrOk,"Doses em: "+(adr.length?adr.map(x=>aclsMmss(x)).join(", "):"nenhuma")+".");
-      if(chocavel(caso.inicial)) add("Antiarrítmico na FV/TV refratária (amiodarona 300 → 150 mg ou lidocaína)",caso.id==="tv"?(s.anti>0||s.choques<3)&&!s.erros.some(e=>/amiodarona/i.test(e)):s.anti>0&&!s.erros.some(e=>/amiodarona/i.test(e)),"Após o 3º choque.");
-      add("Buscou e tratou a causa reversível (5H/5T)",caso.causaTrat.length?s.causaTratada:(s.investigou[caso.causa]||(s.pos||[]).includes("cate")),"Causa deste caso: "+ACLS_CAUSAS.find(c=>c[0]===caso.causa)[1]+".");
-      add("Capnografia/via aérea sem interromper as compressões",s.capno&&!s.erros.some(e=>/intubar/.test(e)),"Via aérea avançada com compressões contínuas e ETCO2 para guiar a qualidade.");
-      const ccf=s.handsOn+s.handsOff>0?s.handsOn/(s.handsOn+s.handsOff):0;
-      add("Fração de compressão ≥ 80%",ccf>=.8,"Sua fração: "+Math.round(ccf*100)+"%. Pausas curtas (menos de 10 s) para ritmo e choque.");
-      const sel=s.pos||[]; const certos=ACLS_POS.filter(o=>o.ok===true||(o.ok==="cate"&&caso.cate)).map(o=>o.id); const errados=ACLS_POS.filter(o=>o.ok===false).map(o=>o.id);
-      const acertos=certos.filter(i=>sel.includes(i)).length, marcouErrado=errados.filter(i=>sel.includes(i));
-      add("Reconheceu o RCE e fez os cuidados pós-PCR",s.rce&&acertos>=certos.length-1&&!marcouErrado.length,s.rce?"Marcou "+acertos+" de "+certos.length+" medidas certas"+(marcouErrado.length?" e "+marcouErrado.length+" errada(s)":"")+".":"Não houve RCE.");
-    } else if(caso.tipo==="bradi"){
-      add("Avaliou estabilidade (sinais de choque, consciência, dor torácica, congestão)",s.avaliou,"Bradicardia só se trata com urgência se causa instabilidade.");
-      add("Monitor, oxigênio (SatO2 < 94%) e acesso venoso",s.monitorPas&&s.o2&&s.acesso,"Monitorização e acesso antes das drogas.");
-      add("Atropina 1 mg como 1ª droga (até 3 mg)",s.atropina>=1&&s.atropina<=3,"Mesmo que o BAV total infranodal não responda, ela não deve atrasar o marcapasso.");
-      add("Marcapasso transcutâneo (ou dopamina/adrenalina) quando a atropina falhou",s.mp||s.droga,"Sem resposta à atropina: marcapasso transcutâneo ou infusão de cronotrópico.");
-      add("Analgesia/sedação para o marcapasso",s.sedacao,"O estímulo do marcapasso transcutâneo é muito doloroso.");
-      add("ECG de 12 derivações",s.ecg,"Documenta o tipo de bloqueio.");
-      add("Acionou especialista (marcapasso transvenoso)",s.especialista,"O transcutâneo é ponte.");
-      add("Estabilizou o paciente",s.estavel,"Meta: perfusão adequada.");
-    } else {
-      add("Avaliou estabilidade e reconheceu a taquicardia instável",s.avaliou,"Hipotensão, confusão, dor torácica e congestão = instável.");
-      add("Monitor, oxigênio e acesso venoso",s.monitorPas&&s.o2&&s.acesso,"Sem atrasar a terapia elétrica.");
-      add("Sedação antes da cardioversão",s.sedacao,"Seda se não atrasar o choque.");
-      add("Cardioversão elétrica SINCRONIZADA",s.cv,"QRS estreito regular: 50 a 100 J.");
-      add("Sem condutas que atrasam (vagal, amiodarona) ou pioram (verapamil)",!s.erros.some(e=>/vagal|atrasa/.test(e))&&!s.criticos.some(e=>/Verapamil/.test(e)),"Adenosina pode ser tentada se não atrasar a cardioversão.");
-      add("Não chocou sem sincronizar",!s.criticos.some(e=>/NÃO sincronizado/.test(e)),"Choque não sincronizado só para TV polimórfica/FV.");
-      add("ECG de 12 derivações após a reversão",s.ecg&&s.estavel,"Documenta o ritmo e procura pré-excitação/isquemia.");
-      add("Encaminhou ao especialista",s.especialista,"Seguimento da TSV recorrente.");
-    }
-    const pts=it.filter(x=>x.ok).length; let pct=Math.round(pts/it.length*100); if(s.criticos.length) pct=Math.min(pct,40);
-    return {it,pct};
-  };
-
-  /* ---------- tela de resultado ---------- */
-  if(s.fim){ const r=correcao();
-    return <div>
-      <button className="btn ghost sm" onClick={onVoltar}>← Cenários ACLS</button>
-      <h2 style={{fontSize:20,margin:"12px 0 4px"}}>🫀 {caso.titulo}</h2>
-      <div className="card" style={{marginBottom:12,textAlign:"center"}}>
-        <div style={{fontSize:38,fontWeight:800,color:r.pct>=70?"var(--ok)":r.pct>=50?"var(--warn)":"var(--bad)"}}>{r.pct}%</div>
-        <div className="muted" style={{fontSize:13}}>{pcr?(s.rce?"RCE em "+aclsMmss(s.tRce)+" de simulação":"Sem RCE"):(s.estavel?"Paciente estabilizado em "+aclsMmss(s.t):"Paciente não estabilizado")}{s.criticos.length?" · nota limitada a 40% por erro crítico":""}</div>
-      </div>
-      {s.criticos.length>0 && <div className="card" style={{marginBottom:12,borderColor:"var(--bad)"}}><div className="tag" style={{color:"var(--bad)"}}>ERROS CRÍTICOS</div>{[...new Set(s.criticos)].map((e,k)=><div key={k} style={{fontSize:13.5,marginTop:6}}>⛔ {e}</div>)}</div>}
-      <div className="card" style={{marginBottom:12}}><div className="tag" style={{color:"var(--acc)"}}>CHECKLIST</div>
-        {r.it.map((x,k)=><div key={k} style={{marginTop:8,fontSize:13.5}}><b>{x.ok?"✅":"❌"} {x.t}</b><div className="muted" style={{fontSize:12.5}}>{x.por}</div></div>)}</div>
-      {s.erros.length>0 && <div className="card" style={{marginBottom:12}}><div className="tag" style={{color:"var(--warn)"}}>PONTOS A CORRIGIR</div>{[...new Set(s.erros)].map((e,k)=><div key={k} style={{fontSize:13.5,marginTop:6}}>⚠️ {e}</div>)}</div>}
-      {pcr&&s.pos && <div className="card" style={{marginBottom:12}}><div className="tag" style={{color:"var(--acc)"}}>PÓS-PCR: GABARITO</div>
-        {ACLS_POS.map(o=>{ const certo=o.ok===true||(o.ok==="cate"&&caso.cate), neutro=o.ok==="cate"&&!caso.cate, marcou=s.pos.includes(o.id); return <div key={o.id} style={{fontSize:13,marginTop:6}}>{neutro?"➖":marcou===certo?"✅":"❌"} {o.t} <span className="muted">— {neutro?"opcional neste caso (sem supra de ST)":certo?"fazer":"não fazer"}: {o.por}</span></div>; })}</div>}
-      <div className="card" style={{marginBottom:12}}><div className="tag" style={{color:"var(--acc)"}}>LINHA DO TEMPO</div>
-        {s.log.map((l,k)=><div key={k} style={{fontSize:12.5,marginTop:5,color:l.tipo==="critico"?"var(--bad)":l.tipo==="erro"?"var(--warn)":undefined}}><span className="muted">{aclsMmss(l.t)}</span> {l.txt}</div>)}</div>
-      <div className="row" style={{gap:8}}><button className="btn" onClick={()=>{ S.current=aclsNovoEstado(caso); setPosSel({}); setPainel(null); commit(); }}>Refazer o cenário</button><button className="btn ghost" onClick={onVoltar}>Outro cenário</button></div>
-    </div>;
-  }
-
-  /* ---------- tela de simulação ---------- */
-  const Bt=({id,extra,children,dis,cor})=><button className="btn ghost sm" disabled={dis} style={{margin:3,borderColor:cor||undefined}} onClick={()=>ag(id,extra)}>{children}</button>;
-  const ultimos=s.log.slice(-6).reverse();
-  const ritmoTela=s.fase==="rce"?"rce":s.ritmo;
-  const legenda=!s.monitor?"monitor desconectado":pcr?(s.rcp?"artefato das compressões":s.pausado||s.fase==="rce"?ACLS_NOME_RITMO[ritmoTela]:"—"):ACLS_NOME_RITMO[s.ritmo];
-  const ciclo=s.rcp&&s.cicloIni!==null?s.t-s.cicloIni:null;
-  const ultAdr=s.adrT.length?s.t-s.adrT[s.adrT.length-1]:null;
-  return <div>
-    <button className="btn ghost sm" onClick={onVoltar}>← Cenários ACLS</button>
-    <h2 style={{fontSize:19,margin:"12px 0 6px"}}>🫀 {caso.titulo}</h2>
-    {s.log.length===0 && <div className="card" style={{marginBottom:10,fontSize:14,lineHeight:1.55}}>{caso.intro}</div>}
-    <MonitorACLS ritmo={ritmoTela} rcp={s.rcp} ligado={s.monitor} legenda={legenda}/>
-    <div className="row" style={{gap:6,flexWrap:"wrap",margin:"8px 0",fontSize:12.5}}>
-      <span className="pill">⏱ {aclsMmss(s.t)}</span>
-      {pcr && <span className="pill" style={{color:s.rcp?"var(--ok)":"var(--bad)",borderColor:s.rcp?"var(--ok)":"var(--bad)"}}>{s.rcp?"RCP em curso":s.fase==="rce"?"RCE":"compressões paradas"}</span>}
-      {ciclo!==null && <span className="pill" style={{color:ciclo>=110?"var(--warn)":undefined}}>ciclo {aclsMmss(ciclo)} / 02:00</span>}
-      {pcr && <span className="pill">⚡ {s.choques}</span>}
-      {pcr && <span className="pill">💉 adrenalina {s.adrT.length}{ultAdr!==null?" (há "+aclsMmss(ultAdr)+")":""}</span>}
-      {s.capno && s.fase==="pcr" && <span className="pill">ETCO2 {s.rcp?"18":"—"} mmHg</span>}
-      {s.acesso && <span className="pill">acesso ✓</span>}
-      {s.via && <span className="pill">via aérea ✓</span>}
-    </div>
-    <div className="card" style={{marginBottom:10,padding:10}}>
-      {ultimos.length===0 && <div className="muted" style={{fontSize:13}}>Comece pela cena: o que você faz primeiro?</div>}
-      {ultimos.map((l,k)=><div key={k} style={{fontSize:13,marginTop:k?5:0,opacity:k?.65:1,color:feedbackJa&&l.tipo==="critico"?"var(--bad)":feedbackJa&&l.tipo==="erro"?"var(--warn)":undefined}}>
-        <span className="muted">{aclsMmss(l.t)}</span> {(!feedbackJa&&(l.tipo==="erro"||l.tipo==="critico"))?"(registrado para o debriefing)":l.txt}</div>)}
-    </div>
-    {pcr && s.fase!=="rce" && <div>
-      {s.fase==="cena" && <div><div className="tag" style={{margin:"6px 3px"}}>CENA</div>
-        <Bt id="resp">Segurança + responsividade</Bt><Bt id="ajuda">Chamar ajuda + desfibrilador</Bt><Bt id="pulsoIni">Checar pulso e respiração (≤10 s)</Bt></div>}
-      <div className="tag" style={{margin:"6px 3px"}}>RCP E RITMO</div>
-      {!s.rcp && <Bt id="rcp" cor="var(--ok)">{s.tRcp===null?"Iniciar RCP":"Retomar compressões"}</Bt>}
-      {s.rcp && <Bt id="continuar" cor="var(--ok)">Manter RCP até fechar o ciclo</Bt>}
-      {!s.monitor && <Bt id="monitor">Instalar pás / monitor</Bt>}
-      {s.monitor && !s.pausado && <Bt id="ritmo">Pausar e checar o ritmo</Bt>}
-      {s.monitor && <Bt id="choque" cor="#ffd166">⚡ Chocar 200 J</Bt>}
-      {s.pausado && <Bt id="pulso">Checar pulso</Bt>}
-      {s.pausado && <Bt id="trocar">Trocar compressor</Bt>}
-      {s.pausado && s.ritmo==="assist" && <Bt id="confirmaAssist">Checar cabos, ganho e derivação</Bt>}
-      {s.fase==="pcr" && <div>
-        <div className="tag" style={{margin:"6px 3px"}}>ACESSO E DROGAS</div>
-        {!s.acesso && <><Bt id="acesso">Acesso venoso</Bt><Bt id="io">Acesso intraósseo</Bt></>}
-        <Bt id="adr">Adrenalina 1 mg</Bt><Bt id="amio300">Amiodarona 300 mg</Bt><Bt id="amio150">Amiodarona 150 mg</Bt><Bt id="lido">Lidocaína 1 mg/kg</Bt><Bt id="atropina">Atropina 1 mg</Bt>
-        <div className="tag" style={{margin:"6px 3px"}}>VIA AÉREA E CAUSAS</div>
-        {!s.via && <><Bt id="iot">Intubar + capnografia</Bt><Bt id="supra">Dispositivo supraglótico</Bt></>}
-        <button className="btn ghost sm" style={{margin:3}} onClick={()=>setPainel(painel==="causas"?null:"causas")}>🔎 5H e 5T {painel==="causas"?"▾":"▸"}</button>
-        {painel==="causas" && <div className="card" style={{margin:"6px 0",padding:10}}>
-          <div className="muted" style={{fontSize:12.5,marginBottom:4}}>Investigar (sem parar as compressões):</div>
-          {ACLS_CAUSAS.map(c=><Bt key={c[0]} id="investigar" extra={c[0]}>{c[1]}</Bt>)}
-          <div className="muted" style={{fontSize:12.5,margin:"8px 0 4px"}}>Tratar:</div>
-          {ACLS_TRAT.map(c=><Bt key={c[0]} id="tratar" extra={c[0]}>{c[1]}</Bt>)}
-        </div>}
-        <div style={{marginTop:8}}><button className="btn ghost sm" style={{margin:3,color:"var(--bad)"}} onClick={()=>{ if(confirm("Encerrar os esforços de reanimação?")) ag("encerrarEsforcos"); }}>Encerrar esforços</button></div>
-      </div>}
-    </div>}
-    {pcr && s.fase==="rce" && <div className="card">
-      <div className="tag" style={{color:"var(--ok)"}}>PÓS-PCR: MARQUE O QUE VOCÊ FAZ AGORA</div>
-      {ACLS_POS.map(o=><label key={o.id} style={{display:"flex",gap:8,alignItems:"flex-start",fontSize:13.5,marginTop:8,cursor:"pointer"}}>
-        <input type="checkbox" style={{width:"auto",flex:"none",marginTop:3}} checked={!!posSel[o.id]} onChange={()=>setPosSel(p=>({...p,[o.id]:!p[o.id]}))}/> {o.t}</label>)}
-      <button className="btn" style={{marginTop:12}} onClick={()=>ag("pos",Object.keys(posSel).filter(k=>posSel[k]))}>Concluir e ver a correção</button>
-    </div>}
-    {!pcr && <div>
-      <div className="tag" style={{margin:"6px 3px"}}>AVALIAÇÃO</div>
-      <Bt id="avaliar">Avaliar ABC e sinais de instabilidade</Bt><Bt id="o2">Oxigênio</Bt><Bt id="monitor">Monitor + pás</Bt><Bt id="acesso" dis={s.acesso}>Acesso venoso</Bt><Bt id="ecg">ECG de 12 derivações</Bt>
-      <div className="tag" style={{margin:"6px 3px"}}>CONDUTA</div>
-      <Bt id="atropina">Atropina 1 mg</Bt><Bt id="adenosina">Adenosina</Bt><Bt id="vagal">Manobra vagal</Bt><Bt id="sedacao">Analgesia/sedação</Bt>
-      <Bt id="mp">Marcapasso transcutâneo</Bt><Bt id="cv" cor="#ffd166">⚡ Cardioversão sincronizada</Bt><Bt id="desfib">⚡ Desfibrilar (não sincronizado)</Bt>
-      <Bt id="dopa">Dopamina em infusão</Bt><Bt id="adrInf">Adrenalina em infusão</Bt><Bt id="amio">Amiodarona</Bt><Bt id="verap">Verapamil/diltiazem</Bt><Bt id="rcp">Iniciar compressões</Bt>
-      <Bt id="especialista">Acionar especialista</Bt>
-      <div style={{marginTop:10}}><button className="btn sm" onClick={()=>ag("concluir")}>Concluir atendimento e ver a correção</button></div>
-    </div>}
-    <label className="muted" style={{display:"flex",gap:6,alignItems:"center",fontSize:12.5,marginTop:12}}><input type="checkbox" style={{width:"auto",flex:"none"}} checked={feedbackJa} onChange={()=>setFeedbackJa(!feedbackJa)}/> Mostrar erros na hora (desmarque para simular prova)</label>
-  </div>;
-}
+/* ---- ACLS: simulação de megacode (sem IA, sem custo). Algoritmos AHA (PCR, bradicardia e taquicardia com pulso). ---- */
+const ACLS_CAUSAS=[["hipovolemia","Hipovolemia"],["hipoxia","Hipóxia"],["acidose","H+ (acidose)"],["potassio","Hipo/hipercalemia"],["hipotermia","Hipotermia"],
+  ["pneumotorax","Tensão (pneumotórax)"],["tamponamento","Tamponamento cardíaco"],["toxinas","Toxinas"],["tep","Trombose pulmonar (TEP)"],["coronaria","Trombose coronária (IAM)"]];
+const ACLS_TRAT=[["cristaloide","Cristaloide em bolus (1 L)",["hipovolemia"]],["oxigenio","Oxigênio a 100% + via aérea avançada",["hipoxia"]],
+  ["bic","Bicarbonato de sódio IV",["acidose","potassio","toxinas"]],["calcio","Gluconato de cálcio 10% IV",["potassio"]],["potassioRep","Repor potássio e magnésio IV",["potassio"]],
+  ["aquecer","Reaquecimento ativo",["hipotermia"]],["descomp","Descompressão torácica com agulha",["pneumotorax"]],["pericardio","Pericardiocentese",["tamponamento"]],
+  ["antidoto","Antídoto específico",["toxinas"]],["trombolitico","Trombolítico (alteplase)",["tep"]]];
+const ACLS_POS=[
+  {id:"ecg",t:"ECG de 12 derivações",ok:true,por:"Busca supra de ST/causa coronária logo após o RCE."},
+  {id:"sat",t:"Titular O2 para SatO2 entre 92 e 98%",ok:true,por:"Evita hipóxia e hiperóxia."},
+  {id:"pa",t:"Manter PAS ≥ 90 mmHg / PAM ≥ 65 mmHg (volume e vasopressor)",ok:true,por:"Hipotensão pós-PCR piora o desfecho neurológico."},
+  {id:"co2",t:"Ventilar para PaCO2 de 35 a 45 mmHg (normocapnia)",ok:true,por:"Hiperventilar reduz o fluxo cerebral."},
+  {id:"temp",t:"Controle direcionado de temperatura, evitando febre, se não obedece comandos",ok:true,por:"Recomendação para o comatoso após o RCE."},
+  {id:"causa",t:"Investigar e tratar a causa (eletrólitos, gasometria, glicemia, imagem)",ok:true,por:"A causa que levou à parada pode causar nova parada."},
+  {id:"cate",t:"Acionar hemodinâmica para cateterismo de emergência",ok:"cate",por:"Indicado quando há supra de ST (ou forte suspeita de causa coronária)."},
+  {id:"hiperv",t:"Hiperventilar (FR 30/min) para 'lavar' o CO2",ok:false,por:"Hipocapnia causa vasoconstrição cerebral."},
+  {id:"bicrot",t:"Bicarbonato de sódio de rotina",ok:false,por:"Sem benefício de rotina; só em situações específicas."},
+  {id:"fio2",t:"Manter FiO2 100% indefinidamente, com SatO2 de 100%",ok:false,por:"Hiperóxia é deletéria; titule a FiO2."},
+  {id:"extubar",t:"Extubar logo após o RCE",ok:false,por:"Paciente ainda instável e, em geral, sem proteção de via aérea."},
+];
+const ACLS_CASOS=[
+  {id:"fv",tipo:"pcr",cor:"#ff7a7a",tag:"Ritmo chocável",titulo:"FV refratária no corredor",
+    intro:"Homem de 62 anos, que aguardava atendimento por dor no peito, cai no corredor da emergência. Você é o líder da equipe: há enfermeira, técnico e o carrinho de parada com desfibrilador bifásico (choque de 200 J).",
+    inicial:"fv",causa:"coronaria",causaTrat:[],cate:true,
+    pistas:{coronaria:"ECG da triagem, feito 20 minutos antes da parada: supra de ST de V1 a V4."},
+    proximo:s=>(s.choques>=3&&s.adrT.length>=1&&s.anti>=1)||s.choques>=5?"rce":"fv",
+    pos:"Pulso carotídeo presente. PA 86x52 mmHg, FC 98 bpm (sinusal), SatO2 90%, ETCO2 38 mmHg. Não abre os olhos. ECG de 12 derivações: supra de ST de V1 a V4."},
+  {id:"tv",tipo:"pcr",cor:"#ffb36b",tag:"Ritmo chocável",titulo:"TV sem pulso na enfermaria",
+    intro:"Homem de 58 anos, internado por IC descompensada (FE 25%), em uso de furosemida em dose alta. A técnica chama: o monitor mostra taquicardia de QRS largo e ele não responde. Você chega com o carrinho de parada (desfibrilador bifásico).",
+    inicial:"tv",causa:"potassio",causaTrat:["potassioRep"],cate:false,
+    pistas:{potassio:"Exames da manhã: K+ 2,8 mEq/L e Mg 1,2 mg/dL (diurético em dose alta).",coronaria:"Sem dor torácica antes; ECG de ontem sem alterações isquêmicas agudas."},
+    proximo:s=>(s.choques>=2&&s.adrT.length>=1)||s.choques>=4?"rce":"tv",
+    pos:"Pulso presente. PA 92x58 mmHg, FC 104 bpm (sinusal), SatO2 93%. ECG: sem supra de ST; QT longo e ondas U."},
+  {id:"aesp",tipo:"pcr",cor:"#c7a3ff",tag:"Não chocável",titulo:"AESP no renal crônico",
+    intro:"Mulher de 67 anos, em hemodiálise, faltou às duas últimas sessões. Chega à sala de emergência com fraqueza intensa e, durante a triagem, deixa de responder. O monitor já está conectado.",
+    inicial:"aesp",causa:"potassio",causaTrat:["calcio"],cate:false,monitorPronto:true,
+    pistas:{potassio:"Gasometria venosa colhida na chegada: K+ 8,4 mEq/L, pH 7,18.",acidose:"pH 7,18 com bicarbonato 14: acidose metabólica (acompanha a hipercalemia).",hipovolemia:"Sem sangramento; turgência jugular presente, edema de membros."},
+    proximo:s=>s.causaTratada&&s.adrT.length>=1?"rce":s.checks>=6?"assist":"aesp",
+    pos:"Pulso presente. PA 98x60 mmHg, FC 72 bpm, SatO2 94%. Ainda hipercalêmica: precisa de insulina com glicose, beta-agonista e hemodiálise de urgência."},
+  {id:"assist",tipo:"pcr",cor:"#7cc4ff",tag:"Não chocável",titulo:"Assistolia após broncoaspiração",
+    intro:"Mulher de 81 anos, com sequela de AVC, engasga durante a refeição na enfermaria e é encontrada cianótica e não responsiva. Você chega com o carrinho de parada.",
+    inicial:"assist",causa:"hipoxia",causaTrat:["oxigenio"],cate:false,
+    pistas:{hipoxia:"Cianose central e restos alimentares na orofaringe: obstrução/broncoaspiração. Hipóxia é a causa mais provável."},
+    proximo:s=>s.ritmo==="fv"?(s.choques>=1&&(s.causaTratada||s.via)?"rce":"fv"):(s.adrT.length>=1&&s.checks>=1?"fv":"assist"),
+    pos:"Pulso presente. PA 94x56 mmHg, FC 110 bpm, SatO2 89% em ventilação mecânica. Raio X: consolidação em base direita (broncoaspiração)."},
+  {id:"bradi",tipo:"bradi",cor:"#5fd4c4",tag:"Com pulso",titulo:"Bradicardia instável (BAV total)",
+    intro:"Mulher de 74 anos chega com tontura e um episódio de síncope. Está confusa, pálida e sudoreica. Há enfermeira, técnico e o carrinho de parada com marcapasso transcutâneo.",
+    inicial:"bavt",sinais:"Confusa, pele fria e sudoreica. PA 72x40 mmHg, FC 32 bpm, SatO2 89% em ar ambiente. Monitor: BAV total com escape de QRS largo."},
+  {id:"taqui",tipo:"taqui",cor:"#ffd166",tag:"Com pulso",titulo:"Taquicardia instável (TSV)",
+    intro:"Homem de 55 anos com palpitação há 2 horas. Agora está sudoreico, com dor no peito e confuso. Você é o líder; o desfibrilador tem modo sincronizado.",
+    inicial:"tsv",sinais:"Confuso, sudoreico, dor torácica. PA 78x50 mmHg, FC 186 bpm, SatO2 92%. Monitor: taquicardia regular de QRS estreito, sem onda P visível."},
+];
+const ACLS_NOME_RITMO={fv:"Fibrilação ventricular",tv:"Taquicardia ventricular (sem pulso)",aesp:"Ritmo organizado de QRS largo e lento (checar pulso)",assist:"Linha reta (assistolia)",
+  rce:"Ritmo organizado, sinusal (checar pulso)",sinus:"Ritmo sinusal",bavt:"BAV total, escape de QRS largo",mp:"Ritmo de marcapasso com captura",tsv:"Taquicardia regular de QRS estreito"};
+const _ga=(x,c,w)=>Math.exp(-((x-c)*(x-c))/(2*w*w));
+function aclsOnda(tipo,t,rcp){
+  const tau=2*Math.PI; let v=0, s, p;
+  if(tipo==="fv") v=(.3*Math.sin(tau*5.1*t+2.2*Math.sin(1.3*t))+.22*Math.sin(tau*3.7*t+1.5*Math.sin(.53*t))+.12*Math.sin(tau*7.9*t+.7)+.07*Math.sin(tau*11.3*t))*(.8+.4*Math.sin(.7*t)+.2*Math.sin(2.3*t+1));
+  else if(tipo==="tv"){ p=60/180; s=(t%p)/p; v=1.1*Math.sin(tau*s)+.25*Math.sin(2*tau*s); }
+  else if(tipo==="assist") v=.04*Math.sin(.8*t)+.015*Math.sin(5.3*t);
+  else if(tipo==="aesp"){ p=60/38; s=t%p; v=.75*_ga(s,.2,.04)-.3*_ga(s,.28,.04)+.6*_ga(s,.56,.05); }
+  else if(tipo==="bavt"){ s=t%.75; v=.13*_ga(s,.1,.02); s=t%(60/32); v+=-.25*_ga(s,.3,.03)+1*_ga(s,.36,.035)-.45*_ga(s,.43,.035)-.3*_ga(s,.7,.07); }
+  else if(tipo==="mp"){ p=60/70; s=t%p; v=1.6*_ga(s,.05,.0025)-.8*_ga(s,.12,.035)+.4*_ga(s,.42,.06); }
+  else if(tipo==="tsv"){ p=60/186; s=t%p; v=.95*_ga(s,.08,.01)-.2*_ga(s,.1,.01)+.22*_ga(s,.22,.03); }
+  else { p=60/(tipo==="rce"?98:88); s=t%p; v=.12*_ga(s,.1,.02)-.1*_ga(s,.18,.01)+1*_ga(s,.2,.012)-.25*_ga(s,.225,.012)+.25*_ga(s,.45,.05); }
+  if(rcp) v=.25*v+.95*Math.sin(tau*1.83*t)+.3*Math.sin(tau*3.66*t+.5);
+  return v;
+}
+function MonitorACLS({ritmo,rcp,ligado,legenda,vit}){
+  const ref=useRef(null), est=useRef({ritmo,rcp,ligado}); est.current={ritmo,rcp,ligado};
+  useEffect(()=>{ let raf, vivo=true; const t0=performance.now();
+    const desenha=()=>{ if(!vivo) return; const c=ref.current; if(!c){ raf=requestAnimationFrame(desenha); return; }
+      const dpr=window.devicePixelRatio||1, W=c.clientWidth, H=c.clientHeight;
+      if(c.width!==Math.round(W*dpr)){ c.width=Math.round(W*dpr); c.height=Math.round(H*dpr); }
+      const g=c.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0); g.fillStyle="#04100c"; g.fillRect(0,0,W,H);
+      g.strokeStyle="rgba(60,255,160,.07)"; g.lineWidth=1; for(let x=0;x<W;x+=25){ g.beginPath(); g.moveTo(x,0); g.lineTo(x,H); g.stroke(); } for(let y=0;y<H;y+=25){ g.beginPath(); g.moveTo(0,y); g.lineTo(W,y); g.stroke(); }
+      const e=est.current, agora=(performance.now()-t0)/1000, janela=5, px=W/janela;
+      g.strokeStyle=e.ligado?"#3dff9a":"#2a5a45"; g.lineWidth=2; g.beginPath();
+      for(let x=0;x<=W;x+=2){ const t=agora-janela+x/px; const v=e.ligado?aclsOnda(e.ritmo,t,e.rcp):0; const y=H*.55-v*H*.28; x?g.lineTo(x,y):g.moveTo(x,y); }
+      g.stroke(); g.fillStyle="#3dff9a"; g.font="12px sans-serif"; g.fillText("DII",8,16);
+      if(!e.ligado){ g.fillStyle="#7fae98"; g.font="bold 14px sans-serif"; g.textAlign="center"; g.fillText("SEM SINAL · conecte as pás/eletrodos",W/2,H*.35); g.textAlign="left"; }
+      raf=requestAnimationFrame(desenha); };
+    raf=requestAnimationFrame(desenha); return ()=>{ vivo=false; cancelAnimationFrame(raf); }; },[]);
+  const V=vit||{}, cx=(rot,val,cor,un)=><div style={{padding:"4px 8px",borderTop:"1px solid #12332a"}}><div style={{fontSize:10.5,color:cor,opacity:.8}}>{rot}</div><div style={{fontSize:22,fontWeight:800,color:cor,lineHeight:1.1,fontVariantNumeric:"tabular-nums"}}>{val==null?"--":val}<span style={{fontSize:10,fontWeight:400}}> {un}</span></div></div>;
+  return <div style={{display:"flex",background:"#04100c",borderRadius:10,overflow:"hidden",border:"1px solid #12332a"}}>
+    <div style={{position:"relative",flex:1,minWidth:0}}>
+      <canvas ref={ref} style={{width:"100%",height:150,display:"block"}}/>
+      {legenda && <div style={{position:"absolute",right:10,top:6,fontSize:11.5,color:"#3dff9a",textAlign:"right",maxWidth:"70%"}}>{legenda}</div>}
+    </div>
+    <div style={{width:92,flex:"none",borderLeft:"1px solid #12332a"}}>
+      {cx("FC",V.fc,"#3dff9a","bpm")}{cx("SpO2",V.sat,"#7cc4ff","%")}{cx("PA",V.pa,"#ff8a8a","")}{cx("ETCO2",V.etco2,"#ffd166","mmHg")}
+    </div>
+  </div>;
+}
+const aclsMmss=s=>{ s=Math.max(0,Math.round(s)); return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); };
+function aclsNovoEstado(caso){
+  return {t:0,fase:caso.tipo==="pcr"?"cena":"aval",ritmo:caso.inicial,rcp:false,monitor:!!caso.monitorPronto||caso.tipo!=="pcr",acesso:false,via:false,choques:0,adrT:[],amio:0,anti:0,
+    checks:0,cicloIni:null,pausado:false,aposChoque:false,handsOn:0,handsOff:0,tRcp:null,tParada:0,tPrimChoque:null,resp:false,ajuda:false,pulsoIni:false,trocas:0,
+    investigou:{},causaTratada:false,rce:false,tRce:null,pos:null,fim:false,log:[],erros:[],criticos:[],
+    /* com pulso */ avaliou:false,o2:false,ecg:false,atropina:0,mp:false,sedacao:false,droga:false,especialista:false,estavel:false,adenosina:0,cv:false};
+}
+function SimuladorACLS({onVoltar}){
+  const [caso,setCaso]=useState(null);
+  const [mostrarAlg,setMostrarAlg]=useState(false);
+  if(!caso) return <div>
+    <button className="btn ghost sm" onClick={onVoltar}>← Estações OSCE</button>
+    <div style={{margin:"14px 0 10px"}}>
+      <div className="tag" style={{color:"#ff7a7a"}}>OSCE · URGÊNCIA</div>
+      <h2 style={{fontSize:22,marginTop:4}}>🫀 Simulação ACLS (megacode)</h2>
+      <div className="muted" style={{fontSize:13.5,marginTop:6,lineHeight:1.55}}>Você é o líder da equipe. O monitor mostra o ritmo em tempo real e o relógio da simulação corre a cada ação. Siga o algoritmo: RCP de qualidade, ciclos de 2 minutos, choque na hora certa, drogas nos intervalos corretos, causas reversíveis e cuidados pós-PCR. No fim, você recebe a nota e a linha do tempo comentada.</div>
+    </div>
+    <div className="card" style={{marginBottom:12,cursor:"pointer"}} onClick={()=>setMostrarAlg(!mostrarAlg)}>
+      <div className="tag" style={{color:"var(--acc)"}}>📘 ALGORITMO EM 1 MINUTO {mostrarAlg?"▾":"▸"}</div>
+      {mostrarAlg && <div style={{fontSize:13.5,lineHeight:1.6,marginTop:8}}>
+        <b>PCR:</b> responsividade → chamar ajuda e desfibrilador → pulso e respiração em até 10 s → RCP 30:2 (100 a 120/min, 5 a 6 cm, retorno total do tórax, mínimo de pausas) → monitor/pás.<br/>
+        <b>FV/TV sem pulso:</b> choque (bifásico 120 a 200 J) → RCP 2 min logo após o choque, sem checar pulso → choque → adrenalina 1 mg a cada 3 a 5 min (após o 2º choque) → choque → amiodarona 300 mg (2ª dose 150 mg) ou lidocaína 1 a 1,5 mg/kg.<br/>
+        <b>AESP/assistolia:</b> adrenalina 1 mg o quanto antes, a cada 3 a 5 min; ritmo a cada 2 min; na linha reta, confira cabos, ganho e derivação; procure e trate 5H e 5T.<br/>
+        <b>Via aérea avançada:</b> capnografia; 1 ventilação a cada 6 s com compressões contínuas. ETCO2 abaixo de 10 mmHg sugere RCP ruim; subida abrupta sugere RCE.<br/>
+        <b>Pós-RCE:</b> SatO2 92 a 98%, PaCO2 35 a 45, PAS ≥ 90 / PAM ≥ 65, ECG de 12 derivações (cateterismo se supra), controle de temperatura no comatoso.<br/>
+        <b>Bradicardia instável:</b> atropina 1 mg (a cada 3 a 5 min, até 3 mg) → se falhar, marcapasso transcutâneo ou dopamina 5 a 20 mcg/kg/min ou adrenalina 2 a 10 mcg/min → especialista.<br/>
+        <b>Taquicardia instável:</b> cardioversão elétrica sincronizada (sedação se possível); QRS estreito regular: 50 a 100 J.
+      </div>}
+    </div>
+    {ACLS_CASOS.map(c=><div key={c.id} className="topico" style={{cursor:"pointer",borderLeft:"3px solid "+c.cor}} onClick={()=>{ setCaso(c); irAoTopo(); }}>
+      <div style={{fontWeight:700}}>{c.titulo}</div>
+      <div className="muted" style={{fontSize:12.5,margin:"4px 0 6px"}}>{c.intro.slice(0,120)}…</div>
+      <div className="row" style={{justifyContent:"space-between"}}><span className="pill" style={{color:c.cor,borderColor:c.cor}}>{c.tag}</span><span className="muted" style={{fontSize:12}}>Iniciar →</span></div>
+    </div>)}
+  </div>;
+  return <MegacodeACLS key={caso.id} caso={caso} onVoltar={()=>setCaso(null)}/>;
+}
+function MegacodeACLS({caso,onVoltar}){
+  const S=useRef(aclsNovoEstado(caso)); const [,render]=useState(0); const s=S.current;
+  const [painel,setPainel]=useState(null);
+  const [posSel,setPosSel]=useState({});
+  const [feedbackJa,setFeedbackJa]=useState(true);
+  const [congelado,setCongelado]=useState(false);
+  /* o relógio corre em tempo real (1 s = 1 s); as ações também consomem tempo */
+  useEffect(()=>{ const id=setInterval(()=>{ const x=S.current; if(congelado||x.fim||x.fase==="rce"||document.hidden||!x.log.length) return; x.t+=1; if(x.fase==="pcr"){ if(x.rcp) x.handsOn+=1; else x.handsOff+=1; } render(v=>v+1); },1000);
+    return ()=>clearInterval(id); },[congelado]);
+  const pcr=caso.tipo==="pcr", chocavel=r=>r==="fv"||r==="tv";
+  const commit=()=>render(x=>x+1);
+  const log=(txt,tipo)=>{ s.log.push({t:s.t,txt,tipo:tipo||"info"}); };
+  const erro=(txt,critico)=>{ (critico?s.criticos:s.erros).push(txt); log(txt,critico?"critico":"erro"); };
+  const adv=sec=>{ s.t+=sec; if(s.fase==="pcr"){ if(s.rcp) s.handsOn+=sec; else s.handsOff+=sec; } };
+  const comecarParada=()=>{ if(s.fase==="cena"){ s.fase="pcr"; } };
+  const ag=(id,extra)=>{ if(s.fim) return;
+    /* ---------- PCR ---------- */
+    if(pcr){
+      if(id==="resp"){ adv(5); s.resp=true; log("Cena segura. Toca os ombros e chama em voz alta: não responde."); }
+      else if(id==="ajuda"){ adv(4); s.ajuda=true; log("Equipe acionada: carrinho de parada e desfibrilador a caminho."+(caso.monitorPronto?"":" Chega em 20 s.")); }
+      else if(id==="pulsoIni"){ adv(8); s.pulsoIni=true; log("Pulso carotídeo ausente; respiração agônica (gasping). É PCR."); }
+      else if(id==="rcp"){ if(!s.pulsoIni&&s.fase==="cena") log("Antes de comprimir, confirme ausência de pulso e respiração (até 10 s).","alerta");
+        comecarParada(); const primeira=s.tRcp===null; if(primeira){ s.tRcp=s.t; s.cicloIni=s.t; }
+        if(s.pausado){ if(chocavel(s.ritmo)&&!s.choqueNestaPausa) erro("Retomou a RCP sem chocar um ritmo chocável ("+ACLS_NOME_RITMO[s.ritmo]+").",true); s.cicloIni=s.t; }
+        s.rcp=true; s.pausado=false; s.aposChoque=false; adv(1); log(primeira?"RCP iniciada: 30 compressões para 2 ventilações com bolsa-válvula-máscara.":"Compressões retomadas. Novo ciclo de 2 minutos."); }
+      else if(id==="monitor"){ if(s.fase==="cena") comecarParada(); adv(s.ajuda?10:25); s.monitor=true; log("Pás/eletrodos posicionados e monitor ligado."+(s.ajuda?"":" (Demorou: o desfibrilador não tinha sido pedido.)")); if(!s.ajuda) erro("Não pediu o desfibrilador ao chamar ajuda; atrasou a monitorização."); s.ajuda=true; }
+      else if(id==="ritmo"){ if(!s.monitor) { log("Sem monitor: instale as pás primeiro.","alerta"); commit(); return; }
+        comecarParada(); if(s.tRcp===null&&!caso.monitorPronto) erro("Analisou o ritmo antes de iniciar a RCP.");
+        if(s.checks>=1&&s.cicloIni!==null&&!s.pausado){ const dt=s.t-s.cicloIni; if(dt<100) erro("Checou o ritmo com "+aclsMmss(dt)+" de ciclo: interrompeu as compressões antes dos 2 min."); else if(dt>150) erro("Ciclo de "+aclsMmss(dt)+": a checagem do ritmo deve ser a cada 2 min."); }
+        const novo=s.checks===0?caso.inicial:caso.proximo(s); s.ritmo=novo; s.checks++; s.rcp=false; s.pausado=true; s.choqueNestaPausa=false; s.aposChoque=false; adv(4);
+        if(novo==="rce"&&s.capno) log("Ao parar as compressões, ETCO2 tinha subido de forma abrupta para 38 mmHg.","info");
+        log("Pausa para análise. Monitor: "+ACLS_NOME_RITMO[novo]+".","ritmo"); }
+      else if(id==="choque"){ if(!s.monitor){ log("Sem pás conectadas.","alerta"); commit(); return; }
+        if(!s.pausado){ erro("Chocou sem pausar e analisar o ritmo."); }
+        else if(!chocavel(s.ritmo)) erro("Choque em ritmo não chocável ("+ACLS_NOME_RITMO[s.ritmo]+"). Desfibrilação não trata AESP/assistolia.",true);
+        else if(s.choqueNestaPausa) erro("Segundo choque na mesma pausa: após o choque, retome a RCP por 2 min.");
+        else { s.choques++; s.choqueNestaPausa=true; s.aposChoque=true; if(s.tPrimChoque===null) s.tPrimChoque=s.t; if(s.choques===2) s.tSegChoque=s.t; log("\"Afastem-se!\" Choque "+s.choques+" aplicado (bifásico 200 J). Retome as compressões já."); }
+        adv(3); }
+      else if(id==="pulso"){ adv(8);
+        if(s.aposChoque) erro("Checou pulso logo após o choque: o certo é retomar a RCP imediatamente por 2 min.");
+        if(!s.pausado){ erro("Parou as compressões para checar pulso fora da análise de ritmo."); s.rcp=false; s.pausado=true; }
+        if(s.ritmo==="rce"){ s.rce=true; s.tRce=s.t; s.fase="rce"; s.rcp=false; s.ritmo="rce"; log("PULSO PRESENTE: retorno da circulação espontânea (RCE). "+caso.pos,"ok"); }
+        else if(s.ritmo==="aesp"){ s.viuAesp=true; log("Sem pulso: é AESP (atividade elétrica sem pulso). Volte às compressões."); }
+        else erro("Checou pulso em "+ACLS_NOME_RITMO[s.ritmo].toLowerCase()+": ritmo desorganizado não tem pulso; perdeu tempo sem compressão."); }
+      else if(id==="confirmaAssist"){ adv(3); if(s.ritmo!=="assist"){ log("Não é linha reta.","alerta"); } else { s.confirmouAssist=true; log("Cabos conectados, ganho aumentado e derivação trocada: assistolia confirmada (não é FV fina)."); } }
+      else if(id==="trocar"){ adv(1); if(s.pausado){ s.trocas++; log("Troca do compressor durante a pausa."); } else log("Troque o compressor na pausa da checagem do ritmo, para não interromper as compressões.","alerta"); }
+      else if(id==="acesso"){ adv(20); s.acesso=true; log("Acesso venoso periférico calibroso"+(s.pausado?" (com as compressões paradas!)":" sem interromper as compressões")+"."); if(s.pausado) erro("Obteve acesso com as compressões paradas."); }
+      else if(id==="io"){ adv(15); s.acesso=true; log("Acesso intraósseo obtido."); }
+      else if(id==="adr"){ if(!s.acesso){ log("Sem acesso venoso ou intraósseo.","alerta"); commit(); return; }
+        const ult=s.adrT[s.adrT.length-1];
+        if(ult!==undefined&&s.t-ult<170) erro("Adrenalina repetida com "+aclsMmss(s.t-ult)+": o intervalo é de 3 a 5 min.");
+        if(chocavel(s.ritmo)&&s.choques<2&&!s.adrT.length) log("Em ritmo chocável, a 1ª adrenalina entra após o 2º choque.","alerta");
+        if(s.fase==="rce"){ erro("Bolus de adrenalina de PCR com o paciente com pulso.",true); }
+        s.adrT.push(s.t); adv(8); log("Adrenalina 1 mg IV em bolus + 20 mL de SF e elevação do membro (dose "+s.adrT.length+")."); if(s.pausado) erro("Pausou as compressões para medicar; as drogas entram durante a RCP."); }
+      else if(id==="amio300"||id==="amio150"||id==="lido"){ if(!s.acesso){ log("Sem acesso venoso ou intraósseo.","alerta"); commit(); return; }
+        if(!chocavel(s.ritmo)&&!(s.ritmo==="rce")) erro("Antiarrítmico em ritmo não chocável: sem indicação.");
+        else if(id==="amio300"){ if(s.amio>=1) erro("A 2ª dose de amiodarona é 150 mg."); else if(s.choques<3) log("A amiodarona entra após o 3º choque (FV/TV refratária).","alerta"); s.amio++; s.anti++; log("Amiodarona 300 mg IV em bolus."); }
+        else if(id==="amio150"){ if(s.amio===0) erro("A 1ª dose de amiodarona na PCR é 300 mg."); s.amio++; s.anti++; log("Amiodarona 150 mg IV."); }
+        else { s.anti++; log("Lidocaína 1 a 1,5 mg/kg IV."); }
+        adv(8); }
+      else if(id==="atropina"){ adv(8); erro("Atropina não faz parte do algoritmo de PCR (AESP/assistolia).",true); }
+      else if(id==="iot"){ adv(s.pausado?15:20); s.via=true; s.capno=true; log("Intubação orotraqueal"+(s.pausado?" com as compressões paradas.":" sem parar as compressões.")+" Capnografia conectada: ETCO2 "+(s.rcp||!s.pausado?"18":"8")+" mmHg. A partir de agora, 1 ventilação a cada 6 s, compressões contínuas.");
+        if(s.pausado) erro("Pausou as compressões para intubar."); if(caso.causa==="hipoxia") { s.causaTratada=true; } }
+      else if(id==="supra"){ adv(15); s.via=true; s.capno=true; log("Dispositivo supraglótico posicionado; capnografia conectada. 1 ventilação a cada 6 s."); if(caso.causa==="hipoxia") s.causaTratada=true; }
+      else if(id==="continuar"){ if(!s.rcp){ log("A RCP está parada: retome as compressões.","alerta"); commit(); return; }
+        const falta=Math.max(0,120-(s.t-s.cicloIni)); adv(falta||10); log("Compressões de qualidade até completar o ciclo"+(s.capno?" (ETCO2 entre 15 e 20 mmHg)":"")+". Hora de checar o ritmo."); }
+      else if(id==="investigar"){ adv(5); s.investigou[extra]=true; const p=(caso.pistas||{})[extra];
+        log(ACLS_CAUSAS.find(c=>c[0]===extra)[1]+": "+(p||"sem dados que sugiram esta causa."),p?"ok":"info"); }
+      else if(id==="tratar"){ const tr=ACLS_TRAT.find(x=>x[0]===extra); adv(10);
+        if(extra==="oxigenio"){ s.via=true; s.capno=true; }
+        if(caso.causaTrat.includes(extra)){ s.causaTratada=true; log(tr[1]+": tratamento da causa ("+ACLS_CAUSAS.find(c=>c[0]===caso.causa)[1]+").","ok"); }
+        else if(tr[2].includes(caso.causa)) log(tr[1]+": medida de apoio, mas não resolve sozinha a causa principal.","alerta");
+        else erro(tr[1]+": sem indicação neste caso."); }
+      else if(id==="pos"){ s.pos=extra; s.fim=true; }
+      else if(id==="encerrarEsforcos"){ s.fim=true; log("Esforços de reanimação encerrados pelo líder.","alerta"); }
+    } else {
+    /* ---------- bradicardia / taquicardia com pulso ---------- */
+      const tq=caso.tipo==="taqui";
+      if(id==="avaliar"){ adv(10); s.avaliou=true; log(caso.sinais); }
+      else if(id==="o2"){ adv(5); s.o2=true; log("O2 por cateter/máscara para SatO2 ≥ 94%."); }
+      else if(id==="monitor"){ adv(5); s.monitorPas=true; log("Monitor cardíaco, oxímetro e pressão não invasiva; pás/eletrodos de marcapasso e de cardioversão posicionados."); }
+      else if(id==="acesso"){ adv(20); s.acesso=true; log("Acesso venoso periférico."); }
+      else if(id==="ecg"){ adv(30); s.ecg=true; log(tq?(s.estavel?"ECG de 12 derivações pós-reversão: ritmo sinusal, sem alterações isquêmicas agudas.":"ECG de 12 derivações: taquicardia regular de QRS estreito, 186 bpm, sem P visível (TSV por reentrada)."):"ECG de 12 derivações: BAV total, escape ventricular de QRS largo a 32 bpm."); if(!s.estavel&&tq) log("Paciente instável: não atrase a cardioversão por exames.","alerta"); }
+      else if(id==="atropina"){ if(!s.acesso){ log("Sem acesso venoso.","alerta"); commit(); return; } adv(60); s.atropina++;
+        if(tq) erro("Atropina em taquicardia: contraindicada.",true);
+        else if(s.atropina>3) erro("Atropina acima da dose máxima (3 mg).");
+        else log("Atropina 1 mg IV ("+s.atropina+" mg no total). Após 1 min: sem resposta, FC 32 bpm (BAV total infranodal costuma não responder)."); }
+      else if(id==="mp"){ adv(40);
+        if(tq){ erro("Marcapasso em taquicardia: sem indicação."); }
+        else { s.mp=true; s.estavel=true; s.ritmo="mp"; log("Marcapasso transcutâneo: FC 70, corrente aumentada até captura elétrica e mecânica (pulso femoral a 70). PA 104x62 mmHg."+(s.sedacao?"":" Paciente com dor intensa a cada estímulo.")); if(!s.sedacao) erro("Marcapasso transcutâneo sem analgesia/sedação."); } }
+      else if(id==="sedacao"){ adv(20); s.sedacao=true; log(tq?"Sedação breve (ex.: etomidato ou midazolam em dose baixa, com cuidado na hipotensão) e analgesia.":"Analgesia e sedação leve para o marcapasso (ex.: fentanil e midazolam em doses baixas)."); }
+      else if(id==="dopa"){ if(!s.acesso){ log("Sem acesso venoso.","alerta"); commit(); return; } adv(60); s.droga=true;
+        if(tq) erro("Dopamina em taquicardia: piora a frequência.",true);
+        else { s.estavel=s.estavel||false; log("Dopamina 5 a 20 mcg/kg/min: FC 46, PA 88x54 mmHg. Melhora parcial; mantenha preparado o marcapasso."); } }
+      else if(id==="adrInf"){ if(!s.acesso){ log("Sem acesso venoso.","alerta"); commit(); return; } adv(60); s.droga=true;
+        if(tq) erro("Adrenalina em taquicardia: piora a frequência.",true); else log("Adrenalina 2 a 10 mcg/min em infusão: FC 48, PA 90x56 mmHg. Melhora parcial."); }
+      else if(id==="especialista"){ adv(5); s.especialista=true; log(tq?"Cardiologia avisada para seguimento (estudo eletrofisiológico eletivo).":"Cardiologia acionada para marcapasso transvenoso/definitivo."); }
+      else if(id==="vagal"){ adv(20); log("Manobra vagal modificada: sem reversão. Paciente segue instável.","alerta"); if(!s.estavel) erro("Em taquicardia instável, a conduta é cardioversão sincronizada imediata; manobra vagal só atrasa."); }
+      else if(id==="adenosina"){ if(!s.acesso){ log("Sem acesso venoso.","alerta"); commit(); return; } adv(30); s.adenosina++; log("Adenosina "+(s.adenosina===1?"6":"12")+" mg em bolus rápido + flush: pausa de 3 s e a TSV volta. Paciente ainda instável.","alerta"); }
+      else if(id==="cv"){ adv(15);
+        if(!tq){ erro("Cardioversão em bradicardia: sem indicação.",true); }
+        else { if(!s.sedacao) erro("Cardioversão sem sedação em paciente consciente (seda se não atrasar).");
+          s.cv=true; s.estavel=true; s.ritmo="sinus"; log("Modo SINCRONIZADO ligado, \"afastem-se\", choque de 100 J: reversão para ritmo sinusal, FC 92 bpm, PA 118x72 mmHg."); } }
+      else if(id==="desfib"){ adv(5); erro("Choque NÃO sincronizado em paciente com pulso: risco de induzir FV (fenômeno R sobre T).",true); }
+      else if(id==="amio"){ if(!s.acesso){ log("Sem acesso venoso.","alerta"); commit(); return; } adv(60); if(tq) erro("Amiodarona no paciente instável atrasa a cardioversão (fica para o estável)."); else erro("Amiodarona em bradicardia: piora o bloqueio.",true); }
+      else if(id==="verap"){ if(!s.acesso){ log("Sem acesso venoso.","alerta"); commit(); return; } adv(30); erro(tq?"Verapamil/diltiazem com PA 78x50: piora a hipotensão.":"Bloqueador de canal de cálcio em bradicardia: contraindicado.",true); }
+      else if(id==="rcp"){ adv(10); erro("Compressões em paciente COM pulso.",true); }
+      else if(id==="concluir"){ s.fim=true; }
+    }
+    commit();
+  };
+
+  /* ---------- correção ---------- */
+  const correcao=()=>{ const it=[]; const add=(t,ok,por)=>it.push({t,ok,por});
+    if(pcr){
+      add("Avaliou responsividade e chamou ajuda pedindo o desfibrilador",s.resp&&s.ajuda,"Segurança da cena, responsividade e acionar equipe + desfibrilador vêm primeiro.");
+      add("Checou pulso e respiração (até 10 s) antes de comprimir",s.pulsoIni,"Pulso central e respiração ao mesmo tempo, em no máximo 10 s.");
+      add("Iniciou compressões em até 30 s da cena",s.tRcp!==null&&s.tRcp<=30,"Cada minuto sem RCP reduz muito a sobrevida. Seu tempo: "+(s.tRcp===null?"não iniciou":aclsMmss(s.tRcp))+".");
+      if(chocavel(caso.inicial)) add("Primeiro choque sem atraso (até 2 min do início da RCP)",s.tPrimChoque!==null&&s.tPrimChoque-(s.tRcp||0)<=120,"Em FV/TV sem pulso, a desfibrilação precoce é o que mais salva. Seu tempo: "+(s.tPrimChoque===null?"sem choque":aclsMmss(s.tPrimChoque-(s.tRcp||0)))+".");
+      else add("Não chocou ritmo não chocável"+(caso.inicial==="assist"?" e confirmou a assistolia (cabos, ganho, derivação)":""),!s.criticos.some(e=>/não chocável/.test(e))&&(caso.inicial!=="assist"||s.confirmouAssist),"AESP e assistolia: RCP + adrenalina + causas. Linha reta: confira cabos, ganho e derivação.");
+      const semRetomar=s.erros.some(e=>/logo após o choque/.test(e))||s.criticos.some(e=>/sem chocar/.test(e));
+      add("Após cada choque, retomou a RCP imediatamente sem checar pulso",s.choques>0?!semRetomar:!s.criticos.some(e=>/sem chocar/.test(e)),"Choque → 2 min de RCP → só então ritmo/pulso.");
+      const ciclos=s.erros.filter(e=>/ciclo|Ciclo/.test(e)).length;
+      add("Ciclos de 2 min com checagem do ritmo",s.checks>=2&&ciclos===0,"Checar cedo interrompe a perfusão; checar tarde atrasa choque e drogas.");
+      add("Trocou o compressor a cada checagem",s.trocas>=Math.max(1,s.checks-1),"Fadiga piora a qualidade em 1 a 2 min. Trocas: "+s.trocas+" em "+s.checks+" checagens.");
+      const fimPcr=s.tRce!==null?s.tRce:s.t; const adr=s.adrT; let adrOk=adr.length>0;
+      if(adrOk){ if(chocavel(caso.inicial)){ if(s.tSegChoque===undefined||adr[0]<s.tSegChoque) adrOk=false; } else if(adr[0]-(s.tRcp||0)>200) adrOk=false;
+        for(let i=1;i<adr.length;i++) if(adr[i]-adr[i-1]<170||adr[i]-adr[i-1]>330) adrOk=false; if(fimPcr-adr[adr.length-1]>330) adrOk=false; }
+      add(chocavel(caso.inicial)?"Adrenalina após o 2º choque, a cada 3 a 5 min":"Adrenalina o quanto antes, a cada 3 a 5 min",adrOk,"Doses em: "+(adr.length?adr.map(x=>aclsMmss(x)).join(", "):"nenhuma")+".");
+      if(chocavel(caso.inicial)) add("Antiarrítmico na FV/TV refratária (amiodarona 300 → 150 mg ou lidocaína)",caso.id==="tv"?(s.anti>0||s.choques<3)&&!s.erros.some(e=>/amiodarona/i.test(e)):s.anti>0&&!s.erros.some(e=>/amiodarona/i.test(e)),"Após o 3º choque.");
+      add("Buscou e tratou a causa reversível (5H/5T)",caso.causaTrat.length?s.causaTratada:(s.investigou[caso.causa]||(s.pos||[]).includes("cate")),"Causa deste caso: "+ACLS_CAUSAS.find(c=>c[0]===caso.causa)[1]+".");
+      add("Capnografia/via aérea sem interromper as compressões",s.capno&&!s.erros.some(e=>/intubar/.test(e)),"Via aérea avançada com compressões contínuas e ETCO2 para guiar a qualidade.");
+      const ccf=s.handsOn+s.handsOff>0?s.handsOn/(s.handsOn+s.handsOff):0;
+      add("Fração de compressão ≥ 80%",ccf>=.8,"Sua fração: "+Math.round(ccf*100)+"%. Pausas curtas (menos de 10 s) para ritmo e choque.");
+      const sel=s.pos||[]; const certos=ACLS_POS.filter(o=>o.ok===true||(o.ok==="cate"&&caso.cate)).map(o=>o.id); const errados=ACLS_POS.filter(o=>o.ok===false).map(o=>o.id);
+      const acertos=certos.filter(i=>sel.includes(i)).length, marcouErrado=errados.filter(i=>sel.includes(i));
+      add("Reconheceu o RCE e fez os cuidados pós-PCR",s.rce&&acertos>=certos.length-1&&!marcouErrado.length,s.rce?"Marcou "+acertos+" de "+certos.length+" medidas certas"+(marcouErrado.length?" e "+marcouErrado.length+" errada(s)":"")+".":"Não houve RCE.");
+    } else if(caso.tipo==="bradi"){
+      add("Avaliou estabilidade (sinais de choque, consciência, dor torácica, congestão)",s.avaliou,"Bradicardia só se trata com urgência se causa instabilidade.");
+      add("Monitor, oxigênio (SatO2 < 94%) e acesso venoso",s.monitorPas&&s.o2&&s.acesso,"Monitorização e acesso antes das drogas.");
+      add("Atropina 1 mg como 1ª droga (até 3 mg)",s.atropina>=1&&s.atropina<=3,"Mesmo que o BAV total infranodal não responda, ela não deve atrasar o marcapasso.");
+      add("Marcapasso transcutâneo (ou dopamina/adrenalina) quando a atropina falhou",s.mp||s.droga,"Sem resposta à atropina: marcapasso transcutâneo ou infusão de cronotrópico.");
+      add("Analgesia/sedação para o marcapasso",s.sedacao,"O estímulo do marcapasso transcutâneo é muito doloroso.");
+      add("ECG de 12 derivações",s.ecg,"Documenta o tipo de bloqueio.");
+      add("Acionou especialista (marcapasso transvenoso)",s.especialista,"O transcutâneo é ponte.");
+      add("Estabilizou o paciente",s.estavel,"Meta: perfusão adequada.");
+    } else {
+      add("Avaliou estabilidade e reconheceu a taquicardia instável",s.avaliou,"Hipotensão, confusão, dor torácica e congestão = instável.");
+      add("Monitor, oxigênio e acesso venoso",s.monitorPas&&s.o2&&s.acesso,"Sem atrasar a terapia elétrica.");
+      add("Sedação antes da cardioversão",s.sedacao,"Seda se não atrasar o choque.");
+      add("Cardioversão elétrica SINCRONIZADA",s.cv,"QRS estreito regular: 50 a 100 J.");
+      add("Sem condutas que atrasam (vagal, amiodarona) ou pioram (verapamil)",!s.erros.some(e=>/vagal|atrasa/.test(e))&&!s.criticos.some(e=>/Verapamil/.test(e)),"Adenosina pode ser tentada se não atrasar a cardioversão.");
+      add("Não chocou sem sincronizar",!s.criticos.some(e=>/NÃO sincronizado/.test(e)),"Choque não sincronizado só para TV polimórfica/FV.");
+      add("ECG de 12 derivações após a reversão",s.ecg&&s.estavel,"Documenta o ritmo e procura pré-excitação/isquemia.");
+      add("Encaminhou ao especialista",s.especialista,"Seguimento da TSV recorrente.");
+    }
+    const pts=it.filter(x=>x.ok).length; let pct=Math.round(pts/it.length*100); if(s.criticos.length) pct=Math.min(pct,40);
+    return {it,pct};
+  };
+
+  /* ---------- tela de resultado ---------- */
+  if(s.fim){ const r=correcao();
+    return <div>
+      <button className="btn ghost sm" onClick={onVoltar}>← Cenários ACLS</button>
+      <h2 style={{fontSize:20,margin:"12px 0 4px"}}>🫀 {caso.titulo}</h2>
+      <div className="card" style={{marginBottom:12,textAlign:"center"}}>
+        <div style={{fontSize:38,fontWeight:800,color:r.pct>=70?"var(--ok)":r.pct>=50?"var(--warn)":"var(--bad)"}}>{r.pct}%</div>
+        <div className="muted" style={{fontSize:13}}>{pcr?(s.rce?"RCE em "+aclsMmss(s.tRce)+" de simulação":"Sem RCE"):(s.estavel?"Paciente estabilizado em "+aclsMmss(s.t):"Paciente não estabilizado")}{s.criticos.length?" · nota limitada a 40% por erro crítico":""}</div>
+      </div>
+      {s.criticos.length>0 && <div className="card" style={{marginBottom:12,borderColor:"var(--bad)"}}><div className="tag" style={{color:"var(--bad)"}}>ERROS CRÍTICOS</div>{[...new Set(s.criticos)].map((e,k)=><div key={k} style={{fontSize:13.5,marginTop:6}}>⛔ {e}</div>)}</div>}
+      <div className="card" style={{marginBottom:12}}><div className="tag" style={{color:"var(--acc)"}}>CHECKLIST</div>
+        {r.it.map((x,k)=><div key={k} style={{marginTop:8,fontSize:13.5}}><b>{x.ok?"✅":"❌"} {x.t}</b><div className="muted" style={{fontSize:12.5}}>{x.por}</div></div>)}</div>
+      {s.erros.length>0 && <div className="card" style={{marginBottom:12}}><div className="tag" style={{color:"var(--warn)"}}>PONTOS A CORRIGIR</div>{[...new Set(s.erros)].map((e,k)=><div key={k} style={{fontSize:13.5,marginTop:6}}>⚠️ {e}</div>)}</div>}
+      {pcr&&s.pos && <div className="card" style={{marginBottom:12}}><div className="tag" style={{color:"var(--acc)"}}>PÓS-PCR: GABARITO</div>
+        {ACLS_POS.map(o=>{ const certo=o.ok===true||(o.ok==="cate"&&caso.cate), neutro=o.ok==="cate"&&!caso.cate, marcou=s.pos.includes(o.id); return <div key={o.id} style={{fontSize:13,marginTop:6}}>{neutro?"➖":marcou===certo?"✅":"❌"} {o.t} <span className="muted">— {neutro?"opcional neste caso (sem supra de ST)":certo?"fazer":"não fazer"}: {o.por}</span></div>; })}</div>}
+      <div className="card" style={{marginBottom:12}}><div className="tag" style={{color:"var(--acc)"}}>LINHA DO TEMPO</div>
+        {s.log.map((l,k)=><div key={k} style={{fontSize:12.5,marginTop:5,color:l.tipo==="critico"?"var(--bad)":l.tipo==="erro"?"var(--warn)":undefined}}><span className="muted">{aclsMmss(l.t)}</span> {l.txt}</div>)}</div>
+      <div className="row" style={{gap:8}}><button className="btn" onClick={()=>{ S.current=aclsNovoEstado(caso); setPosSel({}); setPainel(null); commit(); }}>Refazer o cenário</button><button className="btn ghost" onClick={onVoltar}>Outro cenário</button></div>
+    </div>;
+  }
+
+  /* ---------- tela de simulação ---------- */
+  const Bt=({id,extra,children,dis,cor})=><button className="btn ghost sm" disabled={dis} style={{margin:3,borderColor:cor||undefined}} onClick={()=>ag(id,extra)}>{children}</button>;
+  const ultimos=s.log.slice(-6).reverse();
+  const ritmoTela=s.fase==="rce"?"rce":s.ritmo;
+  const legenda=!s.monitor?"monitor desconectado":pcr?(s.rcp?"artefato das compressões":s.pausado||s.fase==="rce"?ACLS_NOME_RITMO[ritmoTela]:"—"):ACLS_NOME_RITMO[s.ritmo];
+  const ciclo=s.rcp&&s.cicloIni!==null?s.t-s.cicloIni:null;
+  const ultAdr=s.adrT.length?s.t-s.adrT[s.adrT.length-1]:null;
+  const pv=txt=>{ const t=String(txt||""); const fc=t.match(/FC (\d+)/), pa=t.match(/PA (\d+x\d+)/), sat=t.match(/SatO2 (\d+)/); return {fc:fc&&fc[1],pa:pa&&pa[1].replace("x","/"),sat:sat&&sat[1]}; };
+  const FC_RITMO={fv:"---",tv:180,aesp:38,assist:0,rce:98,sinus:92,bavt:32,mp:70,tsv:186};
+  let vit={};
+  if(s.monitor){ if(pcr){ if(s.fase==="rce") vit={...pv(caso.pos),etco2:s.capno?38:null}; else vit={fc:s.rcp?"RCP":FC_RITMO[s.ritmo],sat:null,pa:null,etco2:s.capno?(s.rcp?18:6):null}; }
+    else { vit=s.estavel?(caso.tipo==="bradi"?{fc:70,pa:"104/62",sat:96}:{fc:92,pa:"118/72",sat:97}):{...pv(caso.sinais)}; if(s.o2&&!s.estavel&&vit.sat) vit.sat=Math.min(95,+vit.sat+4); } }
+  const feito=(ok,txt)=>ok?"✓ "+txt:txt;
+  return <div>
+    <button className="btn ghost sm" onClick={onVoltar}>← Cenários ACLS</button>
+    <h2 style={{fontSize:19,margin:"12px 0 6px"}}>🫀 {caso.titulo}</h2>
+    {s.log.length===0 && <div className="card" style={{marginBottom:10,fontSize:14,lineHeight:1.55}}>{caso.intro}</div>}
+    <MonitorACLS ritmo={ritmoTela} rcp={s.rcp} ligado={s.monitor} legenda={legenda} vit={vit}/>
+    <div className="row" style={{gap:6,flexWrap:"wrap",margin:"8px 0",fontSize:12.5}}>
+      <span className="pill">⏱ {aclsMmss(s.t)}</span>
+      {s.log.length>0 && s.fase!=="rce" && <button className="btn ghost sm" style={{padding:"2px 10px"}} onClick={()=>setCongelado(!congelado)}>{congelado?"▶ continuar":"⏸ congelar relógio"}</button>}
+      {pcr && <span className="pill" style={{color:s.rcp?"var(--ok)":"var(--bad)",borderColor:s.rcp?"var(--ok)":"var(--bad)"}}>{s.rcp?"RCP em curso":s.fase==="rce"?"RCE":"compressões paradas"}</span>}
+      {ciclo!==null && <span className="pill" style={{color:ciclo>=120?"var(--bad)":ciclo>=105?"var(--warn)":undefined,borderColor:ciclo>=120?"var(--bad)":undefined}}>ciclo {aclsMmss(ciclo)} / 02:00{ciclo>=120?" · checar ritmo!":""}</span>}
+      {pcr && <span className="pill">⚡ {s.choques}</span>}
+      {pcr && <span className="pill">💉 adrenalina {s.adrT.length}{ultAdr!==null?" (há "+aclsMmss(ultAdr)+")":""}</span>}
+      {s.capno && s.fase==="pcr" && <span className="pill">ETCO2 {s.rcp?"18":"—"} mmHg</span>}
+      {s.acesso && <span className="pill">acesso ✓</span>}
+      {s.via && <span className="pill">via aérea ✓</span>}
+    </div>
+    <div className="card" style={{marginBottom:10,padding:10}}>
+      {ultimos.length===0 && <div className="muted" style={{fontSize:13}}>Comece pela cena: o que você faz primeiro?</div>}
+      {ultimos.map((l,k)=><div key={k} style={{fontSize:13,marginTop:k?5:0,opacity:k?.65:1,color:feedbackJa&&l.tipo==="critico"?"var(--bad)":feedbackJa&&l.tipo==="erro"?"var(--warn)":undefined}}>
+        <span className="muted">{aclsMmss(l.t)}</span> {(!feedbackJa&&(l.tipo==="erro"||l.tipo==="critico"))?"(registrado para o debriefing)":l.txt}</div>)}
+    </div>
+    {pcr && s.fase!=="rce" && <div>
+      {s.fase==="cena" && <div><div className="tag" style={{margin:"6px 3px"}}>CENA</div>
+        <Bt id="resp" dis={s.resp}>{feito(s.resp,"Segurança + responsividade")}</Bt><Bt id="ajuda" dis={s.ajuda}>{feito(s.ajuda,"Chamar ajuda + desfibrilador")}</Bt><Bt id="pulsoIni" dis={s.pulsoIni}>{feito(s.pulsoIni,"Checar pulso e respiração (≤10 s)")}</Bt></div>}
+      <div className="tag" style={{margin:"6px 3px"}}>RCP E RITMO</div>
+      {!s.rcp && <Bt id="rcp" cor="var(--ok)">{s.tRcp===null?"Iniciar RCP":"Retomar compressões"}</Bt>}
+      {s.rcp && <Bt id="continuar" cor="var(--ok)">Manter RCP até fechar o ciclo</Bt>}
+      {!s.monitor && <Bt id="monitor">Instalar pás / monitor</Bt>}
+      {s.monitor && !s.pausado && <Bt id="ritmo">Pausar e checar o ritmo</Bt>}
+      {s.monitor && <Bt id="choque" cor="#ffd166">⚡ Chocar 200 J</Bt>}
+      {s.pausado && <Bt id="pulso">Checar pulso</Bt>}
+      {s.pausado && <Bt id="trocar">Trocar compressor</Bt>}
+      {s.pausado && s.ritmo==="assist" && <Bt id="confirmaAssist">Checar cabos, ganho e derivação</Bt>}
+      {s.fase==="pcr" && <div>
+        <div className="tag" style={{margin:"6px 3px"}}>ACESSO E DROGAS</div>
+        {!s.acesso && <><Bt id="acesso">Acesso venoso</Bt><Bt id="io">Acesso intraósseo</Bt></>}
+        <Bt id="adr">Adrenalina 1 mg</Bt><Bt id="amio300">Amiodarona 300 mg</Bt><Bt id="amio150">Amiodarona 150 mg</Bt><Bt id="lido">Lidocaína 1 mg/kg</Bt><Bt id="atropina">Atropina 1 mg</Bt>
+        <div className="tag" style={{margin:"6px 3px"}}>VIA AÉREA E CAUSAS</div>
+        {!s.via && <><Bt id="iot">Intubar + capnografia</Bt><Bt id="supra">Dispositivo supraglótico</Bt></>}
+        <button className="btn ghost sm" style={{margin:3}} onClick={()=>setPainel(painel==="causas"?null:"causas")}>🔎 5H e 5T {painel==="causas"?"▾":"▸"}</button>
+        {painel==="causas" && <div className="card" style={{margin:"6px 0",padding:10}}>
+          <div className="muted" style={{fontSize:12.5,marginBottom:4}}>Investigar (sem parar as compressões):</div>
+          {ACLS_CAUSAS.map(c=><Bt key={c[0]} id="investigar" extra={c[0]}>{c[1]}</Bt>)}
+          <div className="muted" style={{fontSize:12.5,margin:"8px 0 4px"}}>Tratar:</div>
+          {ACLS_TRAT.map(c=><Bt key={c[0]} id="tratar" extra={c[0]}>{c[1]}</Bt>)}
+        </div>}
+        <div style={{marginTop:8}}><button className="btn ghost sm" style={{margin:3,color:"var(--bad)"}} onClick={()=>{ if(confirm("Encerrar os esforços de reanimação?")) ag("encerrarEsforcos"); }}>Encerrar esforços</button></div>
+      </div>}
+    </div>}
+    {pcr && s.fase==="rce" && <div className="card">
+      <div className="tag" style={{color:"var(--ok)"}}>PÓS-PCR: MARQUE O QUE VOCÊ FAZ AGORA</div>
+      {ACLS_POS.map(o=><label key={o.id} style={{display:"flex",gap:8,alignItems:"flex-start",fontSize:13.5,marginTop:8,cursor:"pointer"}}>
+        <input type="checkbox" style={{width:"auto",flex:"none",marginTop:3}} checked={!!posSel[o.id]} onChange={()=>setPosSel(p=>({...p,[o.id]:!p[o.id]}))}/> {o.t}</label>)}
+      <button className="btn" style={{marginTop:12}} onClick={()=>ag("pos",Object.keys(posSel).filter(k=>posSel[k]))}>Concluir e ver a correção</button>
+    </div>}
+    {!pcr && <div>
+      <div className="tag" style={{margin:"6px 3px"}}>AVALIAÇÃO</div>
+      <Bt id="avaliar">Avaliar ABC e sinais de instabilidade</Bt><Bt id="o2">Oxigênio</Bt><Bt id="monitor">Monitor + pás</Bt><Bt id="acesso" dis={s.acesso}>Acesso venoso</Bt><Bt id="ecg">ECG de 12 derivações</Bt>
+      <div className="tag" style={{margin:"6px 3px"}}>CONDUTA</div>
+      <Bt id="atropina">Atropina 1 mg</Bt><Bt id="adenosina">Adenosina</Bt><Bt id="vagal">Manobra vagal</Bt><Bt id="sedacao">Analgesia/sedação</Bt>
+      <Bt id="mp">Marcapasso transcutâneo</Bt><Bt id="cv" cor="#ffd166">⚡ Cardioversão sincronizada</Bt><Bt id="desfib">⚡ Desfibrilar (não sincronizado)</Bt>
+      <Bt id="dopa">Dopamina em infusão</Bt><Bt id="adrInf">Adrenalina em infusão</Bt><Bt id="amio">Amiodarona</Bt><Bt id="verap">Verapamil/diltiazem</Bt><Bt id="rcp">Iniciar compressões</Bt>
+      <Bt id="especialista">Acionar especialista</Bt>
+      <div style={{marginTop:10}}><button className="btn sm" onClick={()=>ag("concluir")}>Concluir atendimento e ver a correção</button></div>
+    </div>}
+    <label className="muted" style={{display:"flex",gap:6,alignItems:"center",fontSize:12.5,marginTop:12}}><input type="checkbox" style={{width:"auto",flex:"none"}} checked={feedbackJa} onChange={()=>setFeedbackJa(!feedbackJa)}/> Mostrar erros na hora (desmarque para simular prova)</label>
+  </div>;
+}
 function OSCE({onVoltar}){
   const [caso,setCaso]=useState(osceCasoPedido);
   const [areaSel,setAreaSel]=useState(()=>{ try{ const a=window.__OSCE_AREA; if(a&&OSCE_TEMAS[a]){ window.__OSCE_AREA=null; return a; } }catch(e){} return "CM"; });
