@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.29.1";
+  window.APP_VERSION="2026.10.29.2";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -7595,6 +7595,10 @@ function OSCEEstacao({caso, onVoltar}){
     d += "\nCONTEXTO CLÍNICO: "+caso.contextoIA;
     return d;
   };
+  /* quem é quem: sem isso o modelo às vezes assume o papel do médico ("Senta aqui, o que aconteceu?") */
+  const papelPaciente=()=>"\n\nPAPEL (obrigatório): você é o PACIENTE do cenário acima"+(/^(lactente|crianca|menino|menina|rn|recem|escolar|pre-escolar)/.test(normExame(caso.cenario||""))?" (quem fala é a mãe ou o responsável pela criança)":"")+". Quem conversa com você é o MÉDICO, que é o estudante. "+
+    "Você NUNCA é o médico, o enfermeiro nem o recepcionista: não convide a sentar, não pergunte 'o que aconteceu', 'o que te traz aqui' ou 'como posso ajudar' — quem pergunta é o médico. "+
+    "Se o médico só cumprimentar ou se apresentar, responda ao cumprimento como paciente e diga em poucas palavras o que está sentindo (ex.: 'Boa noite, doutor. Tô com uma dor muito forte no peito.').";
   const transcricao = (arr)=> arr.map(m=>(m.de==="aluno"?"ALUNO(médico): ":"PACIENTE/ESTAÇÃO: ")+m.txt).join("\n");
 
   const enviar = async (txtVoz)=>{
@@ -7605,7 +7609,7 @@ function OSCEEstacao({caso, onVoltar}){
     setMsgs(novo); setEntrada(""); setCarregando(true);
     try{
       const contexto =
-        dossie() +
+        dossie() + papelPaciente() +
         "\n\nVocê está SIMULANDO uma estação de OSCE. Faça o papel do PACIENTE (e, quando o aluno pedir exame físico ou exames complementares, faça o papel do AVALIADOR informando apenas os achados pedidos). " +
         "Regras: responda em 1ª pessoa como paciente, de forma curta e realista. Revele SOMENTE a informação que o aluno perguntar — não entregue o diagnóstico nem adiante dados não solicitados. " +
         "Se ele pedir um exame físico específico, informe o achado correspondente. Se pedir exame complementar, dê o resultado. Se perguntar algo fora do caso, responda de forma plausível sem inventar patologia nova. Não avalie nem comente o desempenho agora.\n\n" +
@@ -7640,7 +7644,7 @@ function OSCEEstacao({caso, onVoltar}){
     if(aoVivo){ pararAoVivo(); return; }
     setConversaVoz(false); conversaRef.current=false; try{ recRef.current&&recRef.current.abort(); }catch(e){} pararVozPaciente(); setAvisoVoz("");
     const c=normExame(caso.cenario||""); const fem=/\b(mulher|gestante|primigesta|secundigesta|puerpera|menina|senhora|paciente do sexo feminino|mae)\b/i.test(c)||/^(lactente|crianca|menino|menina|rn|recem|escolar|pre-escolar)/.test(c)||/\bpediatr/.test(c);
-    const instrucao=dossie()+"\n\nVocê está numa estação de OSCE, conversando POR VOZ, em tempo real, com um estudante de Medicina brasileiro. Faça o papel do PACIENTE"+(/^(lactente|crianca|menino|menina|rn|recem|escolar|pre-escolar)/.test(c)?" (quem responde é a mãe da criança)":"")+". "+
+    const instrucao=dossie()+papelPaciente()+"\n\nVocê está numa estação de OSCE, conversando POR VOZ, em tempo real, com um estudante de Medicina brasileiro. Faça o papel do PACIENTE"+(/^(lactente|crianca|menino|menina|rn|recem|escolar|pre-escolar)/.test(c)?" (quem responde é a mãe da criança)":"")+". "+
       "Fale SEMPRE em português do Brasil, como uma pessoa comum fala: frases curtas, linguagem simples, com a emoção que o quadro pede (dor, medo, cansaço), hesitações naturais. "+
       "Responda SOMENTE ao que o estudante perguntar; não entregue o diagnóstico nem adiante dados. Se ele interromper, pare e escute. Não ensine, não avalie e não corrija o estudante. "+
       "Quando o estudante pedir exame físico ou exames complementares, responda com voz neutra começando com 'Examinador:' e informe apenas o achado pedido, de forma objetiva; depois volte a ser o paciente. "+
