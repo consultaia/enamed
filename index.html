@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.29.6";
+  window.APP_VERSION="2026.10.29.7";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -7138,6 +7138,127 @@ function SimuladorACLS({onVoltar}){
   </div>;
   return <MegacodeACLS key={caso.id} caso={caso} onVoltar={()=>setCaso(null)}/>;
 }
+/* ---- ACLS: avaliador que conversa. Comandos falados/digitados viram ações do simulador (no aparelho, sem custo);
+   o que não for reconhecido vai para a IA, que responde como avaliador ou traduz o comando em ação. ---- */
+const ACLS_IDS_PCR=["resp","ajuda","pulsoIni","rcp","continuar","monitor","ritmo","choque","pulso","trocar","confirmaAssist","acesso","io","adr","amio300","amio150","lido","atropina","iot","supra","investigar","tratar","encerrarEsforcos"];
+const ACLS_IDS_PULSO=["avaliar","o2","monitor","acesso","ecg","atropina","mp","sedacao","dopa","adrInf","especialista","vagal","adenosina","cv","desfib","amio","verap","rcp","concluir"];
+function aclsAcoesDeFala(fala,caso,s){
+  const pcr=caso.tipo==="pcr", out=[], tem=(id,ex)=>out.some(a=>a[0]===id&&a[1]===ex), add=(id,ex)=>{ if(!tem(id,ex)) out.push(ex===undefined?[id]:[id,ex]); };
+  const partes=normExame(fala).replace(/[?!;]/g,",").split(/,|\.\s|\be depois\b|\bdepois\b|\bem seguida\b|\benquanto\b|\be ja\b|\s+e\s+(?=[a-z]{3,})/).map(x=>x.trim()).filter(Boolean);
+  for(const p of partes){
+    if(pcr){
+      if(/encerr|parar (a|as) (reanimac|manobras)|declar(o|ar) (o )?obito|suspend(o|er) (a )?reanimac/.test(p)){ add("encerrarEsforcos"); continue; }
+      if(/gluconato|cloreto de calcio|\bcalcio\b/.test(p)){ add("tratar","calcio"); continue; }
+      if(/bicarbonato/.test(p)){ add("tratar","bic"); continue; }
+      if(/(rep(or|oe|onha|osicao)|corrig).*(potassio|magnesio)|\bkcl\b|sulfato de magnesio/.test(p)){ add("tratar","potassioRep"); continue; }
+      if(/cristaloide|soro fisiologico|ringer|expans|bolus de (soro|volume)|\bvolume\b/.test(p)){ add("tratar","cristaloide"); continue; }
+      if(/aquec/.test(p)){ add("tratar","aquecer"); continue; }
+      if(/descompress|toracocentese|puncao (de )?alivio|agulha no (torax|segundo)/.test(p)){ add("tratar","descomp"); continue; }
+      if(/pericardiocent/.test(p)){ add("tratar","pericardio"); continue; }
+      if(/antidoto|naloxona|flumazenil/.test(p)){ add("tratar","antidoto"); continue; }
+      if(/trombolit|alteplase|tenecteplase/.test(p)){ add("tratar","trombolitico"); continue; }
+      if(/oxigenio a 100|o2 a 100|oxigenio 100/.test(p)){ add("tratar","oxigenio"); continue; }
+      if(/intraosse|\bio\b/.test(p)){ add("io"); continue; }
+      if(/acesso|venos|periferic|jelco|abocath|puncion|pegar (uma )?veia/.test(p)){ add("acesso"); continue; }
+      if(/intub|\biot\b|tubo orotraq|via aerea avancada/.test(p)){ add("iot"); continue; }
+      if(/mascara laringea|supraglot|i ?gel|combitubo|tubo laringeo/.test(p)){ add("supra"); continue; }
+      if(/adrenalina|epinefrina/.test(p)){ add("adr"); continue; }
+      if(/amiodarona|ancoron/.test(p)){ add(/150/.test(p)?"amio150":"amio300"); continue; }
+      if(/lidocaina|xilocaina/.test(p)){ add("lido"); continue; }
+      if(/atropina/.test(p)){ add("atropina"); continue; }
+      if(/troc(a|ar|o|uem)|reveza|substitu/.test(p)&&/compress|massag|quem (esta|ta) comprimindo|posic/.test(p)||/troca de compressor/.test(p)){ add("trocar"); continue; }
+      if(/cabo|ganho|derivac/.test(p)){ add("confirmaAssist"); continue; }
+      if(/choc|choque|desfibril(ar|a|e|o)\b|afast|carreg|joules|\b200\b/.test(p)){ add("choque"); continue; }
+      if(/\bpas\b|eletrodo|monitor|conect|liga (o )?desfibrilador/.test(p)&&!s.monitor){ add("monitor"); continue; }
+      if(/(chec|verific|analis|olh|avali|ver)\w*.*ritmo|qual (e )?o ritmo|pausa (para|pra) (o )?ritmo|para (as )?compress\w* (para|pra) (ver|checar|analisar)/.test(p)){ add("ritmo"); continue; }
+      if(/pulso|carotid|femoral/.test(p)){ add(s.fase==="cena"&&!s.pulsoIni?"pulsoIni":"pulso"); continue; }
+      if(/(mant|continu|segu|complet)\w*.*(compress|rcp|massag|ciclo)|ate (os |completar )?(2|dois) minutos|fecha(r)? o ciclo/.test(p)){ add(s.rcp?"continuar":"rcp"); continue; }
+      if(/compress|\brcp\b|massag|reanim|30 (por|para) 2/.test(p)){ add("rcp"); continue; }
+      if(/ajuda|carrinho|desfibrilador|\bdea\b|codigo azul|equipe|time de resposta/.test(p)){ add("ajuda"); continue; }
+      if(/segur|responsiv|responde|me ouve|esta me ouvindo|chamar? o paciente|toc(o|ar) (nos |no )?ombro/.test(p)){ add("resp"); continue; }
+      const causas=[["potassio",/potassio|eletrolit|\bk\b|gasometria/],["hipovolemia",/hipovolem|sangr|perda de sangue/],["hipoxia",/hipox|cianose|saturac|obstruc|aspirac/],
+        ["acidose",/acidose|\bph\b/],["hipotermia",/hipoterm|temperatura/],["pneumotorax",/pneumotorax|murmurio|ausculta|expansibilidade/],["tamponamento",/tampona|jugular|abafad|derrame pericard/],
+        ["toxinas",/toxin|intoxic|medicac|remedio|droga/],["tep",/\btep\b|embolia|trombose pulmonar|tvp/],["coronaria",/infarto|\biam\b|coronar|supra de st|ecg (da triagem|previo|anterior)/]];
+      let achou=false; for(const [c,re] of causas) if(re.test(p)){ add("investigar",c); achou=true; }
+      if(achou) continue;
+    } else {
+      if(/conclu|termin|finaliz|encerr/.test(p)){ add("concluir"); continue; }
+      if(/sincroniz|cardiovers/.test(p)){ add("cv"); continue; }
+      if(/desfibril(ar|a|e|o)\b|nao sincron|choque/.test(p)){ add(/sincron/.test(p)?"cv":"desfib"); continue; }
+      if(/marcapass|\bmp\b|transcut/.test(p)){ add("mp"); continue; }
+      if(/seda|analges|fentanil|midazolam|etomidato|cetamina|morfina/.test(p)){ add("sedacao"); continue; }
+      if(/dopamina/.test(p)){ add("dopa"); continue; }
+      if(/adrenalina|epinefrina/.test(p)){ add(caso.tipo==="bradi"?"adrInf":"adrInf"); continue; }
+      if(/atropina/.test(p)){ add("atropina"); continue; }
+      if(/adenosina/.test(p)){ add("adenosina"); continue; }
+      if(/vagal|valsalva|seio carotid/.test(p)){ add("vagal"); continue; }
+      if(/amiodarona/.test(p)){ add("amio"); continue; }
+      if(/verapamil|diltiazem/.test(p)){ add("verap"); continue; }
+      if(/especialista|cardiolog|hemodinam|marcapasso (transvenoso|definitivo)/.test(p)){ add("especialista"); continue; }
+      if(/\becg\b|eletro|12 deriva/.test(p)){ add("ecg"); continue; }
+      if(/oxigen|\bo2\b|cateter nasal|mascara/.test(p)){ add("o2"); continue; }
+      if(/acesso|venos|periferic|jelco|puncion/.test(p)){ add("acesso"); continue; }
+      if(/monitor|pas\b|eletrodo|oximetr/.test(p)){ add("monitor"); continue; }
+      if(/compress|\brcp\b|massag/.test(p)){ add("rcp"); continue; }
+      if(/avali|estavel|instavel|instabil|\babc\b|sinais vitais|pressao|como (ela|ele) (esta|ta)|nivel de consciencia/.test(p)){ add("avaliar"); continue; }
+    }
+  }
+  return out;
+}
+function aclsPosDeFala(fala){ const t=normExame(fala), ids=[];
+  [["ecg",/\becg\b|eletro|12 deriva/],["sat",/satura|spo2|sato2|92|98/],["pa",/press|\bpam\b|\bpas\b|vasopress|noradrenalina|droga vasoativa/],["co2",/pco2|capnia|normovent|35 (a|e) 45/],
+   ["temp",/temperatura|febre|hipotermia/],["causa",/causa|exames|eletrolit|glicemia|labor/],["cate",/cate|hemodinam|angioplast|coronariograf/],["hiperv",/hiperventil/],["bicrot",/bicarbonato/],
+   ["fio2",/fio2 (de )?100|100 ?%|cem por cento/],["extubar",/extub/]].forEach(([id,re])=>{ if(re.test(t)&&!(id==="sat"&&/100/.test(t)&&!/92|98/.test(t))) ids.push(id); });
+  return ids; }
+function aclsContextoIA(caso,s){
+  const pcr=caso.tipo==="pcr";
+  const ids=pcr?"resp (segurança/responsividade), ajuda (chamar ajuda e desfibrilador), pulsoIni (pulso e respiração na cena), rcp (iniciar/retomar compressões), continuar (manter RCP até fechar 2 min), monitor (pás/monitor), ritmo (pausar e checar ritmo), choque, pulso (checar pulso na pausa), trocar (trocar compressor), confirmaAssist (cabos/ganho/derivação), acesso, io, adr (adrenalina 1 mg), amio300, amio150, lido, atropina, iot, supra, investigar:<causa> (causa = hipovolemia, hipoxia, acidose, potassio, hipotermia, pneumotorax, tamponamento, toxinas, tep, coronaria), tratar:<id> (id = cristaloide, oxigenio, bic, calcio, potassioRep, aquecer, descomp, pericardio, antidoto, trombolitico), encerrarEsforcos"
+    :"avaliar, o2, monitor, acesso, ecg, atropina, mp (marcapasso transcutâneo), sedacao, dopa, adrInf (adrenalina em infusão), especialista, vagal, adenosina, cv (cardioversão sincronizada), desfib (choque não sincronizado), amio, verap, rcp, concluir";
+  const est=pcr?("Tempo "+aclsMmss(s.t)+"; fase "+s.fase+"; RCP "+(s.rcp?"em curso":"parada")+"; monitor "+(s.monitor?"conectado":"desconectado")+"; ritmo na tela: "+(s.pausado||s.fase==="rce"?ACLS_NOME_RITMO[s.fase==="rce"?"rce":s.ritmo]:"não analisável durante as compressões")+"; choques "+s.choques+"; adrenalina "+s.adrT.length+" dose(s); antiarrítmico "+s.anti+"; acesso "+(s.acesso?"sim":"não")+"; via aérea avançada "+(s.via?"sim":"não"))
+    :("Tempo "+aclsMmss(s.t)+"; "+(s.estavel?"paciente estabilizado":"paciente instável")+"; acesso "+(s.acesso?"sim":"não"));
+  const pistas=Object.entries(caso.pistas||{}).map(([k,v])=>k+": "+v).join(" | ");
+  return "Você é o AVALIADOR de uma estação prática de megacode ACLS (AHA) para estudante de Medicina brasileiro. O aluno é o líder da equipe e fala com você e com a equipe.\n"+
+    "CENÁRIO: "+caso.intro+(caso.sinais?" Sinais: "+caso.sinais:"")+"\n"+
+    (pistas?"DADOS QUE SÓ APARECEM SE O ALUNO PEDIR O EXAME OU A INFORMAÇÃO ESPECÍFICA: "+pistas+"\n":"")+
+    "ESTADO ATUAL: "+est+"\nÚLTIMOS EVENTOS: "+s.log.slice(-6).map(l=>aclsMmss(l.t)+" "+l.txt).join(" | ")+"\n"+
+    "REGRAS: 1) Se a fala do aluno for uma ORDEM que corresponde a uma ou mais ações da lista, responda SOMENTE com 'ACAO: id1, id2' (use id:extra para investigar e tratar). Ações: "+ids+".\n"+
+    "2) Se for pergunta ou pedido de informação (ex.: glicemia, história, temperatura, exame), responda como o avaliador, em português, em no máximo 2 frases curtas, com dados coerentes com o cenário; se o dado não existir no cenário, dê um valor plausível que não mude o caso.\n"+
+    "3) Nunca diga ao aluno qual é a conduta certa, não corrija e não ensine durante a estação. Se ele pedir a resposta, diga: 'Você é o líder, doutor: qual a sua conduta?'.\n"+
+    "4) Não use markdown nem listas.";
+}
+/* debriefing conversado com o avaliador (IA) ao fim do cenário */
+function DebriefACLS({caso,s,itens,pct}){
+  const [msgs,setMsgs]=useState([]); const [txt,setTxt]=useState(""); const [carr,setCarr]=useState(false); const [erroD,setErroD]=useState("");
+  const base="Você é o AVALIADOR/INSTRUTOR de ACLS (AHA) fazendo o DEBRIEFING de um megacode com um estudante de Medicina brasileiro. Seja direto, gentil e técnico; português do Brasil; sem markdown; no máximo 8 frases por resposta.\n"+
+    "CENÁRIO: "+caso.titulo+". "+caso.intro+"\nNOTA: "+pct+"%.\nCHECKLIST: "+itens.map(x=>(x.ok?"[OK] ":"[FALHOU] ")+x.t).join(" | ")+
+    "\nERROS CRÍTICOS: "+([...new Set(s.criticos)].join(" | ")||"nenhum")+"\nOUTROS ERROS: "+([...new Set(s.erros)].join(" | ")||"nenhum")+
+    "\nLINHA DO TEMPO: "+s.log.map(l=>aclsMmss(l.t)+" "+l.txt).join(" | ");
+  const mandar=async(pergunta)=>{ if(carr) return; setCarr(true); setErroD("");
+    const hist=msgs.map(m=>(m.de==="aluno"?"ALUNO: ":"AVALIADOR: ")+m.txt).join("\n");
+    const novo=pergunta?[...msgs,{de:"aluno",txt:pergunta}]:msgs; setMsgs(novo);
+    try{ const r=await wfetch("/tirar-duvida",{tema:"ACLS debriefing — "+caso.titulo,contexto:base+(hist?"\n\nCONVERSA ATÉ AQUI:\n"+hist:""),
+        pergunta:pergunta||"Faça o debriefing: comece pelo que o aluno fez bem, depois os 2 ou 3 pontos mais importantes a corrigir (com o porquê e o que fazer na próxima vez) e termine com uma pergunta de reflexão."});
+      const d=await r.json(); if(!r.ok||d.error) throw new Error(d.error||"falha");
+      setMsgs(m=>[...m,{de:"avaliador",txt:String(d.resposta||"").trim()}]); }
+    catch(e){ setErroD("Não consegui falar com o avaliador agora ("+e.message+")."); }
+    setCarr(false); };
+  if(!msgs.length&&!carr) return <div className="card" style={{marginBottom:12}}>
+    <div className="tag" style={{color:"var(--acc)"}}>💬 DEBRIEFING COM O AVALIADOR (IA)</div>
+    <div className="muted" style={{fontSize:13,margin:"6px 0 8px"}}>O avaliador comenta o seu atendimento e você pode tirar dúvidas sobre o caso.</div>
+    <button className="btn sm" onClick={()=>mandar("")}>Começar o debriefing</button>
+    {erroD && <div className="muted" style={{fontSize:12.5,marginTop:6,color:"var(--bad)"}}>{erroD}</div>}
+  </div>;
+  return <div className="card" style={{marginBottom:12}}>
+    <div className="tag" style={{color:"var(--acc)"}}>💬 DEBRIEFING COM O AVALIADOR (IA)</div>
+    {msgs.map((m,k)=><div key={k} className="block" style={{marginTop:8,fontSize:13.5,lineHeight:1.55,background:m.de==="aluno"?"var(--panel2)":"color-mix(in srgb, var(--acc) 10%, var(--panel))"}}><b>{m.de==="aluno"?"Você":"Avaliador"}:</b> {m.txt}</div>)}
+    {carr && <div className="muted" style={{fontSize:13,marginTop:8}}>O avaliador está escrevendo…</div>}
+    {erroD && <div className="muted" style={{fontSize:12.5,marginTop:6,color:"var(--bad)"}}>{erroD}</div>}
+    <div className="row" style={{gap:6,marginTop:10}}>
+      <input value={txt} onChange={e=>setTxt(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&txt.trim()){ mandar(txt.trim()); setTxt(""); } }} placeholder="Pergunte ao avaliador (ex.: por que não chocar a AESP?)" style={{flex:1}}/>
+      <button className="btn sm" disabled={!txt.trim()||carr} onClick={()=>{ mandar(txt.trim()); setTxt(""); }}>Enviar</button>
+    </div>
+  </div>;
+}
 function MegacodeACLS({caso,onVoltar}){
   const S=useRef(aclsNovoEstado(caso)); const [,render]=useState(0); const s=S.current;
   const [painel,setPainel]=useState(null);
@@ -7145,8 +7266,57 @@ function MegacodeACLS({caso,onVoltar}){
   const [feedbackJa,setFeedbackJa]=useState(true);
   const [congelado,setCongelado]=useState(false);
   /* o relógio corre em tempo real (1 s = 1 s); as ações também consomem tempo */
-  useEffect(()=>{ const id=setInterval(()=>{ const x=S.current; if(congelado||x.fim||x.fase==="rce"||document.hidden||!x.log.length) return; x.t+=1; if(x.fase==="pcr"){ if(x.rcp) x.handsOn+=1; else x.handsOff+=1; } render(v=>v+1); },1000);
+  useEffect(()=>{ const id=setInterval(()=>{ const x=S.current; if(congelado||x.fim||x.fase==="rce"||document.hidden||!x.log.length) return; x.t+=1; if(x.fase==="pcr"){ if(x.rcp) x.handsOn+=1; else x.handsOff+=1; }
+      /* o avaliador avisa quando o ciclo fecha 2 minutos (como no megacode real) */
+      if(x.fase==="pcr"&&x.rcp&&x.cicloIni!==null&&x.t-x.cicloIni>=120&&anunciou.current!==x.cicloIni){ anunciou.current=x.cicloIni; dizerRef.current&&dizerRef.current("Dois minutos de RCP."); }
+      render(v=>v+1); },1000);
     return ()=>clearInterval(id); },[congelado]);
+  /* ---------- avaliador que conversa (voz ou texto) ---------- */
+  const [vozOn,setVozOn]=useState(false); const vozRef=useRef(false);
+  const [ouvindo,setOuvindo]=useState(false); const [falandoAv,setFalandoAv]=useState(false);
+  const [cmd,setCmd]=useState(""); const [pensando,setPensando]=useState(false); const [avisoAv,setAvisoAv]=useState("");
+  const [conversa,setConversa]=useState([{de:"avaliador",txt:"Pode começar, doutor. Comande a equipe falando ou digitando (ex.: \"cena segura, chama ajuda e traz o desfibrilador\")."}]);
+  const recA=useRef(null), anunciou=useRef(null), silencios=useRef(0), dizerRef=useRef(null);
+  useEffect(()=>()=>{ vozRef.current=false; try{ recA.current&&recA.current.abort(); }catch(e){} pararVozPaciente(); },[]);
+  const limparFala=t=>String(t||"").replace(/\([^)]*\)/g," ").replace(/"/g,"").replace(/\bIV\b/g,"intravenosa").replace(/SatO2/g,"saturação").replace(/ETCO2/g,"capnografia").replace(/\s+/g," ").trim();
+  const ouvirA=()=>{ const Rec=reconhecedorVoz(); if(!Rec){ setAvisoAv("Este navegador não reconhece voz: use o Chrome ou digite os comandos."); vozRef.current=false; setVozOn(false); return; }
+    try{ recA.current&&recA.current.abort(); }catch(e){}
+    let r; try{ r=new Rec(); }catch(e){ setAvisoAv("Não consegui abrir o microfone."); vozRef.current=false; setVozOn(false); return; }
+    r.lang="pt-BR"; r.continuous=false; r.interimResults=true; let txt="";
+    r.onresult=e=>{ const partes=[]; for(let i=0;i<e.results.length;i++) partes.push(e.results[i][0].transcript); txt=juntarFalas(partes); setCmd(txt); };
+    r.onerror=e=>{ const er=e&&e.error; if(er==="not-allowed"||er==="service-not-allowed"||er==="audio-capture"){ setAvisoAv("Permita o microfone (cadeado na barra de endereço) ou digite os comandos."); vozRef.current=false; setVozOn(false); } };
+    r.onend=()=>{ setOuvindo(false); recA.current=null; if(!vozRef.current) return;
+      if(txt.trim()){ silencios.current=0; setCmd(""); processar(txt); }
+      else { silencios.current++; if(silencios.current>=3&&!S.current.fim){ silencios.current=0; dizer("Doutor, estou aguardando a sua conduta."); } else setTimeout(()=>{ if(vozRef.current&&!recA.current) ouvirA(); },250); } };
+    recA.current=r; setOuvindo(true); try{ r.start(); }catch(e){ setOuvindo(false); recA.current=null; } };
+  const dizer=(txt)=>{ txt=String(txt||"").trim(); if(!txt) return; setConversa(c=>[...c,{de:"avaliador",txt}]);
+    if(!vozRef.current) return; try{ recA.current&&recA.current.abort(); }catch(e){} recA.current=null; setOuvindo(false);
+    setFalandoAv(true); falarPaciente(limparFala(txt),{cenario:""},()=>{ setFalandoAv(false); if(vozRef.current&&!S.current.fim) ouvirA(); }); };
+  dizerRef.current=dizer;
+  const pergunta=()=>{ const x=S.current; if(x.fim) return " Fim da estação. Veja a sua correção abaixo."; if(pcr&&x.fase==="rce") return " Quais os cuidados pós-parada, doutor?"; if(pcr&&x.pausado) return " Qual a sua conduta?"; return ""; };
+  const executar=(acoes)=>{ const antes=S.current.log.length; acoes.forEach(([id,extra])=>ag(id,extra)); const novos=S.current.log.slice(antes);
+    const fala=novos.map(l=>(l.tipo==="erro"||l.tipo==="critico")?(feedbackJa?"Atenção: "+l.txt:""):l.txt).filter(Boolean).join(" ");
+    dizer((fala||"Feito.")+pergunta()); };
+  const processar=async(fala)=>{ fala=String(fala||"").trim(); if(!fala||S.current.fim) return; setConversa(c=>[...c,{de:"aluno",txt:fala}]);
+    const x=S.current;
+    if(pcr&&x.fase==="rce"){ const ids=aclsPosDeFala(fala), concluir=/conclu|termin|finaliz|so isso|e isso|pronto/.test(normExame(fala));
+      const novo={...posSel}; ids.forEach(i=>{ novo[i]=true; }); setPosSel(novo);
+      if(concluir){ ag("pos",Object.keys(novo).filter(k=>novo[k])); dizer("Fim da estação. Veja a sua correção abaixo."); return; }
+      if(ids.length){ dizer("Anotado: "+ids.map(i=>ACLS_POS.find(o=>o.id===i).t.toLowerCase()).join("; ")+". Algo mais? Diga concluir quando terminar."); return; } }
+    else { const acoes=aclsAcoesDeFala(fala,caso,x); if(acoes.length){ executar(acoes); return; } }
+    if(WORKER_URL.startsWith("COLE_")){ dizer("Não entendi a conduta. Fale de outro jeito ou use os botões."); return; }
+    setPensando(true);
+    try{ const r=await wfetch("/tirar-duvida",{tema:"ACLS avaliador — "+caso.titulo,contexto:aclsContextoIA(caso,S.current),pergunta:fala});
+      const d=await r.json(); if(!r.ok||d.error) throw new Error(d.error||"falha");
+      let resp=String(d.resposta||"").trim(); const m=resp.match(/ACAO:\s*([a-zA-Z0-9_:, ]+)/);
+      if(m){ const lista=pcr?ACLS_IDS_PCR:ACLS_IDS_PULSO; const acoes=m[1].split(/[,\s]+/).filter(Boolean).map(t=>t.split(":")).filter(([id])=>lista.includes(id)).map(([id,ex])=>ex?[id,ex]:[id]);
+        if(acoes.length){ setPensando(false); executar(acoes); return; } resp=resp.replace(/ACAO:.*/,"").trim(); }
+      dizer(resp||"Não entendi, doutor. Repita a conduta."); }
+    catch(e){ dizer("Não entendi a conduta. Fale de outro jeito ou use os botões."); }
+    setPensando(false); };
+  const ligarVoz=()=>{ if(vozRef.current){ vozRef.current=false; setVozOn(false); try{ recA.current&&recA.current.abort(); }catch(e){} pararVozPaciente(); setOuvindo(false); setFalandoAv(false); return; }
+    setAvisoAv(""); destravarVoz(); vozRef.current=true; setVozOn(true);
+    const x=S.current; dizer(x.log.length?"Estou ouvindo, doutor.":caso.intro+" O que você faz?"); };
   const pcr=caso.tipo==="pcr", chocavel=r=>r==="fv"||r==="tv";
   const commit=()=>render(x=>x+1);
   const log=(txt,tipo)=>{ s.log.push({t:s.t,txt,tipo:tipo||"info"}); };
@@ -7313,14 +7483,15 @@ function MegacodeACLS({caso,onVoltar}){
       {s.erros.length>0 && <div className="card" style={{marginBottom:12}}><div className="tag" style={{color:"var(--warn)"}}>PONTOS A CORRIGIR</div>{[...new Set(s.erros)].map((e,k)=><div key={k} style={{fontSize:13.5,marginTop:6}}>⚠️ {e}</div>)}</div>}
       {pcr&&s.pos && <div className="card" style={{marginBottom:12}}><div className="tag" style={{color:"var(--acc)"}}>PÓS-PCR: GABARITO</div>
         {ACLS_POS.map(o=>{ const certo=o.ok===true||(o.ok==="cate"&&caso.cate), neutro=o.ok==="cate"&&!caso.cate, marcou=s.pos.includes(o.id); return <div key={o.id} style={{fontSize:13,marginTop:6}}>{neutro?"➖":marcou===certo?"✅":"❌"} {o.t} <span className="muted">— {neutro?"opcional neste caso (sem supra de ST)":certo?"fazer":"não fazer"}: {o.por}</span></div>; })}</div>}
+      <DebriefACLS caso={caso} s={s} itens={r.it} pct={r.pct}/>
       <div className="card" style={{marginBottom:12}}><div className="tag" style={{color:"var(--acc)"}}>LINHA DO TEMPO</div>
         {s.log.map((l,k)=><div key={k} style={{fontSize:12.5,marginTop:5,color:l.tipo==="critico"?"var(--bad)":l.tipo==="erro"?"var(--warn)":undefined}}><span className="muted">{aclsMmss(l.t)}</span> {l.txt}</div>)}</div>
-      <div className="row" style={{gap:8}}><button className="btn" onClick={()=>{ S.current=aclsNovoEstado(caso); setPosSel({}); setPainel(null); commit(); }}>Refazer o cenário</button><button className="btn ghost" onClick={onVoltar}>Outro cenário</button></div>
+      <div className="row" style={{gap:8}}><button className="btn" onClick={()=>{ S.current=aclsNovoEstado(caso); setPosSel({}); setPainel(null); anunciou.current=null; setConversa([{de:"avaliador",txt:"Cenário reiniciado. Pode começar, doutor."}]); commit(); }}>Refazer o cenário</button><button className="btn ghost" onClick={onVoltar}>Outro cenário</button></div>
     </div>;
   }
 
   /* ---------- tela de simulação ---------- */
-  const Bt=({id,extra,children,dis,cor})=><button className="btn ghost sm" disabled={dis} style={{margin:3,borderColor:cor||undefined}} onClick={()=>ag(id,extra)}>{children}</button>;
+  const Bt=({id,extra,children,dis,cor})=><button className="btn ghost sm" disabled={dis} style={{margin:3,borderColor:cor||undefined}} onClick={()=>vozOn?executar([extra===undefined?[id]:[id,extra]]):ag(id,extra)}>{children}</button>;
   const ultimos=s.log.slice(-6).reverse();
   const ritmoTela=s.fase==="rce"?"rce":s.ritmo;
   const legenda=!s.monitor?"monitor desconectado":pcr?(s.rcp?"artefato das compressões":s.pausado||s.fase==="rce"?ACLS_NOME_RITMO[ritmoTela]:"—"):ACLS_NOME_RITMO[s.ritmo];
@@ -7352,6 +7523,20 @@ function MegacodeACLS({caso,onVoltar}){
       {ultimos.length===0 && <div className="muted" style={{fontSize:13}}>Comece pela cena: o que você faz primeiro?</div>}
       {ultimos.map((l,k)=><div key={k} style={{fontSize:13,marginTop:k?5:0,opacity:k?.65:1,color:feedbackJa&&l.tipo==="critico"?"var(--bad)":feedbackJa&&l.tipo==="erro"?"var(--warn)":undefined}}>
         <span className="muted">{aclsMmss(l.t)}</span> {(!feedbackJa&&(l.tipo==="erro"||l.tipo==="critico"))?"(registrado para o debriefing)":l.txt}</div>)}
+    </div>
+    <div className="card" style={{marginBottom:10,padding:10,borderColor:vozOn?"var(--acc)":undefined}}>
+      <div className="row" style={{justifyContent:"space-between",flexWrap:"wrap",gap:6}}>
+        <div className="tag" style={{color:"var(--acc)"}}>🧑‍⚕️ AVALIADOR{vozOn?(falandoAv?" · falando…":ouvindo?" · ouvindo você 🎙️":pensando?" · pensando…":""):pensando?" · pensando…":""}</div>
+        <button className={"btn sm "+(vozOn?"":"ghost")} onClick={ligarVoz}>{vozOn?"⏹ Parar conversa por voz":"🎙️ Conversar por voz"}</button>
+      </div>
+      <div style={{maxHeight:150,overflowY:"auto",marginTop:6}}>
+        {conversa.slice(-6).map((m,k)=><div key={k} style={{fontSize:13,marginTop:4}}><b style={{color:m.de==="aluno"?undefined:"var(--acc)"}}>{m.de==="aluno"?"Você":"Avaliador"}:</b> {m.txt}</div>)}
+      </div>
+      <div className="row" style={{gap:6,marginTop:8}}>
+        <input value={cmd} onChange={e=>setCmd(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&cmd.trim()){ const c=cmd; setCmd(""); processar(c); } }} placeholder={pcr?"Ex.: inicia compressões e conecta as pás":"Ex.: avalio a estabilidade e peço acesso venoso"} style={{flex:1,minWidth:0}}/>
+        <button className="btn sm" disabled={!cmd.trim()||pensando} onClick={()=>{ const c=cmd; setCmd(""); processar(c); }}>Enviar</button>
+      </div>
+      {avisoAv && <div className="muted" style={{fontSize:12.5,marginTop:6,color:"var(--warn)"}}>{avisoAv}</div>}
     </div>
     {pcr && s.fase!=="rce" && <div>
       {s.fase==="cena" && <div><div className="tag" style={{margin:"6px 3px"}}>CENA</div>
