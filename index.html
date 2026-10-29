@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.26.1";
+  window.APP_VERSION="2026.10.29.1";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -7427,6 +7427,83 @@ function falarSistema(txt,caso,aoTerminar){ try{
   setTimeout(acabar, 2500+limpo.length*90);
   setTimeout(()=>{ try{ window.speechSynthesis.speak(u); }catch(e){ acabar(); } },60);
 }catch(e){ aoTerminar&&aoTerminar(); } }
+/* =================== CONVERSA AO VIVO (Gemini Live API) ===================
+   Fala com fala em tempo real: o microfone vai em PCM 16 kHz por WebSocket direto ao Google
+   e a voz do paciente volta em PCM 24 kHz. O aluno pode interromper o paciente.
+   O worker só entrega um token efêmero (/live-token); a chave nunca vem para o app. */
+const LIVE_WS="wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1alpha.GenerativeService.BidiGenerateContentConstrained?access_token=";
+function aoVivoSuportado(){ try{ return !!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.WebSocket&&(window.AudioContext||window.webkitAudioContext)); }catch(e){ return false; } }
+function _b64DeBytes(u8){ let s=""; for(let i=0;i<u8.length;i+=0x8000) s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000)); return btoa(s); }
+function _bytesDeB64(b){ const s=atob(b); const u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u; }
+async function iniciarAoVivo({instrucao, voz, onEstado, onFalaAluno, onFalaPaciente, onErro}){
+  const AC=window.AudioContext||window.webkitAudioContext;
+  let ws=null, stream=null, ctxIn=null, ctxOut=null, proc=null, fonte=null, fechado=false;
+  let fila=[], proxT=0, bufAluno="", bufPac="";
+  const parar=()=>{ if(fechado) return; fechado=true;
+    try{ ws&&ws.close(); }catch(e){} try{ stream&&stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+    try{ proc&&proc.disconnect(); fonte&&fonte.disconnect(); }catch(e){}
+    try{ ctxIn&&ctxIn.close(); }catch(e){} try{ ctxOut&&ctxOut.close(); }catch(e){}
+    soltarAluno(); soltarPac(); onEstado&&onEstado("parado"); };
+  const soltarAluno=()=>{ const t=bufAluno.replace(/\s+/g," ").trim(); bufAluno=""; if(t) onFalaAluno&&onFalaAluno(t); };
+  const soltarPac=()=>{ const t=bufPac.replace(/\s+/g," ").trim(); bufPac=""; if(t) onFalaPaciente&&onFalaPaciente(t); };
+  const calar=()=>{ fila.forEach(src=>{ try{ src.stop(); }catch(e){} }); fila=[]; proxT=0; };
+  const tocar=(b64)=>{ if(!ctxOut) return; const u8=_bytesDeB64(b64); const n=u8.length>>1; if(!n) return;
+    const dv=new DataView(u8.buffer); const buf=ctxOut.createBuffer(1,n,24000); const ch=buf.getChannelData(0);
+    for(let i=0;i<n;i++) ch[i]=dv.getInt16(i*2,true)/32768;
+    const src=ctxOut.createBufferSource(); src.buffer=buf; src.connect(ctxOut.destination);
+    const t=Math.max(ctxOut.currentTime+0.03,proxT); src.start(t); proxT=t+buf.duration;
+    fila.push(src); src.onended=()=>{ fila=fila.filter(x=>x!==src); if(!fila.length) onEstado&&onEstado("ouvindo"); };
+    onEstado&&onEstado("falando"); };
+  /* 1) token */
+  onEstado&&onEstado("conectando");
+  const r=await wfetch("/live-token",{}); let d={}; try{ d=await r.json(); }catch(e){}
+  if(!r.ok||d.error||!d.token) throw new Error(d.error||"Conversa ao vivo indisponível agora.");
+  /* 2) microfone e áudio (precisa acontecer logo após o toque do aluno, por causa do iPhone) */
+  ctxOut=new AC(); try{ await ctxOut.resume(); }catch(e){}
+  stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}});
+  /* 3) conecta tentando os modelos na ordem que o worker mandou */
+  const conectar=(modelo)=>new Promise((ok,falha)=>{
+    let pronto=false; const w=new WebSocket(LIVE_WS+encodeURIComponent(d.token));
+    const t=setTimeout(()=>{ if(!pronto){ try{ w.close(); }catch(e){} falha(new Error("tempo esgotado")); } },10000);
+    w.onopen=()=>{ w.send(JSON.stringify({setup:{model:"models/"+modelo,
+      generationConfig:{responseModalities:["AUDIO"],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voz}}}},
+      systemInstruction:{parts:[{text:instrucao}]}, inputAudioTranscription:{}, outputAudioTranscription:{}}})); };
+    w.onmessage=async ev=>{ let txt=ev.data; if(typeof txt!=="string"){ try{ txt=await (txt.text?txt.text():new Response(txt).text()); }catch(e){ return; } }
+      let m; try{ m=JSON.parse(txt); }catch(e){ return; }
+      if(m.setupComplete&&!pronto){ pronto=true; clearTimeout(t); ok(w); return; }
+      if(!pronto) return;
+      const sc=m.serverContent; if(sc){
+        if(sc.interrupted){ calar(); soltarPac(); onEstado&&onEstado("ouvindo"); }
+        if(sc.inputTranscription&&sc.inputTranscription.text) bufAluno+=sc.inputTranscription.text;
+        if(sc.outputTranscription&&sc.outputTranscription.text){ soltarAluno(); bufPac+=sc.outputTranscription.text; }
+        const partes=(sc.modelTurn&&sc.modelTurn.parts)||[];
+        partes.forEach(p=>{ if(p.inlineData&&p.inlineData.data){ soltarAluno(); tocar(p.inlineData.data); } });
+        if(sc.turnComplete){ soltarAluno(); soltarPac(); }
+      }
+      if(m.goAway) onErro&&onErro("A conversa ao vivo vai encerrar em instantes (limite da sessão).");
+    };
+    w.onclose=ev=>{ clearTimeout(t); if(!pronto) falha(new Error((ev&&ev.reason)||"conexão recusada")); else if(!fechado){ onErro&&onErro("A conversa ao vivo caiu"+(ev&&ev.reason?" ("+ev.reason+")":"")+"."); parar(); } };
+    w.onerror=()=>{};
+  });
+  let ultimoErro=null;
+  for(const modelo of (d.modelos||[])){ try{ ws=await conectar(modelo); break; }catch(e){ ultimoErro=e; } }
+  if(!ws){ parar(); throw new Error("Não consegui abrir a conversa ao vivo"+(ultimoErro?" ("+ultimoErro.message+")":"")+"."); }
+  /* 4) envia o microfone em blocos de ~100 ms, convertido para 16 kHz */
+  ctxIn=new AC(); try{ await ctxIn.resume(); }catch(e){}
+  fonte=ctxIn.createMediaStreamSource(stream);
+  const taxa=ctxIn.sampleRate, passo=taxa/16000; let acum=[], pos=0;
+  proc=ctxIn.createScriptProcessor(4096,1,1);
+  proc.onaudioprocess=e=>{ if(fechado||!ws||ws.readyState!==1) return;
+    const x=e.inputBuffer.getChannelData(0); const out=[];
+    for(;pos<x.length;pos+=passo) out.push(x[Math.floor(pos)]); pos-=x.length;
+    acum=acum.concat(out); if(acum.length<1600) return;
+    const pcm=new Int16Array(acum.length); for(let i=0;i<acum.length;i++){ const v=Math.max(-1,Math.min(1,acum[i])); pcm[i]=v<0?v*32768:v*32767; }
+    acum=[]; ws.send(JSON.stringify({realtimeInput:{audio:{data:_b64DeBytes(new Uint8Array(pcm.buffer)),mimeType:"audio/pcm;rate=16000"}}}));
+  };
+  const mudo=ctxIn.createGain(); mudo.gain.value=0; fonte.connect(proc); proc.connect(mudo); mudo.connect(ctxIn.destination);
+  onEstado&&onEstado("ouvindo");
+  return {parar};
+}
 function OSCEEstacao({caso, onVoltar}){
   const workerOk = !WORKER_URL.startsWith("COLE_");
   const Rec=reconhecedorVoz(); const temTTS=typeof window!=="undefined"&&"speechSynthesis" in window;
@@ -7490,6 +7567,10 @@ function OSCEEstacao({caso, onVoltar}){
   const alternarConversa=()=>{ if(conversaVoz){ setConversaVoz(false); try{ recRef.current&&recRef.current.abort(); }catch(e){} pararVozPaciente(); setFalando(false); return; }
     destravarVoz(); setConversaVoz(true); conversaRef.current=true; setVoz(true); ouvir(true); };
   const [msgs,setMsgs]=useState([]);      // [{de:'aluno'|'paciente', txt}]
+  /* conversa ao vivo (beta): fala com fala, interrompível */
+  const [aoVivo,setAoVivo]=useState(null); // null | conectando | ouvindo | falando
+  const aoVivoRef=useRef(null);
+  useEffect(()=>()=>{ try{ aoVivoRef.current&&aoVivoRef.current.parar(); }catch(e){} },[]);
   const [entrada,setEntrada]=useState("");
   const [carregando,setCarregando]=useState(false);
   const [fase,setFase]=useState("conversa"); // conversa | corrigindo | resultado
@@ -7546,6 +7627,34 @@ function OSCEEstacao({caso, onVoltar}){
     setCarregando(false);
   };
   enviarRef.current=enviar;
+  /* resultados de exame que a estação tem e o aluno pediu (mesma regra da conversa por texto) */
+  const anexarExames=(out,q)=>{ const ped=examesPedidos(q), ex=caso.exames||{};
+    const jaTem=t=>out.some(x=>x.de==="exame"&&x.tipo===t);
+    if(ped.rx&&ex.rx&&!jaTem("rx")) out.push({de:"exame",tipo:"rx",txt:"[Resultado da radiografia exibido ao aluno]"});
+    if(ped.gaso&&ex.gaso&&!jaTem("gaso")) out.push({de:"exame",tipo:"gaso",txt:"[Resultado da gasometria exibido ao aluno]"});
+    if(ped.ecg&&ex.ecg&&!jaTem("ecg")) out.push({de:"exame",tipo:"ecg",txt:"[ECG exibido ao aluno]"});
+    (ex.labs||[]).forEach((l,k)=>{ if(labPedido(l,q)&&!jaTem("lab"+k)) out.push({de:"exame",tipo:"lab"+k,txt:"[Resultado exibido: "+l.titulo+"]"}); });
+    return out; };
+  const pararAoVivo=()=>{ try{ aoVivoRef.current&&aoVivoRef.current.parar(); }catch(e){} aoVivoRef.current=null; setAoVivo(null); };
+  const comecarAoVivo=async()=>{
+    if(aoVivo){ pararAoVivo(); return; }
+    setConversaVoz(false); conversaRef.current=false; try{ recRef.current&&recRef.current.abort(); }catch(e){} pararVozPaciente(); setAvisoVoz("");
+    const c=normExame(caso.cenario||""); const fem=/\b(mulher|gestante|primigesta|secundigesta|puerpera|menina|senhora|paciente do sexo feminino|mae)\b/i.test(c)||/^(lactente|crianca|menino|menina|rn|recem|escolar|pre-escolar)/.test(c)||/\bpediatr/.test(c);
+    const instrucao=dossie()+"\n\nVocê está numa estação de OSCE, conversando POR VOZ, em tempo real, com um estudante de Medicina brasileiro. Faça o papel do PACIENTE"+(/^(lactente|crianca|menino|menina|rn|recem|escolar|pre-escolar)/.test(c)?" (quem responde é a mãe da criança)":"")+". "+
+      "Fale SEMPRE em português do Brasil, como uma pessoa comum fala: frases curtas, linguagem simples, com a emoção que o quadro pede (dor, medo, cansaço), hesitações naturais. "+
+      "Responda SOMENTE ao que o estudante perguntar; não entregue o diagnóstico nem adiante dados. Se ele interromper, pare e escute. Não ensine, não avalie e não corrija o estudante. "+
+      "Quando o estudante pedir exame físico ou exames complementares, responda com voz neutra começando com 'Examinador:' e informe apenas o achado pedido, de forma objetiva; depois volte a ser o paciente. "+
+      "Se o estudante ficar em silêncio, aguarde. Não fale de você como inteligência artificial.";
+    setAoVivo("conectando"); if(!inicio) setInicio(Date.now());
+    try{
+      aoVivoRef.current=await iniciarAoVivo({instrucao, voz:fem?"Kore":"Charon",
+        onEstado:e=>{ if(e==="parado"){ aoVivoRef.current=null; setAoVivo(null); } else setAoVivo(e); },
+        onFalaAluno:t=>setMsgs(m=>anexarExames([...m,{de:"aluno",txt:t}],t)),
+        onFalaPaciente:t=>setMsgs(m=>[...m,{de:"paciente",txt:t}]),
+        onErro:msg=>setAvisoVoz(msg)});
+    }catch(e){ aoVivoRef.current=null; setAoVivo(null);
+      const nome=e&&e.name; setAvisoVoz(nome==="NotAllowedError"||nome==="SecurityError"?avisoMicNegado():(e&&e.message)||"Não consegui iniciar a conversa ao vivo."); }
+  };
 
   /* Correção rígida: o examinador precisa citar o TRECHO do aluno que comprova cada item;
      o app confere se o trecho existe mesmo nas falas do aluno. Sem evidência, item = 0.
@@ -7564,6 +7673,7 @@ function OSCEEstacao({caso, onVoltar}){
     const achou=ws.filter(w=>falaAluno.indexOf(w)>=0).length; return achou/ws.length>=0.8;
   };
   const encerrar = async ()=>{
+    pararAoVivo();
     setConversaVoz(false); conversaRef.current=false; try{ recRef.current&&recRef.current.abort(); }catch(e){} pararVozPaciente();
     const itens = caso.etapas.flatMap(e=>e.checklist);
     const falasAluno = msgs.filter(m=>m.de==="aluno");
@@ -7718,7 +7828,12 @@ function OSCEEstacao({caso, onVoltar}){
       <div ref={fimRef}/>
     </div>
 
-    {(temTTS||Rec) && <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:8,alignItems:"center"}}>
+    {workerOk && aoVivoSuportado() && fase==="conversa" && <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:8,alignItems:"center"}}>
+      <button className={"btn sm"+(aoVivo?"":" ghost")} style={aoVivo?{background:"var(--bad)",borderColor:"var(--bad)"}:{borderColor:"var(--acc)"}} onClick={comecarAoVivo} disabled={aoVivo==="conectando"}>
+        {aoVivo==="conectando"?"Conectando…":aoVivo?"⏹ Encerrar conversa ao vivo":"🎙️ Conversa ao vivo (beta)"}</button>
+      <span className="muted" style={{fontSize:12}}>{aoVivo==="ouvindo"?"🔴 Ao vivo — fale normalmente; pode interromper o paciente":aoVivo==="falando"?"🔊 Paciente falando… (pode interromper)":aoVivo==="conectando"?"Preparando o paciente…":"Voz natural em tempo real, como uma conversa de verdade."}</span>
+    </div>}
+    {!aoVivo && (temTTS||Rec) && <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:8,alignItems:"center"}}>
       {Rec && <button className={"btn sm"+(conversaVoz?"":" ghost")} disabled={!workerOk} onClick={alternarConversa}>{conversaVoz?"⏹ Parar conversa por voz":"🗣️ Conversa por voz"}</button>}
       {Rec && !conversaVoz && <button className={"btn sm"+(ouvindo?"":" ghost")} onClick={()=>ouvindo?pararOuvir():ouvir(false)}>{ouvindo?"⏹ Parar de ditar":"🎤 Ditar"}</button>}
       {temTTS && <button className={"btn sm"+(vozOn?"":" ghost")} onClick={()=>setVoz(!vozOn)}>{vozOn?"🔊 Paciente fala":"🔇 Paciente em texto"}</button>}
