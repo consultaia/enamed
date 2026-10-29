@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.10.29.8";
+  window.APP_VERSION="2026.10.29.9";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -7241,7 +7241,7 @@ function falarAvaliador(txt,aoTerminar){ try{
 }catch(e){ aoTerminar&&aoTerminar(); } }
 /* separa a resposta da IA em falas do paciente e do avaliador (linhas "AVALIADOR:"/"Examinador:") */
 function separarAvaliador(txt){ const out=[];
-  String(txt||"").split(/\n+/).forEach(lin=>{ const l=lin.trim(); if(!l) return;
+  String(txt||"").replace(/\s*\b(Examinador|Avaliador)\s*:/g,"\n$1:").split(/\n+/).forEach(lin=>{ const l=lin.trim(); if(!l) return;
     const m=l.match(/^\(?\s*\**\s*(avaliador|examinador|estacao|estação)\s*\**\s*\)?\s*:\s*(.*)$/i), p=l.match(/^\**\s*(paciente|mae|mãe|acompanhante)\s*\**\s*:\s*(.*)$/i);
     const de=m?"avaliador":"paciente", t=(m?m[2]:p?p[2]:l).trim(); if(!t) return;
     if(out.length&&out[out.length-1].de===de) out[out.length-1].txt+="\n"+t; else out.push({de,txt:t}); });
@@ -7292,6 +7292,8 @@ function MegacodeACLS({caso,onVoltar}){
   useEffect(()=>{ const id=setInterval(()=>{ const x=S.current; if(congelado||x.fim||x.fase==="rce"||document.hidden||!x.log.length) return; x.t+=1; if(x.fase==="pcr"){ if(x.rcp) x.handsOn+=1; else x.handsOff+=1; }
       /* o avaliador avisa quando o ciclo fecha 2 minutos (como no megacode real) */
       if(x.fase==="pcr"&&x.rcp&&x.cicloIni!==null&&x.t-x.cicloIni>=120&&anunciou.current!==x.cicloIni){ anunciou.current=x.cicloIni; dizerRef.current&&dizerRef.current("Dois minutos de RCP."); }
+      /* voz real: aluno calado por 30 s → o avaliador cobra (uma vez por silêncio) */
+      if(liveRef.current&&liveEstadoRef.current==="ouvindo"&&!silLive.current&&Date.now()-ultAtiv.current>30000){ silLive.current=true; dizerRef.current&&dizerRef.current("Doutor, qual a próxima conduta?"); }
       render(v=>v+1); },1000);
     return ()=>clearInterval(id); },[congelado]);
   /* ---------- avaliador que conversa (voz ou texto) ---------- */
@@ -7300,7 +7302,15 @@ function MegacodeACLS({caso,onVoltar}){
   const [cmd,setCmd]=useState(""); const [pensando,setPensando]=useState(false); const [avisoAv,setAvisoAv]=useState("");
   const [conversa,setConversa]=useState([{de:"avaliador",txt:"Pode começar, doutor. Comande a equipe falando ou digitando (ex.: \"cena segura, chama ajuda e traz o desfibrilador\")."}]);
   const recA=useRef(null), anunciou=useRef(null), silencios=useRef(0), dizerRef=useRef(null);
+  /* voz real (Gemini Live): a IA ouve o aluno, aciona o simulador pela função executar_acoes e narra o resultado */
+  const liveRef=useRef(null), liveEstadoRef=useRef(null), ultAtiv=useRef(0), silLive=useRef(false);
+  const [liveEstado,setLiveEstado]=useState(null);
+  const feedbackRef=useRef(true); feedbackRef.current=feedbackJa; const posSelRef=useRef({}); posSelRef.current=posSel;
+  const pararLive=()=>{ try{ liveRef.current&&liveRef.current.parar(); }catch(e){} liveRef.current=null; liveEstadoRef.current=null; setLiveEstado(null); };
+  useEffect(()=>()=>{ try{ liveRef.current&&liveRef.current.parar(); }catch(e){} },[]);
+  useEffect(()=>{ if(!s.fim||!liveRef.current) return; const t=setTimeout(pararLive,8000); return ()=>clearTimeout(t); },[s.fim]);
   useEffect(()=>()=>{ vozRef.current=false; try{ recA.current&&recA.current.abort(); }catch(e){} pararVozPaciente(); },[]);
+  const vozRealOk=!WORKER_URL.startsWith("COLE_")&&aoVivoSuportado();
   const limparFala=t=>String(t||"").replace(/\([^)]*\)/g," ").replace(/"/g,"").replace(/\bIV\b/g,"intravenosa").replace(/SatO2/g,"saturação").replace(/ETCO2/g,"capnografia").replace(/\s+/g," ").trim();
   const ouvirA=()=>{ const Rec=reconhecedorVoz(); if(!Rec){ setAvisoAv("Este navegador não reconhece voz: use o Chrome ou digite os comandos."); vozRef.current=false; setVozOn(false); return; }
     try{ recA.current&&recA.current.abort(); }catch(e){}
@@ -7312,14 +7322,29 @@ function MegacodeACLS({caso,onVoltar}){
       if(txt.trim()){ silencios.current=0; setCmd(""); processar(txt); }
       else { silencios.current++; if(silencios.current>=3&&!S.current.fim){ silencios.current=0; dizer("Doutor, estou aguardando a sua conduta."); } else setTimeout(()=>{ if(vozRef.current&&!recA.current) ouvirA(); },250); } };
     recA.current=r; setOuvindo(true); try{ r.start(); }catch(e){ setOuvindo(false); recA.current=null; } };
-  const dizer=(txt)=>{ txt=String(txt||"").trim(); if(!txt) return; setConversa(c=>[...c,{de:"avaliador",txt}]);
+  const dizer=(txt)=>{ txt=String(txt||"").trim(); if(!txt) return;
+    if(liveRef.current){ liveRef.current.falar("[SIMULADOR] Diga ao aluno agora, curto e em voz alta: '"+txt.replace(/'/g,"")+"'"); return; }
+    setConversa(c=>[...c,{de:"avaliador",txt}]);
     if(!vozRef.current) return; try{ recA.current&&recA.current.abort(); }catch(e){} recA.current=null; setOuvindo(false);
     setFalandoAv(true); falarAvaliador(limparFala(txt),()=>{ setFalandoAv(false); if(vozRef.current&&!S.current.fim) ouvirA(); }); };
   dizerRef.current=dizer;
   const pergunta=()=>{ const x=S.current; if(x.fim) return " Fim da estação. Veja a sua correção abaixo."; if(pcr&&x.fase==="rce") return " Quais os cuidados pós-parada, doutor?"; if(pcr&&x.pausado) return " Qual a sua conduta?"; return ""; };
-  const executar=(acoes)=>{ const antes=S.current.log.length; acoes.forEach(([id,extra])=>ag(id,extra)); const novos=S.current.log.slice(antes);
-    const fala=novos.map(l=>(l.tipo==="erro"||l.tipo==="critico")?(feedbackJa?"Atenção: "+l.txt:""):l.txt).filter(Boolean).join(" ");
-    dizer((fala||"Feito.")+pergunta()); };
+  const aplicar=(acoes)=>{ const antes=S.current.log.length; acoes.forEach(([id,extra])=>ag(id,extra)); const novos=S.current.log.slice(antes);
+    const fala=novos.map(l=>(l.tipo==="erro"||l.tipo==="critico")?(feedbackRef.current?"Atenção: "+l.txt:""):l.txt).filter(Boolean).join(" ");
+    return (fala||"Feito.")+pergunta(); };
+  const executar=(acoes)=>dizer(aplicar(acoes));
+  /* função chamada pela IA na voz real */
+  const naFerramenta=async(nome,args)=>{ const x=S.current; if(x.fim) return {resultado:"A estação já terminou."};
+    const ids=(Array.isArray(args.acoes)?args.acoes:[]).map(t=>String(t).trim()).filter(Boolean);
+    if(pcr&&x.fase==="rce"){ const novo={...posSelRef.current}; const marc=[]; let concluir=false;
+      ids.forEach(t=>{ const [a,b]=t.split(":"); if(a==="pos"&&ACLS_POS.some(o=>o.id===b)){ novo[b]=true; marc.push(ACLS_POS.find(o=>o.id===b).t); } else if(a==="concluir") concluir=true; });
+      setPosSel(novo); posSelRef.current=novo;
+      if(concluir){ ag("pos",Object.keys(novo).filter(k=>novo[k])); return {resultado:"Fim da estação. Diga ao aluno que a correção está na tela."}; }
+      return {resultado:marc.length?"Anotado: "+marc.join("; ")+". Pergunte se há algo mais; ele deve dizer concluir quando terminar.":"Nenhum cuidado pós-PCR reconhecido. Peça para ele dizer os cuidados."}; }
+    const lista=pcr?ACLS_IDS_PCR:ACLS_IDS_PULSO;
+    const acoes=ids.map(t=>t.split(":")).filter(([id])=>lista.includes(id)).map(([id,ex])=>ex?[id,ex]:[id]);
+    if(!acoes.length) return {resultado:"Nenhuma ação reconhecida. Pergunte ao aluno o que ele quer que a equipe faça."};
+    const r=aplicar(acoes); setConversa(c=>[...c,{de:"avaliador",txt:"[simulador] "+r}]); return {resultado:r}; };
   const processar=async(fala)=>{ fala=String(fala||"").trim(); if(!fala||S.current.fim) return; setConversa(c=>[...c,{de:"aluno",txt:fala}]);
     const x=S.current;
     if(pcr&&x.fase==="rce"){ const ids=aclsPosDeFala(fala), concluir=/conclu|termin|finaliz|so isso|e isso|pronto/.test(normExame(fala));
@@ -7337,9 +7362,38 @@ function MegacodeACLS({caso,onVoltar}){
       dizer(resp||"Não entendi, doutor. Repita a conduta."); }
     catch(e){ dizer("Não entendi a conduta. Fale de outro jeito ou use os botões."); }
     setPensando(false); };
-  const ligarVoz=()=>{ if(vozRef.current){ vozRef.current=false; setVozOn(false); try{ recA.current&&recA.current.abort(); }catch(e){} pararVozPaciente(); setOuvindo(false); setFalandoAv(false); return; }
-    setAvisoAv(""); destravarVoz(); vozRef.current=true; setVozOn(true);
+  const ligarVozAparelho=(motivo)=>{ if(motivo) setAvisoAv(motivo); destravarVoz(); vozRef.current=true; setVozOn(true);
     const x=S.current; dizer(x.log.length?"Estou ouvindo, doutor.":caso.intro+" O que você faz?"); };
+  const ligarVoz=async()=>{
+    if(liveRef.current){ pararLive(); return; }
+    if(vozRef.current){ vozRef.current=false; setVozOn(false); try{ recA.current&&recA.current.abort(); }catch(e){} pararVozPaciente(); setOuvindo(false); setFalandoAv(false); return; }
+    setAvisoAv("");
+    if(!vozRealOk){ ligarVozAparelho(); return; }
+    const lista=pcr?ACLS_IDS_PCR:ACLS_IDS_PULSO;
+    const pistas=Object.entries(caso.pistas||{}).map(([k,v])=>k+": "+v).join(" | ");
+    const instrucao="Você é o AVALIADOR e a voz da EQUIPE numa estação prática de megacode ACLS (AHA), conversando por voz, em tempo real, com um estudante de Medicina brasileiro que é o líder da equipe. Fale sempre em português do Brasil, frases curtas, tom de sala de emergência.\n"+
+      "CENÁRIO: "+caso.intro+(caso.sinais?" Sinais: "+caso.sinais:"")+"\n"+
+      "REGRAS:\n1) Sempre que o estudante der uma ordem à equipe (ou pedir exame/informação ligada às causas reversíveis), chame a função executar_acoes com os ids correspondentes, na ordem em que ele pediu. Ao receber o resultado, narre ao estudante, de forma curta e natural, EXATAMENTE o que a função devolveu (pode falar como a equipe: 'Choque aplicado!').\n"+
+      "2) NUNCA invente ritmo, pulso, sinal vital, resultado de exame ou efeito de droga: isso só vem da função. Durante as compressões o ritmo não pode ser lido.\n"+
+      "3) Se o estudante perguntar algo que não é ação (ex.: glicemia, história, temperatura), responda em 1 frase com dados coerentes com o cenário, sem mudar o caso.\n"+
+      "4) Não ensine, não sugira a conduta e não corrija; só repita alertas que vierem no resultado da função (começam com 'Atenção'). Se ele pedir a resposta, diga: 'Você é o líder, doutor: qual a sua conduta?'.\n"+
+      "5) Mensagens de texto que começam com [SIMULADOR] vêm do sistema: faça o que pedem, falando com o estudante.\n"+
+      "6) Depois do retorno da circulação, cada cuidado pós-parada que ele disser vira pos:<id> (ids: "+ACLS_POS.map(o=>o.id+" = "+o.t).join("; ")+"); quando ele disser que terminou, chame com concluir.\n"+
+      (pistas?"Dados das causas (só via investigar): "+pistas+"\n":"")+
+      "IDS DE AÇÃO: "+lista.join(", ")+(pcr?". Use investigar:<causa> (hipovolemia, hipoxia, acidose, potassio, hipotermia, pneumotorax, tamponamento, toxinas, tep, coronaria) e tratar:<id> (cristaloide, oxigenio, bic, calcio, potassioRep, aquecer, descomp, pericardio, antidoto, trombolitico).":".");
+    const ferramentas=[{name:"executar_acoes",description:"Executa no simulador ACLS as ordens do estudante e devolve o que aconteceu (ritmo, resultados, alertas).",
+      parameters:{type:"OBJECT",properties:{acoes:{type:"ARRAY",items:{type:"STRING"},description:"ids das ações na ordem pedida, ex.: [\"rcp\",\"monitor\"] ou [\"investigar:potassio\"]"}},required:["acoes"]}}];
+    setLiveEstado("conectando"); liveEstadoRef.current="conectando"; ultAtiv.current=Date.now(); silLive.current=false;
+    try{
+      liveRef.current=await iniciarAoVivo({instrucao, voz:"Charon", ferramentas, onFerramenta:naFerramenta,
+        onEstado:e=>{ if(e==="parado"){ liveRef.current=null; liveEstadoRef.current=null; setLiveEstado(null); } else { liveEstadoRef.current=e; setLiveEstado(e); if(e==="falando") ultAtiv.current=Date.now(); } },
+        onFalaAluno:t=>{ ultAtiv.current=Date.now(); silLive.current=false; setConversa(c=>[...c,{de:"aluno",txt:t}]); },
+        onFalaPaciente:t=>{ ultAtiv.current=Date.now(); setConversa(c=>[...c,{de:"avaliador",txt:t}]); },
+        onErro:msg=>setAvisoAv(msg)});
+      liveRef.current.falar("[SIMULADOR] "+(S.current.log.length?"Diga apenas: 'Estou ouvindo, doutor.'":"Leia o cenário em voz alta, de forma natural: '"+caso.intro.replace(/'/g,"")+"' e termine perguntando: 'O que você faz, doutor?'"));
+    }catch(e){ liveRef.current=null; liveEstadoRef.current=null; setLiveEstado(null);
+      const nome=e&&e.name; if(nome==="NotAllowedError"||nome==="SecurityError"){ setAvisoAv("Permita o microfone (cadeado na barra de endereço) ou digite os comandos."); return; }
+      ligarVozAparelho(((e&&e.message)||"A voz real não está disponível agora.")+" Seguindo com a voz do aparelho."); } };
   const pcr=caso.tipo==="pcr", chocavel=r=>r==="fv"||r==="tv";
   const commit=()=>render(x=>x+1);
   const log=(txt,tipo)=>{ s.log.push({t:s.t,txt,tipo:tipo||"info"}); };
@@ -7549,8 +7603,8 @@ function MegacodeACLS({caso,onVoltar}){
     </div>
     <div className="card" style={{marginBottom:10,padding:10,borderColor:vozOn?"var(--acc)":undefined}}>
       <div className="row" style={{justifyContent:"space-between",flexWrap:"wrap",gap:6}}>
-        <div className="tag" style={{color:"var(--acc)"}}>🧑‍⚕️ AVALIADOR{vozOn?(falandoAv?" · falando…":ouvindo?" · ouvindo você 🎙️":pensando?" · pensando…":""):pensando?" · pensando…":""}</div>
-        <button className={"btn sm "+(vozOn?"":"ghost")} onClick={ligarVoz}>{vozOn?"⏹ Parar conversa por voz":"🎙️ Conversar por voz"}</button>
+        <div className="tag" style={{color:"var(--acc)"}}>🧑‍⚕️ AVALIADOR{liveEstado?(liveEstado==="conectando"?" · conectando…":liveEstado==="falando"?" · falando… (pode interromper)":" · ao vivo, ouvindo você 🔴"):vozOn?(falandoAv?" · falando…":ouvindo?" · ouvindo você 🎙️":pensando?" · pensando…":""):pensando?" · pensando…":""}</div>
+        <button className={"btn sm "+(vozOn||liveEstado?"":"ghost")} disabled={liveEstado==="conectando"} onClick={ligarVoz}>{liveEstado||vozOn?"⏹ Parar a conversa":"🎙️ Conversar com o avaliador"}</button>
       </div>
       <div style={{maxHeight:150,overflowY:"auto",marginTop:6}}>
         {conversa.slice(-6).map((m,k)=><div key={k} style={{fontSize:13,marginTop:4}}><b style={{color:m.de==="aluno"?undefined:"var(--acc)"}}>{m.de==="aluno"?"Você":"Avaliador"}:</b> {m.txt}</div>)}
@@ -8118,7 +8172,7 @@ const LIVE_WS="wss://generativelanguage.googleapis.com/ws/google.ai.generativela
 function aoVivoSuportado(){ try{ return !!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.WebSocket&&(window.AudioContext||window.webkitAudioContext)); }catch(e){ return false; } }
 function _b64DeBytes(u8){ let s=""; for(let i=0;i<u8.length;i+=0x8000) s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000)); return btoa(s); }
 function _bytesDeB64(b){ const s=atob(b); const u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u; }
-async function iniciarAoVivo({instrucao, voz, onEstado, onFalaAluno, onFalaPaciente, onErro}){
+async function iniciarAoVivo({instrucao, voz, onEstado, onFalaAluno, onFalaPaciente, onErro, ferramentas, onFerramenta}){
   const AC=window.AudioContext||window.webkitAudioContext;
   let ws=null, stream=null, ctxIn=null, ctxOut=null, proc=null, fonte=null, fechado=false;
   let fila=[], proxT=0, bufAluno="", bufPac="";
@@ -8150,7 +8204,9 @@ async function iniciarAoVivo({instrucao, voz, onEstado, onFalaAluno, onFalaPacie
     const t=setTimeout(()=>{ if(!pronto){ try{ w.close(); }catch(e){} falha(new Error("tempo esgotado")); } },10000);
     w.onopen=()=>{ w.send(JSON.stringify({setup:{model:"models/"+modelo,
       generationConfig:{responseModalities:["AUDIO"],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voz}}}},
-      systemInstruction:{parts:[{text:instrucao}]}, inputAudioTranscription:{}, outputAudioTranscription:{}}})); };
+      systemInstruction:{parts:[{text:instrucao}]}, inputAudioTranscription:{}, outputAudioTranscription:{},
+      contextWindowCompression:{slidingWindow:{}},
+      ...(ferramentas&&ferramentas.length?{tools:[{functionDeclarations:ferramentas}]}:{})}})); };
     w.onmessage=async ev=>{ let txt=ev.data; if(typeof txt!=="string"){ try{ txt=await (txt.text?txt.text():new Response(txt).text()); }catch(e){ return; } }
       let m; try{ m=JSON.parse(txt); }catch(e){ return; }
       if(m.setupComplete&&!pronto){ pronto=true; clearTimeout(t); ok(w); return; }
@@ -8163,6 +8219,10 @@ async function iniciarAoVivo({instrucao, voz, onEstado, onFalaAluno, onFalaPacie
         partes.forEach(p=>{ if(p.inlineData&&p.inlineData.data){ soltarAluno(); tocar(p.inlineData.data); } });
         if(sc.turnComplete){ soltarAluno(); soltarPac(); }
       }
+      /* a IA pediu uma ação ao app (ex.: o simulador ACLS): executa e devolve o resultado para ela narrar */
+      if(m.toolCall&&m.toolCall.functionCalls&&onFerramenta){ soltarAluno();
+        const respostas=[]; for(const fc of m.toolCall.functionCalls){ let resp; try{ resp=await onFerramenta(fc.name,fc.args||{}); }catch(e){ resp={erro:String(e&&e.message||e)}; } respostas.push({id:fc.id,name:fc.name,response:resp||{}}); }
+        try{ w.send(JSON.stringify({toolResponse:{functionResponses:respostas}})); }catch(e){} }
       if(m.goAway) onErro&&onErro("A conversa ao vivo vai encerrar em instantes (limite da sessão).");
     };
     w.onclose=ev=>{ clearTimeout(t); if(!pronto) falha(new Error((ev&&ev.reason)||"conexão recusada")); else if(!fechado){ onErro&&onErro("A conversa ao vivo caiu"+(ev&&ev.reason?" ("+ev.reason+")":"")+"."); parar(); } };
@@ -8185,7 +8245,9 @@ async function iniciarAoVivo({instrucao, voz, onEstado, onFalaAluno, onFalaPacie
   };
   const mudo=ctxIn.createGain(); mudo.gain.value=0; fonte.connect(proc); proc.connect(mudo); mudo.connect(ctxIn.destination);
   onEstado&&onEstado("ouvindo");
-  return {parar};
+  /* texto do app para a IA falar (avisos do avaliador: tempo, silêncio, eventos do simulador) */
+  const falar=(texto)=>{ try{ if(!fechado&&ws&&ws.readyState===1) ws.send(JSON.stringify({clientContent:{turns:[{role:"user",parts:[{text:texto}]}],turnComplete:true}})); }catch(e){} };
+  return {parar,falar};
 }
 function OSCEEstacao({caso, onVoltar}){
   const workerOk = !WORKER_URL.startsWith("COLE_");
@@ -8259,6 +8321,9 @@ function OSCEEstacao({caso, onVoltar}){
   const [aoVivo,setAoVivo]=useState(null); // null | conectando | ouvindo | falando
   const aoVivoRef=useRef(null);
   useEffect(()=>()=>{ try{ aoVivoRef.current&&aoVivoRef.current.parar(); }catch(e){} },[]);
+  /* voz real (Gemini Live) é o padrão; a voz do aparelho só entra se a voz real não estiver disponível (crédito, conexão, navegador) */
+  const vozRealOk=workerOk&&aoVivoSuportado(); const [vozReserva,setVozReserva]=useState(false); const vozAparelho=!vozRealOk||vozReserva;
+  const ultAtivRef=useRef(0), silVivoRef=useRef(false);
   const [entrada,setEntrada]=useState("");
   const [carregando,setCarregando]=useState(false);
   const [fase,setFase]=useState("conversa"); // conversa | corrigindo | resultado
@@ -8310,7 +8375,7 @@ function OSCEEstacao({caso, onVoltar}){
       const d=await r.json();
       if(!r.ok||d.error) throw new Error(d.error||"Falha na simulação.");
       const partes=separarAvaliador(d.resposta);
-      if(vozOn||conversaRef.current){ setFalando(true); falarPartes(partes,()=>{ setFalando(false); if(!soltarAvisoPendente()&&conversaRef.current) setTimeout(()=>{ if(conversaRef.current) ouvir(true); },250); }); }
+      if((vozOn&&vozAparelho)||conversaRef.current){ setFalando(true); falarPartes(partes,()=>{ setFalando(false); if(!soltarAvisoPendente()&&conversaRef.current) setTimeout(()=>{ if(conversaRef.current) ouvir(true); },250); }); }
       /* o aluno pediu radiografia/gasometria/ECG e a estação tem o exame: mostra o resultado de verdade (uma vez) */
       setMsgs(m=>anexarExames([...m,...partes],q,d.resposta));
     }catch(e){ setMsgs(m=>[...m,{de:"paciente",txt:"(Não consegui responder agora: "+e.message+")"}]); setConversaVoz(false); }
@@ -8321,17 +8386,21 @@ function OSCEEstacao({caso, onVoltar}){
   const silRef=useRef(0), avisosRef=useRef({}), pendenteRef=useRef(null), interrompeuRef=useRef(false);
   const falarPartes=(partes,fim)=>{ const p=partes[0]; if(!p){ fim&&fim(); return; }
     const seg=()=>falarPartes(partes.slice(1),fim); p.de==="avaliador"?falarAvaliador(p.txt,seg):falarPaciente(p.txt,caso,seg); };
-  const avaliadorDiz=(txt)=>{ setMsgs(m=>[...m,{de:"avaliador",txt}]);
-    if(!(vozOn||conversaRef.current)) return;
+  const avaliadorDiz=(txt)=>{
+    if(aoVivoRef.current){ aoVivoRef.current.falar("[ESTAÇÃO] Diga agora, como examinador, apenas isto: '"+txt+"'"); return; }
+    setMsgs(m=>[...m,{de:"avaliador",txt}]);
+    if(!((vozOn&&vozAparelho)||conversaRef.current)) return;
     if(recRef.current){ interrompeuRef.current=true; try{ recRef.current.abort(); }catch(e){} recRef.current=null; setOuvindo(false); }
     setFalando(true); falarAvaliador(txt,()=>{ setFalando(false); if(conversaRef.current) setTimeout(()=>{ if(conversaRef.current&&!recRef.current) ouvir(true); },250); }); };
   avaliadorDizRef.current=avaliadorDiz;
   const soltarAvisoPendente=()=>{ const t=pendenteRef.current; if(!t) return false; pendenteRef.current=null; avaliadorDiz(t); return true; };
-  useEffect(()=>{ if(!inicio||fase!=="conversa"||aoVivo) return; const dec=Math.floor((Date.now()-inicio)/1000), A=avisosRef.current; let t=null;
+  useEffect(()=>{ if(!inicio||fase!=="conversa") return; const dec=Math.floor((Date.now()-inicio)/1000), A=avisosRef.current; let t=null;
+    /* voz real: estudante calado por 30 s → o examinador cobra (uma vez por silêncio) */
+    if(aoVivo==="ouvindo"&&!silVivoRef.current&&ultAtivRef.current&&Date.now()-ultAtivRef.current>30000){ silVivoRef.current=true; avaliadorDiz("Doutor, pode prosseguir com o atendimento."); }
     if(limiteSeg>=360&&dec>=limiteSeg/2&&!A.metade){ A.metade=1; t="Metade do tempo, doutor."; }
     else if(limiteSeg>=300&&limiteSeg-dec<=120&&limiteSeg-dec>0&&!A.dois){ A.dois=1; A.metade=1; t="Faltam dois minutos."; }
     else if(dec>=limiteSeg&&!A.fim){ A.fim=1; A.dois=1; A.metade=1; t="Tempo esgotado. Quando quiser, encerre a estação para a correção."; }
-    if(!t) return; if(carregando||falando) pendenteRef.current=t; else avaliadorDiz(t); });
+    if(!t) return; if(carregando||falando||aoVivo==="falando"||aoVivo==="conectando") pendenteRef.current=t; else avaliadorDiz(t); });
   /* resultados de exame que a estação tem e o aluno pediu (mesma regra da conversa por texto) */
   const anexarExames=(out,q,resp)=>{ const ped=examesPedidos(q), ex=caso.exames||{};
     const jaTem=t=>out.some(x=>x.de==="exame"&&x.tipo===t);
@@ -8353,16 +8422,24 @@ function OSCEEstacao({caso, onVoltar}){
       "Fale SEMPRE em português do Brasil, como uma pessoa comum fala: frases curtas, linguagem simples, com a emoção que o quadro pede (dor, medo, cansaço), hesitações naturais. "+
       "Responda SOMENTE ao que o estudante perguntar; não entregue o diagnóstico nem adiante dados. Se ele interromper, pare e escute. Não ensine, não avalie e não corrija o estudante. "+
       "Quando o estudante pedir exame físico ou exames complementares, responda com voz neutra começando com 'Examinador:' e informe apenas o achado pedido, de forma objetiva; depois volte a ser o paciente. "+
-      "Se o estudante ficar em silêncio, aguarde. Não fale de você como inteligência artificial.";
-    setAoVivo("conectando"); if(!inicio) setInicio(Date.now());
+      "Se o estudante ficar em silêncio, aguarde. Não fale de você como inteligência artificial. "+
+      "Se o estudante se despedir ou disser que terminou sem ter dito a hipótese diagnóstica e a conduta, fale como 'Examinador:' e pergunte: 'Doutor, qual a sua hipótese diagnóstica e a conduta?', sem sugerir quais são. O examinador nunca ensina, nunca corrige e nunca dá pistas. "+
+      "Mensagens de texto que começam com [ESTAÇÃO] vêm do sistema da prova, não do estudante: obedeça falando como 'Examinador:' e depois volte a aguardar o estudante.";
+    setAoVivo("conectando"); if(!inicio) setInicio(Date.now()); ultAtivRef.current=Date.now(); silVivoRef.current=false;
+    const vazio=msgs.length===0;
     try{
       aoVivoRef.current=await iniciarAoVivo({instrucao, voz:fem?"Kore":"Charon",
-        onEstado:e=>{ if(e==="parado"){ aoVivoRef.current=null; setAoVivo(null); } else setAoVivo(e); },
-        onFalaAluno:t=>setMsgs(m=>anexarExames([...m,{de:"aluno",txt:t}],t)),
-        onFalaPaciente:t=>setMsgs(m=>anexarExames([...m,...separarAvaliador(t)],"",t)),
+        onEstado:e=>{ if(e==="parado"){ aoVivoRef.current=null; setAoVivo(null); } else { setAoVivo(e); if(e==="falando") ultAtivRef.current=Date.now(); if(e==="ouvindo") setTimeout(()=>soltarAvisoPendente(),400); } },
+        onFalaAluno:t=>{ ultAtivRef.current=Date.now(); silVivoRef.current=false; setMsgs(m=>anexarExames([...m,{de:"aluno",txt:t}],t)); },
+        onFalaPaciente:t=>{ ultAtivRef.current=Date.now(); setMsgs(m=>anexarExames([...m,...separarAvaliador(t)],"",t)); },
         onErro:msg=>setAvisoVoz(msg)});
+      if(vazio) aoVivoRef.current.falar("[ESTAÇÃO] Leia em voz alta, como examinador, de forma natural: 'Estação: "+caso.titulo+". "+String(caso.cenario||"").replace(/'/g,"")+" Você tem "+Math.round(limiteSeg/60)+" minutos. Pode começar.' Depois fique em silêncio e aguarde o estudante.");
     }catch(e){ aoVivoRef.current=null; setAoVivo(null);
-      const nome=e&&e.name; setAvisoVoz(nome==="NotAllowedError"||nome==="SecurityError"?avisoMicNegado():(e&&e.message)||"Não consegui iniciar a conversa ao vivo."); }
+      const nome=e&&e.name;
+      if(nome==="NotAllowedError"||nome==="SecurityError"){ setAvisoVoz(avisoMicNegado()); return; }
+      /* sem crédito ou sem conexão com a voz real: cai na voz do aparelho */
+      setVozReserva(((e&&e.message)||"A conversa com voz real não está disponível agora.")+" Seguindo com a voz do aparelho.");
+      if(Rec){ destravarVoz(); setConversaVoz(true); conversaRef.current=true; setVozOn(true); silRef.current=0; if(vazio&&avaliadorDizRef.current) avaliadorDizRef.current("Estação: "+caso.titulo+". "+caso.cenario+" Você tem "+Math.round(limiteSeg/60)+" minutos. Pode começar."); else ouvir(true); } }
   };
 
   /* Correção rígida: o examinador precisa citar o TRECHO do aluno que comprova cada item;
@@ -8553,24 +8630,25 @@ function OSCEEstacao({caso, onVoltar}){
       <div ref={fimRef}/>
     </div>
 
-    {workerOk && aoVivoSuportado() && fase==="conversa" && <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:8,alignItems:"center"}}>
-      <button className={"btn sm"+(aoVivo?"":" ghost")} style={aoVivo?{background:"var(--bad)",borderColor:"var(--bad)"}:{borderColor:"var(--acc)"}} onClick={comecarAoVivo} disabled={aoVivo==="conectando"}>
-        {aoVivo==="conectando"?"Conectando…":aoVivo?"⏹ Encerrar conversa ao vivo":"🎙️ Conversa ao vivo (beta)"}</button>
-      <span className="muted" style={{fontSize:12}}>{aoVivo==="ouvindo"?"🔴 Ao vivo — fale normalmente; pode interromper o paciente":aoVivo==="falando"?"🔊 Paciente falando… (pode interromper)":aoVivo==="conectando"?"Preparando o paciente…":"Voz natural em tempo real, como uma conversa de verdade."}</span>
+    {vozRealOk && !conversaVoz && fase==="conversa" && <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:8,alignItems:"center"}}>
+      <button className="btn" style={aoVivo?{background:"var(--bad)",borderColor:"var(--bad)"}:{}} onClick={comecarAoVivo} disabled={aoVivo==="conectando"}>
+        {aoVivo==="conectando"?"Conectando…":aoVivo?"⏹ Encerrar a conversa":"🎙️ Conversar com o paciente"}</button>
+      <span className="muted" style={{fontSize:12}}>{aoVivo==="ouvindo"?"🔴 Ao vivo — fale normalmente; pode interromper o paciente":aoVivo==="falando"?"🔊 Falando… (pode interromper)":aoVivo==="conectando"?"Preparando o paciente e o examinador…":"Voz real em tempo real: paciente e examinador conversam com você."}</span>
     </div>}
     {!aoVivo && (temTTS||Rec) && <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:8,alignItems:"center"}}>
-      {Rec && <button className={"btn sm"+(conversaVoz?"":" ghost")} disabled={!workerOk} onClick={alternarConversa}>{conversaVoz?"⏹ Parar conversa por voz":"🗣️ Conversa por voz"}</button>}
+      {Rec && vozAparelho && <button className={"btn sm"+(conversaVoz?"":" ghost")} disabled={!workerOk} onClick={alternarConversa}>{conversaVoz?"⏹ Parar conversa por voz":"🗣️ Conversa por voz (voz do aparelho)"}</button>}
       {Rec && !conversaVoz && <button className={"btn sm"+(ouvindo?"":" ghost")} onClick={()=>ouvindo?pararOuvir():ouvir(false)}>{ouvindo?"⏹ Parar de ditar":"🎤 Ditar"}</button>}
-      {temTTS && <button className={"btn sm"+(vozOn?"":" ghost")} onClick={()=>setVoz(!vozOn)}>{vozOn?"🔊 Paciente fala":"🔇 Paciente em texto"}</button>}
-      {temTTS && vozOn && <select value={vozNomeOsce===VOZ_IA?VOZ_IA:(vozAtualOsce?vozAtualOsce.name:"")} onChange={e=>trocarVoz(e.target.value)} aria-label="Voz do paciente" title="Voz do paciente" style={{maxWidth:210,fontSize:13,padding:"6px 8px"}}>
+      {temTTS && vozAparelho && <button className={"btn sm"+(vozOn?"":" ghost")} onClick={()=>setVoz(!vozOn)}>{vozOn?"🔊 Paciente fala":"🔇 Paciente em texto"}</button>}
+      {temTTS && vozAparelho && vozOn && <select value={vozNomeOsce===VOZ_IA?VOZ_IA:(vozAtualOsce?vozAtualOsce.name:"")} onChange={e=>trocarVoz(e.target.value)} aria-label="Voz do paciente" title="Voz do paciente" style={{maxWidth:210,fontSize:13,padding:"6px 8px"}}>
         {vozesLista.length===0 && <option value="">🔈 Voz do aparelho</option>}
         {vozesLista.map(v=><option key={v.name} value={v.name}>{rotuloVoz(v)}</option>)}
         <option value={VOZ_IA}>⬇️ Voz extra masculina (baixar 60 MB)</option>
       </select>}
-      {temTTS && vozOn && <DicaVozNatural vozes={vozesLista}/>}
+      {temTTS && vozAparelho && vozOn && <DicaVozNatural vozes={vozesLista}/>}
       {baixandoIA!==null && <span className="muted" style={{fontSize:12}}>Baixando a voz… {Math.round((baixandoIA||0)*100)}%</span>}
       <span className="muted" style={{fontSize:12}}>{ouvindo?"🎙️ Ouvindo… fale e faça uma pausa":falando?"🔊 Paciente falando…":carregando&&conversaVoz?"Paciente pensando…":conversaVoz?"Conversa por voz ligada":""}</span>
     </div>}
+    {typeof vozReserva==="string" && <div style={{fontSize:12.5,marginBottom:8,color:"var(--warn)",lineHeight:1.45}}>⚠️ {vozReserva}</div>}
     {avisoVoz && <div style={{fontSize:12.5,marginBottom:8,color:"var(--warn)",lineHeight:1.45}}>⚠️ {avisoVoz}</div>}
     {!Rec && temTTS && <div className="muted" style={{fontSize:11.5,marginBottom:6}}>{EH_IOS?"Para falar com o paciente, toque na caixa de texto e use o 🎤 do teclado do iPhone; ligue \"🔊 Paciente fala\" para ouvir a resposta.":"Para falar com o paciente por voz, use o Chrome, o Edge ou o Safari."}</div>}
     <textarea data-osce="1" rows={2} value={entrada} onChange={e=>setEntrada(e.target.value)}
