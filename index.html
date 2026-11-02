@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.11.2.1";
+  window.APP_VERSION="2026.11.2.2";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -9334,7 +9334,7 @@ function Banco({questoes,uid,onAdd}){
   return <div>
     <div className="card" style={{marginBottom:16}}>
       <h3 style={{fontSize:17,marginBottom:4}}>Banco de questões</h3>
-      <div className="muted" style={{fontSize:13}}>Você tem <b>{questoes.length}</b> questões no acervo. Precisa de mais? Gere questões inéditas no estilo INEP na aba <b>Gerar questão</b> — elas entram aqui automaticamente.</div>
+      <div className="muted" style={{fontSize:13}}>Você tem <b>{questoes.length}</b> questões no banco. Precisa de mais? Gere questões inéditas no estilo INEP na aba <b>Gerar questão</b> — elas entram aqui automaticamente.</div>
     </div>
     <div className="grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12}}>
       {AREAS.map(a=><div key={a.k} className="card">
