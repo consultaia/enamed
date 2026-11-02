@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.11.2.2";
+  window.APP_VERSION="2026.11.2.3";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2579,7 +2579,7 @@ async function obEnviar(sb,uid,aoMudar){
 
 const NOMES_EDICAO={"USP_2021_MI":"USP 2021 · Medicina Intensiva","USP_2023_ESP":"USP 2023 · Especialidades Clínicas (R+)","USP_2024":"USP 2024 · Acesso Direto","USP_2025":"USP 2025 · Acesso Direto","ENARE_2021":"ENARE 2021 · Acesso Direto","ENARE_2022":"ENARE 2022 · Acesso Direto","ENARE_2023":"ENARE 2023 · Acesso Direto","ENARE_2024_2025":"ENARE 2024/2025 · Acesso Direto","ENARE_2026":"ENARE 2026 · R+ Clínica Médica","ENARE_2027":"ENARE 2027 · R+ Clínica Médica","REVALIDA_2024_1":"Revalida 2024/1","REVALIDA_2025_1":"Revalida 2025/1","TPI_2026_1":"TPI 2026.1 · Afya","TPI_2025_1":"TPI 2025.1 · Afya","ENAMED_2025_2":"ENAMED 2025.2 · INEP","ENAMED_2026":"ENAMED 2026 · INEP (gabarito preliminar)"};
 /* filtro "Prova" do Praticar: flag de origem (transv) e edição (FLAG_ANO) */
-const PROVAS_FILTRO=[["ENAMED","ENAMED"],["REVALIDA","Revalida"],["ENARE","ENARE"],["TPI","TPI (Afya)"],["SUS","SUS (provas estaduais)"],["USP","USP"],["TECM","Título de Clínica Médica"]];
+const PROVAS_FILTRO=[["ENAMED","ENAMED"],["RESID","Residência (instituições)"],["REVALIDA","Revalida"],["ENARE","ENARE"],["TPI","TPI (Afya)"],["SUS","SUS (provas estaduais)"],["USP","USP"],["TECM","Título de Clínica Médica"]];
 const FLAGS_PROVA=PROVAS_FILTRO.map(p=>p[0]);
 function flagsProva(q){ const t=(q&&q.transv)||[]; return FLAGS_PROVA.filter(f=>t.indexOf(f)>=0); }
 function casaProva(q,prova){ if(prova==="todas") return true; const fl=flagsProva(q); if(prova==="oficiais") return fl.length>0; if(prova==="ineditas") return fl.length===0; return fl.indexOf(prova)>=0; }
@@ -2587,7 +2587,10 @@ function edicoesDe(q,flag){ return ((q&&q.transv)||[]).filter(t=>(""+t).indexOf(
 /* Provas estaduais do SUS: flag SUS + edição SUS_<UF>_<ano>[_ESP]. Novos estados entram só com a sigla aqui. */
 const UF_NOME={AC:"Acre",AL:"Alagoas",AM:"Amazonas",AP:"Amapá",BA:"Bahia",CE:"Ceará",DF:"Distrito Federal",ES:"Espírito Santo",GO:"Goiás",MA:"Maranhão",MG:"Minas Gerais",MS:"Mato Grosso do Sul",MT:"Mato Grosso",PA:"Pará",PB:"Paraíba",PE:"Pernambuco",PI:"Piauí",PR:"Paraná",RJ:"Rio de Janeiro",RN:"Rio Grande do Norte",RO:"Rondônia",RR:"Roraima",RS:"Rio Grande do Sul",SC:"Santa Catarina",SE:"Sergipe",SP:"São Paulo",TO:"Tocantins"};
 function partesSUS(ed){ const m=/^SUS_([A-Z]{2})_(\d{4})(?:_(.+))?$/.exec(String(ed||"")); return m?{uf:m[1],ano:+m[2],tipo:m[3]||""}:null; }
-function nomeEdicao(ed){ if(NOMES_EDICAO[ed]) return NOMES_EDICAO[ed]; const p=partesSUS(ed);
+/* outras residências: RESID_<BANCA>_<ANO>[_RMAIS] */
+const RESID_BANCAS={UNIFESP:"UNIFESP",UNICAMP:"UNICAMP",EINSTEIN:"Hospital Israelita Albert Einstein",SIRIO:"Hospital Sírio-Libanês",SANTACASA_SP:"Santa Casa de São Paulo",PSU_MG:"PSU-MG",AMRIGS:"AMRIGS (RS)",AMP_PR:"AMP (PR)",UERJ:"UERJ"};
+function partesResid(ed){ const m=/^RESID_(.+?)_(\d{4})(?:_(RMAIS|R\+))?$/.exec(String(ed||"")); return m?{uf:RESID_BANCAS[m[1]]||m[1].replace(/_/g," "),ano:+m[2],tipo:m[3]?"R+":""}:null; }
+function nomeEdicao(ed){ if(NOMES_EDICAO[ed]) return NOMES_EDICAO[ed]; const r=partesResid(ed); if(r) return r.uf+" "+r.ano+" · "+(r.tipo?"R+":"Acesso Direto"); const p=partesSUS(ed);
   if(p) return "SUS "+(UF_NOME[p.uf]||p.uf)+" "+p.ano+" · "+(p.tipo==="ESP"?"Especialidades Clínicas (R+)":"Acesso Direto");
   return String(ed).replace(/_/g," "); }
 /* questões antigas vieram como STRIX/STRIX_BA/STRIX_AL (prova de 2026): viram SUS */
@@ -2625,7 +2628,7 @@ function Graduacao({pool,registrar}){
       <div className="tag" style={{color:"var(--acc)"}}>GRADUAÇÃO · 1º AO 8º SEMESTRE</div>
       <h2 style={{fontSize:22,marginTop:4}}>🧑‍🎓 Treino para o ciclo básico e o ciclo clínico</h2>
       <div className="muted" style={{fontSize:13.5,marginTop:6,lineHeight:1.55}}>Questões de Teste de Progresso Institucional (TPI) organizadas por disciplina: ciclo básico (1º ao 4º semestre) e ciclo clínico (5º ao 8º). Cada questão tem gabarito comentado, alternativa por alternativa. {total?total+" questões disponíveis.":""}</div>
-      <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}><button className="btn sm ghost" onClick={()=>{ try{ window.__SET_TAB&&window.__SET_TAB("tpi"); irAoTopo(); }catch(e){} }}>🎓 Provas TPI completas →</button></div>
+      <div className="row" style={{gap:8,marginTop:10,flexWrap:"wrap"}}><button className="btn sm ghost" onClick={()=>{ try{ window.__PROVAS_FLAG="TPI"; window.__SET_TAB&&window.__SET_TAB("provas"); irAoTopo(); }catch(e){} }}>🎓 Provas TPI completas →</button></div>
     </div>
     {prov.length>=50 && <div className="card" style={{marginBottom:14,borderColor:"var(--gold)",cursor:"pointer"}} onClick={()=>abrir("TPI provável (questões que mais se repetem)",prov,"provavel")}>
       <div className="tag" style={{color:"var(--gold)"}}>🔮 TPI PROVÁVEL</div>
@@ -2635,6 +2638,37 @@ function Graduacao({pool,registrar}){
     {bloco(true,"Ciclo básico","1º AO 4º SEMESTRE","#7cc4ff")}
     {bloco(false,"Ciclo clínico","5º AO 8º SEMESTRE","#5fd4c4")}
     <div className="muted" style={{fontSize:12.5,lineHeight:1.5}}>Provas de disciplina (N1/N2) por semestre entram aqui conforme forem enviadas.</div>
+  </div>;
+}
+/* ---- PROVAS: todas as provas inteiras num só lugar (ENAMED, Residência, Revalida, TPI, Título) ---- */
+const PROVAS_CATS=[["ENAMED","📝 ENAMED"],["RESIDENCIA","🏥 Residência"],["REVALIDA","🌎 Revalida"],["TPI","🎓 TPI"],["TECM","🏛️ Título (TECM)"]];
+const RESID_SUB=[["RESID","Instituições (SP, Sul, MG, RJ)"],["ENARE","ENARE"],["USP","USP"],["SUS","SUS (provas estaduais)"]];
+const CAT_DE_FLAG={ENAMED:"ENAMED",REVALIDA:"REVALIDA",TPI:"TPI",TECM:"TECM",ENARE:"RESIDENCIA",USP:"RESIDENCIA",SUS:"RESIDENCIA",RESID:"RESIDENCIA"};
+function ProvasHub({questoes,registrar}){
+  const ini=(()=>{ try{ const f=window.__PROVAS_FLAG; window.__PROVAS_FLAG=null; if(f) return f; }catch(e){} return null; })();
+  const [cat,setCat]=useState(()=>{ if(ini) return CAT_DE_FLAG[ini]||"ENAMED"; try{ return PLS.get("preceptor_provas_cat")||"ENAMED"; }catch(e){ return "ENAMED"; } });
+  const [sub,setSub]=useState(()=>{ if(ini&&CAT_DE_FLAG[ini]==="RESIDENCIA") return ini; try{ return PLS.get("preceptor_provas_sub")||"RESID"; }catch(e){ return "RESID"; } });
+  useEffect(()=>{ try{ PLS.set("preceptor_provas_cat",cat); PLS.set("preceptor_provas_sub",sub); }catch(e){} },[cat,sub]);
+  const chip=(k,l,on,fn)=><button key={k} className={"btn sm "+(on?"":"ghost")} onClick={fn}>{l}</button>;
+  return <div>
+    <div style={{margin:"0 0 12px"}}>
+      <div className="tag" style={{color:"var(--acc)"}}>PROVAS COMPLETAS</div>
+      <h2 style={{fontSize:22,marginTop:4}}>📝 Provas</h2>
+      <div className="muted" style={{fontSize:13.5,marginTop:4}}>Todas as provas inteiras, com gabarito comentado: escolha a categoria e a edição.</div>
+    </div>
+    <div className="row" style={{gap:6,flexWrap:"wrap",marginBottom:12}}>{PROVAS_CATS.map(([k,l])=>chip(k,l,cat===k,()=>setCat(k)))}</div>
+    {cat==="RESIDENCIA" && <div className="row" style={{gap:6,flexWrap:"wrap",marginBottom:12}}>{RESID_SUB.map(([k,l])=>chip(k,l,sub===k,()=>setSub(k)))}</div>}
+    {cat==="ENAMED" && <React.Fragment>
+      <ExameProvas key="ENAMED" pool={questoes.concat(window.ENAMED_OFICIAL||[])} registrar={registrar} flag="ENAMED" icone="📝" titulo="ENAMED — Provas oficiais" subtitulo="ENAMED · INEP"/>
+      <div style={{marginTop:14}}><SimuladoEnamed pool={questoes} registrar={registrar}/></div>
+    </React.Fragment>}
+    {cat==="RESIDENCIA" && sub==="RESID" && <ExameProvas key="RESID" pool={questoes} registrar={registrar} flag="RESID" icone="🏥" titulo="Residência — instituições" subtitulo="RESIDÊNCIA MÉDICA · ACESSO DIRETO E R+"/>}
+    {cat==="RESIDENCIA" && sub==="ENARE" && <ExameProvas key="ENARE" pool={questoes} registrar={registrar} flag="ENARE" icone="📋" titulo="ENARE" subtitulo="EXAME NACIONAL DE RESIDÊNCIA"/>}
+    {cat==="RESIDENCIA" && sub==="USP" && <ExameProvas key="USP" pool={questoes} registrar={registrar} flag="USP" icone="🏛️" titulo="Provas da USP" subtitulo="USP · FMUSP · RESIDÊNCIA MÉDICA"/>}
+    {cat==="RESIDENCIA" && sub==="SUS" && <ExameProvas key="SUS" pool={questoes} registrar={registrar} flag="SUS" icone="🏥" titulo="Provas do SUS" subtitulo="SUS · PROVAS ESTADUAIS DE RESIDÊNCIA"/>}
+    {cat==="REVALIDA" && <ExameProvas key="REVALIDA" pool={questoes} registrar={registrar} flag="REVALIDA" icone="🌎" titulo="Revalida" subtitulo="REVALIDAÇÃO DE DIPLOMA MÉDICO · INEP"/>}
+    {cat==="TPI" && <ExameProvas key="TPI" pool={questoes} registrar={registrar} flag="TPI" icone="🎓" titulo="TPI — Teste de Progresso Institucional" subtitulo="TPI · GRADUAÇÃO"/>}
+    {cat==="TECM" && <ExameProvas key="TECM" pool={questoes} registrar={registrar} flag="TECM" icone="🏛️" titulo="Título de Especialista em Clínica Médica" subtitulo="TÍTULO DE ESPECIALISTA · SBCM"/>}
   </div>;
 }
 function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
@@ -2652,7 +2686,7 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
     const num=q=>{const m=/_q(\d+)$/.exec(q.id||"");return m?+m[1]:9999;};
     return Object.keys(grupos).map(function(ed){
       const qs=grupos[ed].slice().sort((a,b)=>num(a)-num(b));
-      const sus=partesSUS(ed);
+      const sus=partesSUS(ed)||partesResid(ed);
       let nome=(NOMES_EDICAO[ed]||sus)? nomeEdicao(ed) : ((qs[0]&&qs[0].tema)?qs[0].tema:ed).replace(/\s·\sParte\s.*$/,"").trim();
       return {ed:ed, nome:nome, qs:qs, uf:sus?sus.uf:"", ano:sus?sus.ano:0, esp:sus?sus.tipo:""};
     }).sort((a,b)=>a.uf!==b.uf?((UF_NOME[a.uf]||a.uf)<(UF_NOME[b.uf]||b.uf)?-1:1):a.ano!==b.ano?b.ano-a.ano:a.esp!==b.esp?(a.esp?1:-1):(a.nome<b.nome?1:(a.nome>b.nome?-1:0)));
@@ -2667,9 +2701,9 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
     <div className="tag" style={{color:"var(--acc)"}}>{subtitulo}</div>
     <h2 style={{fontSize:22,marginTop:4}}>{icone} {titulo}</h2>
     {!provas.length
-      ? <p className="muted" style={{marginTop:10}}>Nenhuma prova disponível ainda. Assim que a edição for carregada no banco (SQL) e você recarregar o app, ela aparece aqui.</p>
+      ? <p className="muted" style={{marginTop:10}}>Nenhuma prova disponível ainda nesta categoria. As novas edições aparecem aqui assim que forem publicadas.</p>
       : <div style={{marginTop:14,display:"grid",gap:10}}>
-          {provas.map(function(p,i){ const pg=progressoProva(flag+":"+p.ed); const titUF=p.uf&&(i===0||provas[i-1].uf!==p.uf); return <React.Fragment key={p.ed}>{titUF&&<div className="tag" style={{marginTop:i?10:0,color:"var(--acc)"}}>📍 {UF_NOME[p.uf]||p.uf}</div>}<button className="alt" style={{textAlign:"left",display:"block",width:"100%",borderColor:pg?"var(--acc)":undefined}} onClick={()=>abrir(p)}>
+          {provas.map(function(p,i){ const pg=progressoProva(flag+":"+p.ed); const titUF=p.uf&&(i===0||provas[i-1].uf!==p.uf); return <React.Fragment key={p.ed}>{titUF&&<div className="tag" style={{marginTop:i?10:0,color:"var(--acc)"}}>{flag==="RESID"?"🏛️":"📍"} {UF_NOME[p.uf]||p.uf}</div>}<button className="alt" style={{textAlign:"left",display:"block",width:"100%",borderColor:pg?"var(--acc)":undefined}} onClick={()=>abrir(p)}>
             <div style={{fontWeight:700}}>{p.nome}</div>
             <div className="muted" style={{fontSize:13,marginTop:3}}>{p.qs.length} questões{pg?<span style={{color:"var(--acc)",fontWeight:600}}> · em andamento — {pg.n} respondida{pg.n===1?"":"s"} · continuar da questão {Math.min(pg.i+1,p.qs.length)}</span>:null}</div>
           </button></React.Fragment>; })}
@@ -3376,11 +3410,11 @@ function ContinuarCard({onAbrir}){
 /* provas oficiais já guardam o próprio progresso: aqui só entram no índice */
 function sessaoIndexar(chave,meta){ try{ const idx=sessaoIndice(); idx[chave]={...(idx[chave]||{}),...meta,t:Date.now()}; gravarJSON(SESSAO_IDX,idx); }catch(e){} }
 function sessaoDesindexar(chave){ try{ const idx=sessaoIndice(); if(idx[chave]){ delete idx[chave]; gravarJSON(SESSAO_IDX,idx); } }catch(e){} }
-const FLAG_TAB={ENAMED:"enamed",TPI:"tpi",TECM:"tecm",REVALIDA:"revalida",ENARE:"enare",SUS:"sus",USP:"usp"};
+const FLAG_TAB={ENAMED:"enamed",TPI:"tpi",TECM:"tecm",REVALIDA:"revalida",ENARE:"enare",SUS:"sus",USP:"usp",RESID:"provas"};
 
 function Shell({session}){
   const uid=session.user.id;
-  const TABS_OK=["inicio","trilha","dicas","praticar","graduacao","internato","enamed","tpi","tecm","revalida","enare","sus","usp","flash","videos","suporte","dash"];
+  const TABS_OK=["inicio","trilha","dicas","praticar","provas","graduacao","internato","enamed","tpi","tecm","revalida","enare","sus","usp","flash","videos","suporte","dash"];
   const [tab,setTab]=useState(()=>{try{let t=PLS.get("preceptor_tab"); if(t==="strix") t="sus"; return (t&&TABS_OK.indexOf(t)>=0)?t:"inicio"}catch(e){return "inicio"}});
   useEffect(()=>{PLS.set("preceptor_tab",tab)},[tab]);
   const [tema,setTema]=useState(()=>{try{return localStorage.getItem("enamed_tema")||"escuro"}catch(e){return "escuro"}});
@@ -3798,6 +3832,7 @@ function Shell({session}){
       {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} metaHoje={metaProg} bloqueadas={acesso?0:bloqueadasFree} isPro={isPro} acesso={acesso} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
       {tab==="internato" && <Internato pool={questoes} registrar={registrar}/>}
       {tab==="enamed" && <ExameProvas pool={questoes.concat(window.ENAMED_OFICIAL||[])} registrar={registrar} flag="ENAMED" icone="📝" titulo="ENAMED — Provas oficiais" subtitulo="ENAMED · INEP"/>}
+      {tab==="provas" && <ProvasHub questoes={questoes} registrar={registrar}/>}
       {tab==="graduacao" && <Graduacao pool={questoes} registrar={registrar}/>}
       {tab==="tpi" && <ExameProvas pool={questoes} registrar={registrar} flag="TPI" icone="🎓" titulo="TPI — Teste de Progresso Institucional" subtitulo="TPI · AFYA · 2026.1"/>}
       {tab==="tecm" && <ExameProvas pool={questoes} registrar={registrar} flag="TECM" icone="🏛️" titulo="Título de Especialista em Clínica Médica" subtitulo="TÍTULO DE ESPECIALISTA · SBCM"/>}
@@ -4716,6 +4751,7 @@ function fonteDaQuestao(q){
   if(tv.includes("TECM")) return {tipo:"oficial",nome:"TECM"};
   const sus=tv.map(t=>/^SUS_([A-Z]{2})_(\d{4})(_ESP)?$/.exec(t)).find(Boolean);
   if(sus) return {tipo:"oficial",nome:"SUS-"+sus[1]+" "+sus[2]+(sus[3]?" (R+)":"")};
+  const rs=tv.find(t=>/^RESID_/.test(t)); if(rs) return {tipo:"oficial",nome:nomeEdicao(rs)};
   const usp=tv.map(t=>/^USP_(\d{4})(?:_(.+))?$/.exec(t)).find(Boolean);
   if(usp) return {tipo:"oficial",nome:"USP "+usp[1]+(usp[2]==="MI"?" (MI)":usp[2]==="ESP"?" (R+)":"")};
   if(/^enamed_\d{4}_\d_q/.test(id)){ const m=/^enamed_(\d{4})_(\d)/.exec(id); return {tipo:"oficial",nome:"ENAMED "+m[1]+"."+m[2]}; }
@@ -6104,15 +6140,15 @@ function ReportarErroQuestao({q,sel}){
    Cinco botões fixos, ao alcance do polegar e sempre visíveis ao rolar.
    Provas e "Mais" abrem uma folha com as demais abas. No desktop continua
    a coluna lateral (.nav). */
-const NAV_ITENS=[["inicio","🏠 Início"],["trilha","📚 Estudar"],["dicas","💡 Dicas do dia"],["praticar","✍️ Praticar"],["graduacao","🧑‍🎓 Graduação"],["internato","🩺 Internato"],["enamed","📝 ENAMED"],["tpi","🎓 TPI"],["tecm","🏛️ TECM"],["revalida","🏥 Revalida"],["enare","📋 ENARE"],["sus","🏥 SUS (provas estaduais)"],["usp","🏛️ USP"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Suporte"],["dash","📈 Meu progresso"]];
+const NAV_ITENS=[["inicio","🏠 Início"],["trilha","📚 Estudar"],["dicas","💡 Dicas do dia"],["praticar","✍️ Questões"],["provas","📝 Provas"],["graduacao","🧑‍🎓 Graduação"],["internato","🩺 Internato"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Suporte"],["dash","📈 Meu progresso"]];
 const NAV_PROVAS=["enamed","tpi","tecm","revalida","enare","sus","usp"];
-const NAV_MAIS=["dicas","flash","videos","dash","suporte","admin"];
+const NAV_MAIS=["dicas","graduacao","flash","videos","dash","suporte","admin"];
 function BarraInferior({tab,isAdmin,irPara}){
   const [folha,setFolha]=useState(null);
   const rot=Object.fromEntries(NAV_ITENS.concat([["admin","📊 Métricas"]]));
-  const grupos={provas:NAV_PROVAS, mais:NAV_MAIS.filter(k=>k!=="admin"||isAdmin)};
-  const ativo = NAV_PROVAS.indexOf(tab)>=0 ? "provas" : (NAV_MAIS.indexOf(tab)>=0 ? "mais" : tab);
-  const botoes=[["inicio","🏠","Início"],["trilha","📚","Estudar"],["praticar","✍️","Praticar"],["internato","🩺","Internato"],["provas","📝","Provas"],["mais","☰","Mais"]];
+  const grupos={mais:NAV_MAIS.filter(k=>k!=="admin"||isAdmin)};
+  const ativo = (NAV_PROVAS.indexOf(tab)>=0||tab==="provas") ? "provas" : (NAV_MAIS.indexOf(tab)>=0 ? "mais" : tab);
+  const botoes=[["inicio","🏠","Início"],["trilha","📚","Estudar"],["praticar","✍️","Questões"],["internato","🩺","Internato"],["provas","📝","Provas"],["mais","☰","Mais"]];
   const toque=(k)=>{ if(grupos[k]){ setFolha(f=>f===k?null:k); return; } setFolha(null); irPara(k); };
   useEffect(()=>{ try{ document.body.classList.toggle("folha-aberta",!!folha); }catch(e){} return ()=>{ try{ document.body.classList.remove("folha-aberta"); }catch(e){} }; },[folha]);
   useEffect(()=>{ if(!folha) return; const esc=e=>{ if(e.key==="Escape") setFolha(null); }; window.addEventListener("keydown",esc); return ()=>window.removeEventListener("keydown",esc); },[folha]);
