@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.11.3.3";
+  window.APP_VERSION="2026.11.3.4";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -2640,13 +2640,13 @@ function Graduacao({pool,registrar}){
     <div className="muted" style={{fontSize:12.5,lineHeight:1.5}}>Provas de disciplina (N1/N2) por semestre entram aqui conforme forem enviadas.</div>
   </div>;
 }
-/* ---- PROVAS: todas as provas inteiras num só lugar (ENAMED, Residência, Revalida, TPI, Título) ---- */
-const PROVAS_CATS=[["ENAMED","📝 ENAMED"],["RESIDENCIA","🏥 Residência"],["REVALIDA","🌎 Revalida"],["TPI","🎓 TPI"],["TECM","🏛️ Título (TECM)"]];
+/* ---- PROVAS: todas as provas inteiras num só lugar (ENAMED, Residência, Revalida, TPI); o TECM tem aba própria ---- */
+const PROVAS_CATS=[["ENAMED","📝 ENAMED"],["RESIDENCIA","🏥 Residência"],["REVALIDA","🌎 Revalida"],["TPI","🎓 TPI"]];
 const RESID_SUB=[["RESID","Instituições (SP, Sul, MG, RJ)"],["ENARE","ENARE"],["USP","USP"],["SUS","SUS (provas estaduais)"]];
-const CAT_DE_FLAG={ENAMED:"ENAMED",REVALIDA:"REVALIDA",TPI:"TPI",TECM:"TECM",ENARE:"RESIDENCIA",USP:"RESIDENCIA",SUS:"RESIDENCIA",RESID:"RESIDENCIA"};
+const CAT_DE_FLAG={ENAMED:"ENAMED",REVALIDA:"REVALIDA",TPI:"TPI",ENARE:"RESIDENCIA",USP:"RESIDENCIA",SUS:"RESIDENCIA",RESID:"RESIDENCIA"};
 function ProvasHub({questoes,registrar}){
   const ini=(()=>{ try{ const f=window.__PROVAS_FLAG; window.__PROVAS_FLAG=null; if(f) return f; }catch(e){} return null; })();
-  const [cat,setCat]=useState(()=>{ if(ini) return CAT_DE_FLAG[ini]||"ENAMED"; try{ return PLS.get("preceptor_provas_cat")||"ENAMED"; }catch(e){ return "ENAMED"; } });
+  const [cat,setCat]=useState(()=>{ if(ini) return CAT_DE_FLAG[ini]||"ENAMED"; try{ const c=PLS.get("preceptor_provas_cat"); return PROVAS_CATS.some(x=>x[0]===c)?c:"ENAMED"; }catch(e){ return "ENAMED"; } });
   const [sub,setSub]=useState(()=>{ if(ini&&CAT_DE_FLAG[ini]==="RESIDENCIA") return ini; try{ return PLS.get("preceptor_provas_sub")||"RESID"; }catch(e){ return "RESID"; } });
   useEffect(()=>{ try{ PLS.set("preceptor_provas_cat",cat); PLS.set("preceptor_provas_sub",sub); }catch(e){} },[cat,sub]);
   const chip=(k,l,on,fn)=><button key={k} className={"btn sm "+(on?"":"ghost")} onClick={fn}>{l}</button>;
@@ -2668,7 +2668,31 @@ function ProvasHub({questoes,registrar}){
     {cat==="RESIDENCIA" && sub==="SUS" && <ExameProvas key="SUS" pool={questoes} registrar={registrar} flag="SUS" icone="🏥" titulo="Provas do SUS" subtitulo="SUS · PROVAS ESTADUAIS DE RESIDÊNCIA"/>}
     {cat==="REVALIDA" && <ExameProvas key="REVALIDA" pool={questoes} registrar={registrar} flag="REVALIDA" icone="🌎" titulo="Revalida" subtitulo="REVALIDAÇÃO DE DIPLOMA MÉDICO · INEP"/>}
     {cat==="TPI" && <ExameProvas key="TPI" pool={questoes} registrar={registrar} flag="TPI" icone="🎓" titulo="TPI — Teste de Progresso Institucional" subtitulo="TPI · GRADUAÇÃO"/>}
-    {cat==="TECM" && <ExameProvas key="TECM" pool={questoes} registrar={registrar} flag="TECM" icone="🏛️" titulo="Título de Especialista em Clínica Médica" subtitulo="TÍTULO DE ESPECIALISTA · SBCM"/>}
+  </div>;
+}
+/* ---- TECM: aba própria (não é só prova): pontuação, 2ª fase, calculadora, programa e provas ---- */
+function TituloTECM({questoes,registrar}){
+  return <div>
+    <div style={{margin:"0 0 12px"}}>
+      <div className="tag" style={{color:"var(--gold)"}}>TÍTULO DE ESPECIALISTA · SBCM</div>
+      <h2 style={{fontSize:22,marginTop:4}}>🏛️ Título de Clínica Médica (TECM)</h2>
+      <div className="muted" style={{fontSize:13.5,marginTop:4}}>Tudo para o título num só lugar: como a SBCM pontua, as estações da 2ª fase, a calculadora de currículo, o programa da prova com assuntos e aulas, e as provas completas.</div>
+    </div>
+      <div className="card" style={{marginTop:14,borderColor:"var(--gold)"}}>
+        <div className="tag" style={{color:"var(--gold)"}}>COMO A SBCM PONTUA</div>
+        <div style={{fontSize:13.5,lineHeight:1.6,marginTop:4}}>
+          <b>1ª fase (teórica):</b> 120 questões, 5 alternativas. As 100 primeiras valem 0,8 e as 20 últimas 1,0 (máx. 100). Somam-se até 10 pontos de currículo. <b>Corte: 77 de 110</b> (70%).<br/>
+          <b>2ª fase (prática):</b> 2 estações de 10 min, sequenciais — o examinador só libera a etapa seguinte quando você cumpre a ação. Avaliação CHA (conhecimento, habilidade, atitude), 5 pontos por estação, <b>corte 7 de 10</b>.<br/>
+          <b>Recurso:</b> R$ 200 por questão (devolvido se provido), fundamentado na bibliografia do edital.
+        </div>
+      </div>
+      <div className="row" style={{gap:10,marginTop:12,flexWrap:"wrap",alignItems:"center"}}>
+        <button className="btn sm" onClick={()=>{ try{ window.__OSCE_AREA="TECM"; window.__OSCE_ABRIR=true; window.__SET_TAB&&window.__SET_TAB("internato"); irAoTopo(); }catch(e){} }}>Treinar as estações da 2ª fase →</button>
+        <span className="muted" style={{fontSize:12}}>6 estações de 10 min no formato SBCM, com paciente e examinador de IA (PRO).</span>
+      </div>
+      <CalculadoraTECM/>
+      <ProgramaTECM qs={(questoes||[]).filter(q=>q&&q.transv&&q.transv.indexOf&&q.transv.indexOf("TECM")>=0).concat(embaralharLista(SEED_TECM))}/>
+    <div style={{marginTop:14}}><ExameProvas key="TECM" pool={questoes} registrar={registrar} flag="TECM" icone="📝" titulo="Provas do TECM" subtitulo="PROVAS COMPLETAS · SBCM"/></div>
   </div>;
 }
 function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
@@ -2709,22 +2733,6 @@ function ExameProvas({pool, registrar, flag, titulo, subtitulo, icone}){
           </button></React.Fragment>; })}
         </div>}
     <p className="muted" style={{fontSize:12,marginTop:14}}>Dá pra refazer quando quiser.</p>
-    {flag==="TECM" && <div>
-      <div className="card" style={{marginTop:14,borderColor:"var(--gold)"}}>
-        <div className="tag" style={{color:"var(--gold)"}}>COMO A SBCM PONTUA</div>
-        <div style={{fontSize:13.5,lineHeight:1.6,marginTop:4}}>
-          <b>1ª fase (teórica):</b> 120 questões, 5 alternativas. As 100 primeiras valem 0,8 e as 20 últimas 1,0 (máx. 100). Somam-se até 10 pontos de currículo. <b>Corte: 77 de 110</b> (70%).<br/>
-          <b>2ª fase (prática):</b> 2 estações de 10 min, sequenciais — o examinador só libera a etapa seguinte quando você cumpre a ação. Avaliação CHA (conhecimento, habilidade, atitude), 5 pontos por estação, <b>corte 7 de 10</b>.<br/>
-          <b>Recurso:</b> R$ 200 por questão (devolvido se provido), fundamentado na bibliografia do edital.
-        </div>
-      </div>
-      <div className="row" style={{gap:10,marginTop:12,flexWrap:"wrap",alignItems:"center"}}>
-        <button className="btn sm" onClick={()=>{ try{ window.__OSCE_AREA="TECM"; window.__OSCE_ABRIR=true; window.__SET_TAB&&window.__SET_TAB("internato"); irAoTopo(); }catch(e){} }}>Treinar as estações da 2ª fase →</button>
-        <span className="muted" style={{fontSize:12}}>6 estações de 10 min no formato SBCM, com paciente e examinador de IA (PRO).</span>
-      </div>
-      <CalculadoraTECM/>
-      <ProgramaTECM qs={(pool||[]).filter(q=>q&&q.transv&&q.transv.indexOf&&q.transv.indexOf("TECM")>=0).concat(embaralharLista(SEED_TECM))}/>
-    </div>}
   </div>;
 }
 
@@ -3835,7 +3843,7 @@ function Shell({session}){
       {tab==="provas" && <ProvasHub questoes={questoes} registrar={registrar}/>}
       {tab==="graduacao" && <Graduacao pool={questoes} registrar={registrar}/>}
       {tab==="tpi" && <ExameProvas pool={questoes} registrar={registrar} flag="TPI" icone="🎓" titulo="TPI — Teste de Progresso Institucional" subtitulo="TPI · AFYA · 2026.1"/>}
-      {tab==="tecm" && <ExameProvas pool={questoes} registrar={registrar} flag="TECM" icone="🏛️" titulo="Título de Especialista em Clínica Médica" subtitulo="TÍTULO DE ESPECIALISTA · SBCM"/>}
+      {tab==="tecm" && <TituloTECM questoes={questoes} registrar={registrar}/>}
       {tab==="revalida" && <ExameProvas pool={questoes} registrar={registrar} flag="REVALIDA" icone="🏥" titulo="Revalida" subtitulo="REVALIDAÇÃO DE DIPLOMA MÉDICO · INEP"/>}
       {tab==="enare" && <ExameProvas pool={questoes} registrar={registrar} flag="ENARE" icone="📋" titulo="ENARE" subtitulo="EXAME NACIONAL DE RESIDÊNCIA"/>}
       {tab==="usp" && <ExameProvas pool={questoes} registrar={registrar} flag="USP" icone="🏛️" titulo="Provas da USP" subtitulo="USP · FMUSP · RESIDÊNCIA MÉDICA"/>}
@@ -6140,9 +6148,9 @@ function ReportarErroQuestao({q,sel}){
    Cinco botões fixos, ao alcance do polegar e sempre visíveis ao rolar.
    Provas e "Mais" abrem uma folha com as demais abas. No desktop continua
    a coluna lateral (.nav). */
-const NAV_ITENS=[["inicio","🏠 Início"],["trilha","📚 Estudar"],["dicas","💡 Dicas do dia"],["praticar","✍️ Questões"],["provas","📝 Provas"],["graduacao","🧑‍🎓 Graduação"],["internato","🩺 Internato"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Suporte"],["dash","📈 Meu progresso"]];
-const NAV_PROVAS=["enamed","tpi","tecm","revalida","enare","sus","usp"];
-const NAV_MAIS=["dicas","graduacao","flash","videos","dash","suporte","admin"];
+const NAV_ITENS=[["inicio","🏠 Início"],["trilha","📚 Estudar"],["dicas","💡 Dicas do dia"],["praticar","✍️ Questões"],["provas","📝 Provas"],["graduacao","🧑‍🎓 Graduação"],["internato","🩺 Internato"],["tecm","🏛️ Título (TECM)"],["flash","🃏 Flashcards"],["videos","▶️ Vídeos"],["suporte","💬 Suporte"],["dash","📈 Meu progresso"]];
+const NAV_PROVAS=["enamed","tpi","revalida","enare","sus","usp"];
+const NAV_MAIS=["tecm","dicas","graduacao","flash","videos","dash","suporte","admin"];
 function BarraInferior({tab,isAdmin,irPara}){
   const [folha,setFolha]=useState(null);
   const rot=Object.fromEntries(NAV_ITENS.concat([["admin","📊 Métricas"]]));
