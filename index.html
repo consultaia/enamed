@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.11.3.6";
+  window.APP_VERSION="2026.11.3.7";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
@@ -9480,29 +9480,117 @@ function EstudarAssunto({t,store,avaliarDominio,registrar,irTreinar,isPro,onAssi
   </div>;
 }
 
-/* Prática dentro do estudo: questões só do tema/área, grudadas na aula */
+/* Prática dentro do estudo: além das questões fixas do assunto, aproveita o banco inteiro
+   (ENAMED, Residência, Revalida, TPI...) pelo campo "tema" das questões. */
+const TEMA_CHAVES={"cm-acidobase": "acido.?base|gasometria|acidose|alcalose|anion gap", "cm-has": "hipertensao arterial|\\bhas\\b|anti.?hipertensiv|crise hipertensiva|urgencia hipertensiva|emergencia hipertensiva|hipertensao$|hipertensao sistemica|hipertensao (no|na) ", "cm-dm2": "diabetes( mellitus)?( tipo)? ?(2|ii)\\b|\\bdm ?2\\b|antidiabetic|insulinoterapia|hipoglicemiante|metformina|diabetes mellitus$|^diabetes$|hemoglobina glicada|isglt2", "cm-sca": "coronari|infarto|\\biam\\b|\\bsca\\b|angina|iamcsst|iamssst|supra.?desnivel|troponina", "cm-ic": "insuficiencia cardiaca|\\bic\\b|icfer|icfep|edema agudo de pulmao", "cm-avc": "\\bavc\\b|acidente vascular|\\bait\\b|ataque isquemico|trombolise.*(avc|cerebr)|hemorragia subaracnoide|\\bhsa\\b|hemorragia intraparenquimatosa", "cm-asma-dpoc": "asma|dpoc|doenca pulmonar obstrutiva|broncoespasmo|exacerbacao", "cm-sepse": "sepse|septic|choque", "cm-dengue": "dengue|arbovir|chikungunya|zika|febre amarela", "cm-tuberculose": "tuberculose|\\btb\\b|ilt[bv]\\b|tuberculin|bacilifer|tb latente", "cm-pac": "pneumonia|\\bpac\\b", "cm-hiv-ist": "\\bhiv\\b|aids|sifilis|\\bist\\b|\\bists\\b|infeccoes sexualmente|gonorr|clamidia|uretrite|prep\\b|\\bpep\\b|profilaxia pos.?exposicao (ao )?hiv|cancro|hpv", "cir-abdome": "abdome agudo|apendicit|dor abdominal aguda|peritonite|diverticulite aguda", "cir-trauma": "trauma|atls|politrauma|choque hemorragico|via aerea definitiva", "cir-posop": "pre.?operatori|pos.?operatori|perioperatori|risco cirurgico|complicac(ao|oes) (pos|cirurgic)|deiscencia|infeccao de (sitio|ferida) cirurgic|febre pos", "cir-hernia": "hernia", "cm-tireoide": "tireoid|tireot|hipotireoid|hipertireoid|graves|hashimoto|nodulo (de )?tireoide|bocio|tsh", "cm-anemias": "anemia|ferropriv|megaloblast|talassemia|falciforme|hemolis", "cm-drc": "doenca renal cronica|\\bdrc\\b|insuficiencia renal cronica|dialise|nefropatia", "cm-hepatites": "hepatite", "cm-tev": "trombose venosa|\\btvp\\b|tromboembol|\\btep\\b|embolia pulmonar|\\btev\\b|anticoagula", "cm-fa": "fibrilacao atrial|\\bfa\\b|flutter|arritmia|taquiarritmia|bradiarritmia|taquicardia", "cm-cirrose": "cirrose|hipertensao portal|ascite|peritonite bacteriana espontanea|encefalopatia hepatica|varizes esofagic|hepatorrenal|child", "cm-itu": "\\bitu\\b|infeccao (do trato )?urinari|pielonefrit|cistite|bacteriuria", "cir-biliar": "colelit|colecistit|colangit|coledocolit|biliar|vesicula", "cir-pancreatite": "pancreatit", "cir-obstrucao": "obstrucao intestinal|suboclusao|volvo|bridas|ileo", "cir-queimados": "queimad|queimadura", "cir-torax": "trauma toracic|pneumotorax|hemotorax|torax instavel|tamponamento|contusao pulmonar", "cir-abdome-trauma": "trauma abdominal|trauma (de |do )?abdome|lesao esplenica|baco|fast\\b|laparotomia", "cir-tce": "traumatismo cranio|\\btce\\b|trauma cranio|hematoma (epi|sub)dural|glasgow", "cir-colorretal": "diverticul|colorret|cancer de colon|cancer colorretal|\\bretal\\b|\\breto\\b|colonoscopia", "go-prenatal": "pre.?natal|gestacao|gestante|gravidez|diabetes gestacional|rastreio.*gestac|isoimuniza|aloimuniza", "go-hemorragias": "hemorragias? (da|na) (primeira|segunda|gestac)|abortamento|aborto|ectopica|mola|doenca trofoblastica|placenta previa|descolamento (prematuro )?de placenta|\\bdpp\\b|rotura uterina|vasa previa", "go-hpp": "hemorragia pos.?parto|\\bhpp\\b|atonia uterina|hemorragia puerperal", "go-rastreio": "rastreio (do |de )?(cancer|ca) (do )?(colo|mama)|cancer (do )?colo|colo uterino|citopatolog|papanicolau|mamografia|cancer de mama|neoplasia intraepitelial|\\bnic\\b|birads|bi-rads", "go-preeclampsia": "pre.?eclamps|eclamps|hellp|sindromes? hipertensiv|hipertensao (na |gestac)", "go-partograma": "parto|partograma|trabalho de parto|distocia|cardiotocograf|vitalidade fetal|inducao", "go-contracepcao": "contracep|anticoncep|\\bdiu\\b|planejamento (familiar|reprodutivo)|laqueadura|vasectomia", "go-corrimentos": "corrimento|vaginose|vulvovagin|candidiase vulvo|tricomon|\\bdip\\b|doenca inflamatoria pelvica|ulceras? genit|cervicite|herpes genital", "go-sua": "sangramento uterino|\\bsua\\b|mioma|leiomioma|adenomiose|endometri|hiperplasia endometrial|polipo", "go-climaterio": "climateri|menopaus|terapia hormonal|reposicao hormonal|fogachos", "ped-desidratacao": "desidrat|diarreia (aguda )?(na |em )?(crianca|infan|pediatr)|gastroenterite|\\btro\\b|reidratacao", "ped-respiratorio": "bronquiolit|ivas|otite|faringoamigdalit|laringit|crupe|sinusite|pneumonia (na |em )?(crianca|infan|pediatr)|resfriado|coqueluche", "ped-vacinas": "vacin|imuniza|calendario", "ped-desenvolvimento": "desenvolvimento|crescimento|puericultura|aleitamento|amamenta|marcos|baixa estatura|puberdade", "ped-exantematicas": "exantem|sarampo|rubeola|varicela|escarlatina|eritema infeccioso|roseola|kawasaki|mao.?pe.?boca", "ped-ictericia": "ictericia neonatal|hiperbilirrubinemia|ictericia (do |no )?(rn|recem)|fototerapia|kernicterus", "ped-febre": "febre sem (sinais|foco)|convulsao febril|crise febril|febre (na |em )?(crianca|lactente)", "ped-violencia": "violencia|maus.?tratos|abuso sexual|negligencia", "ped-reanimacao": "reanimacao neonatal|sala de parto|reanimacao (do )?(rn|recem)", "ped-triagem": "triagem neonatal|teste do pezinho|recem.?nascido|\\brn\\b|neonat|teste do (olhinho|coracaozinho|orelhinha)", "ped-cardiopatias": "cardiopatia congenita|cardiopatias congenitas|tetralogia|comunicacao interventricular|\\bciv\\b|\\bcia\\b|persistencia do canal|coarctacao", "ped-congenitas": "congenita|storch|toxoplasmose|citomegalovir|sifilis congenita|rubeola congenita", "mfc-atributos": "atencao primaria|\\baps\\b|starfield|atributos|estrategia saude da familia|\\besf\\b|longitudinalidade|coordenacao do cuidado|territorializ", "mfc-rastreio": "rastreamento|rastreio|prevencao quaternaria|prevencao", "mfc-vigilancia": "vigilancia|notificac|epidemiolog(ia|ica) (de campo|descritiva)?$|surto|endemia|epidemia|agravos", "mfc-mccp": "centrado na pessoa|\\bmccp\\b|comunicacao clinica|abordagem familiar|genograma|ecomapa|consulta", "mfc-estudos": "tipos? de estudo|desenho de estudo|estudo (de )?coorte|caso.?controle|ensaio clinico|metanalise|revisao sistematica|vies|estudo transversal|epidemiologia clinica|medidas de associacao|risco relativo|odds", "mfc-testes": "sensibilidade|especificidade|valor preditivo|teste diagnostic|testes diagnosticos|curva roc|razao de verossimilhanca|acuracia", "mfc-indicadores": "indicador|mortalidade|incidencia|prevalencia|coeficiente|taxa de|transicao (demografica|epidemiologica)", "mfc-etica": "etica|bioetica|sigilo|codigo de etica|consentimento|atestado|declaracao de obito|prontuario|responsabilidade (medica|profissional)", "tv-saudemental": "saude mental|depress|ansiedade|psiquiatr|suicid|esquizofren|psicose|bipolar|transtorno mental|caps\\b|panico|antidepressiv", "tv-sus": "\\bsus\\b|sistema unico|lei 8\\.?080|lei 8\\.?142|principios do sus|controle social|financiamento|politica nacional", "go-amenorreia": "amenorreia|sindrome dos ovarios policisticos|\\bsop\\b|hiperprolactinemia|anovulac", "cir-uroped": "fimose|criptorquid|escroto agudo|torcao (de |do )?testic|hidrocele|hipospadia|refluxo vesicoureteral", "ped-tdah": "tdah|deficit de atencao|opositor|autismo|\\btea\\b", "ped-epilepsia": "epilepsia|esclerose tuberosa|crise convulsiva|convuls", "ped-dm1": "diabetes( mellitus)?( tipo)? ?(1|i)\\b|\\bdm ?1\\b|cetoacidose", "cm-esporotricose": "esporotricose|micose|paracoccidioid|cromoblasto", "cm-sibo": "supercrescimento|\\bsibo\\b|ma absorcao|disabsorc", "cm-espondiloartrites": "espondil|artrite reativa|artrite psoriasica|sacroiliit", "mfc-lombalgia": "lombalg|dor lombar|lombociatalg", "tv-substancias": "alcool|etilis|tabag|substancias|drogas|dependencia quimica|cocaina|opioide|cannabis|abstinencia", "mfc-raiva": "raiva|antirrabic", "tecm-scc": "coronaria cronica|doenca arterial coronaria|angina estavel|\\bscc\\b", "tecm-cardio-oncologia": "cardio.?oncolog|cardiotoxicidade", "tecm-cardiomiopatias": "cardiomiopatia|miocardiopatia|amiloidose", "tecm-chagas": "chagas", "tecm-fpi": "fibrose pulmonar|intersticia", "tecm-hipertensao-pulmonar": "hipertensao pulmonar", "tecm-cancer-pulmao-rastreio": "cancer de pulmao|nodulo pulmonar|neoplasia (de |do )?pulmao", "tecm-masld": "masld|mash|nafld|esteatose|doenca hepatica gordurosa", "tecm-neoplasias-mieloproliferativas": "mieloproliferativ|policitemia|trombocitemia|mielofibrose", "tecm-von-willebrand-hemofilia": "von willebrand|hemofilia|coagulopatia", "tecm-hallmarks-cancer": "hallmarks|oncogene|supressor(es)? tumora|biologia (do|tumoral)", "tecm-terapia-alvo-imunoterapia": "imunoterapia|terapia.?alvo|checkpoint|imunomediad", "tecm-iras": "infeccao hospitalar|\\biras\\b|controle de infeccao|precaucao", "tecm-les": "lupus|\\bles\\b|autoanticorpo|fan\\b", "tecm-fibromialgia": "fibromialg", "tecm-vasculites": "vasculite|arterite|granulomatose|poliangeite|takayasu|behcet", "tecm-polifarmacia": "polifarmac|beers|desprescri|iatrogen", "tecm-dermato-grave": "stevens|necrolise|dress|purpura fulminans|farmacodermia|eritrodermia", "tecm-perda-visual-glaucoma": "glaucoma|perda visual|olho vermelho|oftalmolog", "tecm-celulite-orbitaria-retinopatias": "celulite orbit|pre.?septal|retinopatia", "tecm-orl-epistaxe-vertigem-saos": "epistaxe|vertigem|vppb|apneia (obstrutiva )?do sono|perda auditiva|surdez", "tecm-rue-urgencia-sus": "rede de urgencia|classificacao de risco|manchester|\\bsamu\\b|\\bupa\\b", "tecm-pcdt-rename-af": "pcdt|rename|assistencia farmaceutica|componente especializado", "tecm-pos-pcr": "parada cardio|\\bpcr\\b|reanimacao cardiopulmonar|\\brcp\\b|pos.?parada|acls|suporte avancado", "tecm-glomerulopatias": "glomerul|sindrome nefrotica|sindrome nefritica|nefrite", "tecm-dii": "crohn|retocolite|doenca inflamatoria intestinal|\\bdii\\b", "tecm-infeccao-dispositivos": "cateter|dispositivo|corrente sanguinea|protese", "tecm-puncao-lombar": "puncao lombar|liquor|liquido cefalorraquidiano", "tecm-emergencias-eletrolitos-eme-aorta": "hiponatremia|hipernatremia|hipercalemia|hipocalemia|potassio|sodio|disturbio(s)? (hidro)?eletrolitic|hipercalcemia|disseccao (de |da )?aorta|estado de mal", "tecm-dislipidemias": "dislipidemi|colesterol|estatina|hipertrigliceridemia|ldl", "tecm-nefropatia-diabetica": "nefropatia diabetica|doenca renal do diabetes", "tecm-diarreia-sii": "diarreia|intestino irritavel|\\bsii\\b|constipac", "tecm-vacinas-adulto-crie": "vacina(cao|s)? (do |no )?adulto|crie\\b|imunobiologicos especiais|vacinacao ocupacional", "tecm-sindromes-geriatricas": "geriatri|idoso|fragilidade|quedas|incontinencia|delirium", "tecm-abstinencia-alcoolica": "abstinencia alcoolica|delirium tremens|wernicke", "tecm-perioperatorio-checkup": "perioperatori|pre.?operatori|check.?up|avaliacao cardiovascular", "tecm-has-secundaria-resistente": "hipertensao (secundaria|resistente)|hiperaldosteronismo|feocromocitoma|estenose de arteria renal", "tecm-hemorragia-digestiva": "hemorragia digestiva|hemorragia (gastro)?intestinal|hematemese|melena|ulcera peptica|varizes", "tecm-imunossuprimido-nao-hiv": "imunossuprimid|neutropenia febril|transplant", "tecm-idoso-metas-osteoporose": "osteoporose|multimorbidade|densitometria|fratura (de |do )?(quadril|femur)", "tecm-ulceras-pe-diabetico": "pe diabetico|ulcera (venosa|arterial|de perna|de membro)|insuficiencia venosa|doenca arterial periferica", "tecm-dm-risco-cv": "risco cardiovascular|diabetes.*cardiovascular|escore de risco", "tecm-obesidade": "obesidade|sobrepeso|bariatric", "tecm-anemia-falciforme": "falciforme", "tecm-artrite-reumatoide": "artrite reumatoide", "tecm-cuidados-paliativos-fim-de-vida": "paliativ|fim de vida|terminalidade", "tecm-infeccoes-orl-adulto": "faringoamigdalit|rinossinusit|sinusite|otite externa|abscesso (cervical|periamigdalian|retrofaring)", "tecm-miocardite-pericardite": "miocardit|pericardit|derrame pericardico", "tecm-agonistas-glp1-tirzepatida": "glp.?1|tirzepatida|semaglutida|liraglutida", "tecm-mieloma-multiplo": "mieloma|gamopatia|macroglobulin", "tecm-gota": "gota|hiperuricemia|acido urico", "tecm-nutricao-terapia-sarcopenia": "nutric|sarcopenia|desnutric|nutricao (enteral|parenteral)", "tecm-valvopatias": "valv|estenose (aortica|mitral)|insuficiencia (aortica|mitral)|febre reumatica", "tecm-sindrome-metabolica": "sindrome metabolica", "tecm-llc-lmc": "leucemia (linfo|linfocitica|mieloide) cronica|\\bllc\\b|\\blmc\\b", "tecm-epilepsia-adulto": "epilepsia|estado de mal epileptico|crise epileptica|anticonvulsiv", "tecm-vacinacao-idoso": "vacina(cao|s)? (do |no )?idoso", "tecm-asma-grave": "asma grave|asma de dificil|asma", "tecm-drge-barrett": "drge|refluxo gastroesofagico|barrett|dispepsia|helicobacter", "tecm-endocardite-meningite-tropicais": "endocardite|meningite|leishmaniose|malaria|esquistossomose|leptospirose|histoplasmose|criptococ", "tecm-sono-tratamento-demencias": "insonia|disturbios? do sono|demencia|alzheimer", "tecm-ccl-diferencial-demencias": "demencia|alzheimer|comprometimento cognitivo|corpos de lewy|frontotemporal", "tecm-dpoc": "dpoc|doenca pulmonar obstrutiva", "tecm-hepatites-b-c": "hepatite (b|c)\\b|hepatites b e c|\\bhbv\\b|\\bhcv\\b", "tecm-antimicrobianos": "antimicrobian|antibiotic|multirresist|resistencia bacteriana|stewardship", "tecm-coma": "coma|morte encefalica|rebaixamento", "tecm-insuf-respiratoria-sdra": "insuficiencia respiratoria|sdra|ventilacao mecanica|desconforto respiratorio agudo|oxigenoterapia"};
+const _temaRe={};
+function normTema(s){ return String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,""); }
+function reDoTema(id){ if(!(id in _temaRe)){ try{ _temaRe[id]=TEMA_CHAVES[id]?new RegExp(TEMA_CHAVES[id]):null; }catch(e){ _temaRe[id]=null; } } return _temaRe[id]; }
+function origemQuestao(q){
+  const t=normTransv(q.transv||[])[0]||"";
+  if(t==="ENAMED") return "ENAMED";
+  if(t==="RESID"||t==="USP"||t==="ENARE"||t==="SUS") return "Residência";
+  if(t==="REVALIDA") return "Revalida";
+  if(t==="TPI") return "TPI";
+  if(t==="TECM") return "TECM";
+  return "Preceptor";
+}
+/* todas as questões do banco ligadas a um assunto do Estudar */
+function questoesDoAssunto(t,questoes){
+  const fixos=new Set(t.questoes||[]);
+  const re=reDoTema(t.id);
+  const soPed=t.area==="PED"; // temas pediátricos: só questões de Pediatria (evita "convulsão" do adulto etc.)
+  const nomeBase=normTema(String(t.nome||"").split("—")[0].split("(")[0].trim());
+  return (questoes||[]).filter(q=>{
+    if(!q||typeof q.correta!=="number"||q.correta<0) return false; // anuladas ficam de fora
+    if(fixos.has(q.id)) return true;
+    const tm=normTema(q.tema);
+    if(!tm) return false;
+    if(soPed && q.area!=="PED") return false;
+    if(re) return re.test(tm);
+    return nomeBase.length>4 && tm.includes(nomeBase);
+  });
+}
 function PraticaTema({t,store,registrar,isPro,onAssinar}){
-  // questoes DO ASSUNTO (ids listados no curriculo); fallback: por tema textual
-  const idsDoTema=t.questoes||[];
-  const pool=(t.nivel==="tecm"?store.questoes.concat(embaralharLista(SEED_TECM)):store.questoes).filter(q=>
-    (idsDoTema.length ? idsDoTema.includes(q.id) : (q.tema&&t.nome&&q.tema.toLowerCase().includes(t.nome.split("—")[0].trim().toLowerCase())))
-    && (isPro||!q.premium));
-  const fila=useMemo(()=>pool.slice().sort(()=>Math.random()-0.5).slice(0,5),[t.id]);
-  const [i,setI]=useState(0);const [feito,setFeito]=useState(false);
-  useEffect(()=>{setI(0);setFeito(false);},[t.id]);
-  if(fila.length===0) return <div className="b-metodo block" style={{fontSize:14}}>As questões específicas deste assunto entram aqui. Enquanto isso, use a aba <b>Praticar</b> para treinar questões de {areaNome(t.area)}.</div>;
-  const q=fila[i];
+  const base=t.nivel==="tecm"?store.questoes.concat(embaralharLista(SEED_TECM)):store.questoes;
+  const todas=useMemo(()=>questoesDoAssunto(t,base),[t.id,base.length]);
+  const liberadas=todas.filter(q=>isPro||!q.premium);
+  const bloqueadas=todas.length-liberadas.length;
+  /* último resultado de cada questão respondida */
+  const ultimo={}; (store.log||[]).forEach(l=>{ ultimo[l.id]=l.ok; });
+  const [origem,setOrigem]=useState("Todas");
+  const [fila,setFila]=useState(null);
+  const [i,setI]=useState(0);const [feito,setFeito]=useState(false);const [acertos,setAcertos]=useState(0);
+  useEffect(()=>{ setFila(null); setI(0); setFeito(false); setAcertos(0); setOrigem("Todas"); },[t.id]);
+
+  const contagem={}; liberadas.forEach(q=>{ const o=origemQuestao(q); contagem[o]=(contagem[o]||0)+1; });
+  const ordemOrig=["ENAMED","Residência","Revalida","TPI","TECM","Preceptor"].filter(o=>contagem[o]);
+  const doFiltro=liberadas.filter(q=>origem==="Todas"||origemQuestao(q)===origem);
+  const erradas=doFiltro.filter(q=>ultimo[q.id]===false);
+  const ineditas=doFiltro.filter(q=>!(q.id in ultimo));
+  const embaralhar=a=>a.slice().sort(()=>Math.random()-0.5);
+  const iniciar=lista=>{ if(!lista.length) return; setFila(lista); setI(0); setFeito(false); setAcertos(0); };
+  /* prioriza inéditas, depois as que errou, depois o resto */
+  const montar=n=>{ const ja=new Set(); const out=[];
+    [embaralhar(ineditas),embaralhar(erradas),embaralhar(doFiltro)].forEach(l=>l.forEach(q=>{ if(out.length<n&&!ja.has(q.id)){ ja.add(q.id); out.push(q); } }));
+    return out; };
+
+  if(todas.length===0) return <div className="b-metodo block" style={{fontSize:14}}>As questões específicas deste assunto entram aqui. Enquanto isso, use a aba <b>Questões</b> para treinar {areaNome(t.area)}.</div>;
+
+  /* ---------- treino em andamento ---------- */
+  if(fila){
+    if(i>=fila.length){
+      const pct=Math.round(acertos/fila.length*100);
+      return <div>
+        <div className="hero" style={{textAlign:"center"}}>
+          <div className="tag" style={{color:"var(--acc)"}}>Treino concluído</div>
+          <h3 style={{fontSize:24,margin:"8px 0 4px"}}>{acertos} de {fila.length} ({pct}%)</h3>
+          <div className="muted" style={{fontSize:13}}>{pct>=80?"Tema dominado. Avance para fixar.":pct>=60?"Bom caminho. Revise os erros e treine de novo.":"Vale reler a aula e o passo a passo antes de treinar de novo."}</div>
+        </div>
+        <div className="row" style={{gap:8,marginTop:12,flexWrap:"wrap"}}>
+          <button className="btn sm" onClick={()=>setFila(null)}>Escolher outro treino</button>
+        </div>
+      </div>;
+    }
+    const q=fila[i];
+    return <div>
+      <div className="row" style={{justifyContent:"space-between",marginBottom:10,gap:8}}>
+        <div className="muted" style={{fontSize:13}}>Treino de <b>{t.nome}</b> · {i+1}/{fila.length}</div>
+        <button className="btn ghost sm" onClick={()=>setFila(null)}>Sair do treino</button>
+      </div>
+      <QuestionCard key={q.id} q={q} indice={i} total={fila.length} onResp={(qq,ok)=>{ if(registrar)registrar(qq,ok); if(ok)setAcertos(a=>a+1); setFeito(true); }}/>
+      <div className="row" style={{marginTop:12,gap:8}}>
+        <button className="btn sm" disabled={!feito} onClick={()=>{ setFeito(false); setI(i+1); }}>{i<fila.length-1?"Próxima questão":"Ver resultado"}</button>
+        {!feito && <BotaoPular onClick={()=>{ setFeito(false); setI(i+1); }}/>}
+      </div>
+    </div>;
+  }
+
+  /* ---------- menu de treino do tema ---------- */
+  const chip=(k,rot,n)=><button key={k} className={"chip"+(origem===k?" on":"")} onClick={()=>setOrigem(k)}
+    style={{padding:"6px 10px",borderRadius:99,fontSize:12.5,fontWeight:700,cursor:"pointer",border:"1px solid "+(origem===k?"var(--acc)":"var(--line)"),background:origem===k?"var(--panel2)":"transparent",color:"var(--ink)"}}>{rot} · {n}</button>;
+  const opcao=(ic,tit,sub,lista,key)=><button key={key} disabled={!lista.length} onClick={()=>iniciar(lista)}
+    style={{textAlign:"left",padding:"12px 14px",borderRadius:12,border:"1px solid var(--line)",background:"var(--panel)",color:"var(--ink)",cursor:lista.length?"pointer":"default",opacity:lista.length?1:.5}}>
+    <div style={{fontWeight:800,fontSize:14.5}}>{ic} {tit}</div>
+    <div className="muted" style={{fontSize:12,marginTop:3}}>{sub}</div>
+  </button>;
   return <div>
-    <div className="muted" style={{fontSize:13,marginBottom:10}}>Questões de <b>{t.nome}</b> — responda no calor da aula. ({i+1}/{fila.length})</div>
-    <QuestionCard key={q.id} q={q} indice={i} total={fila.length} onResp={(qq,ok)=>{if(registrar)registrar(qq,ok);setFeito(true);}}/>
-    <div className="row" style={{marginTop:12}}>
-      {i<fila.length-1
-        ? <React.Fragment>
-            <button className="btn sm" disabled={!feito} onClick={()=>{setFeito(false);setI(i+1);}}>Próxima questão</button>
-            {!feito && <BotaoPular onClick={()=>setI(i+1)}/>}
-          </React.Fragment>
-        : <span className="muted" style={{fontSize:13}}>{feito?"Boa! Avance para fixar. ✓":""}</span>}
+    <div className="tag" style={{color:"var(--acc)",marginBottom:4}}>Treine este tema</div>
+    <div style={{fontSize:14,marginBottom:10}}><b>{liberadas.length}</b> {liberadas.length===1?"questão":"questões"} do banco sobre <b>{t.nome}</b>{ordemOrig.length>1?", de várias provas":""}.</div>
+    {ordemOrig.length>1 && <div className="row" style={{gap:6,flexWrap:"wrap",marginBottom:12}}>
+      {chip("Todas","Todas",liberadas.length)}
+      {ordemOrig.map(o=>chip(o,o,contagem[o]))}
+    </div>}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:8}}>
+      {opcao("⚡","Rápido",Math.min(5,doFiltro.length)+" questões, no calor da aula",montar(5),"r")}
+      {doFiltro.length>5 && opcao("🎯","Treino",Math.min(10,doFiltro.length)+" questões",montar(10),"t")}
+      {doFiltro.length>10 && opcao("🏋️","Intensivo",Math.min(20,doFiltro.length)+" questões",montar(20),"i")}
+      {opcao("🆕","Só inéditas",ineditas.length?ineditas.length+" que você ainda não respondeu":"você já respondeu todas",embaralhar(ineditas).slice(0,20),"n")}
+      {opcao("🔁","Refazer meus erros",erradas.length?erradas.length+" que você errou da última vez":"nenhum erro neste tema",embaralhar(erradas).slice(0,20),"e")}
     </div>
+    {bloqueadas>0 && !isPro && <div className="b-metodo block" style={{marginTop:12,fontSize:13}}>
+      Mais {bloqueadas} {bloqueadas===1?"questão":"questões"} de provas sobre este tema no PRO. <button className="btn sm" style={{marginLeft:6}} onClick={onAssinar}>Assinar</button>
+    </div>}
   </div>;
 }
 
