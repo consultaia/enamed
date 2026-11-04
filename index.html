@@ -34,10 +34,10 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.11.3.14";
+  window.APP_VERSION="2026.11.4.1";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
-  window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:79.90, MESES:6 };
+  window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:89.90, VALOR_MENSAL:19.90, MESES:6 };
   window.__PWA_PROMPT=null;
   window.addEventListener("beforeinstallprompt", function(e){ e.preventDefault(); window.__PWA_PROMPT=e; });
   window.addEventListener("appinstalled", function(){ window.__PWA_PROMPT=null; try{localStorage.setItem("preceptor_pwa_instalado","1");}catch(x){} });
@@ -3493,6 +3493,12 @@ function Shell({session}){
   },[]);
   const atualizarApp=async()=>{ try{ if("serviceWorker" in navigator){ const rs=await navigator.serviceWorker.getRegistrations(); await Promise.all(rs.map(r=>r.unregister())); } if(window.caches){ const ks=await caches.keys(); await Promise.all(ks.map(k=>caches.delete(k))); } }catch(e){} location.href=location.pathname+"?v="+Date.now(); };
 
+  /* volta do checkout da assinatura mensal (Mercado Pago): confere a liberação por até 3 min */
+  useEffect(()=>{ if(!uid) return; let n=0; let t=null;
+    try{ if(!/assinatura=mensal/.test(location.search) && !localStorage.getItem("preceptor_assinatura_pendente")) return; }catch(e){ return; }
+    t=setInterval(async()=>{ n++; let ok=false; try{ ok=await recarregarAssinatura(); }catch(e){}
+      if(ok||n>=36){ clearInterval(t); try{ localStorage.removeItem("preceptor_assinatura_pendente"); if(/assinatura=mensal/.test(location.search)) history.replaceState(null,"",location.pathname); }catch(e){} } },5000);
+    return ()=>{ if(t) clearInterval(t); }; },[uid]);
   const recarregarAssinatura=async()=>{
     const {data}=await sb.from("assinaturas").select("*").eq("user_id",uid).order("criado_em",{ascending:false}).limit(1);
     const a=(data&&data[0])||{plano:"free",status:"ativa"};
@@ -4675,7 +4681,7 @@ function AdminMetricas({sb}){
 
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10}}>
       <K t="Assinantes pagos" v={fmt(m.pagos_ativos)} sub={"+"+fmt(m.pagos_30d)+" nos últimos 30 d"} cor="var(--gold)"/>
-      <K t="Receita (assinantes atuais)" v={brl(m.receita_ativa)} sub={fmt(m.pagos_fundador)+" a R$ 49,90 · "+fmt(m.pagos_novo_preco)+" a R$ 79,90"} cor="var(--gold)"/>
+      <K t="Receita (assinantes atuais)" v={brl(m.receita_ativa)} sub={fmt(m.pagos_fundador)+" a R$ 49,90 · "+fmt(m.pagos_novo_preco)+" no preço novo"} cor="var(--gold)"/>
       <K t="Cortesias ativas" v={fmt(m.cortesias_ativas)}/>
       <K t="Em trial (24 h)" v={fmt(m.trials_ativas)} sub={fmt(m.free_sem_plano)+" free sem plano"}/>
       <K t="Expiram em 30 d" v={fmt(m.expiram_30d)} sub="renovação a cobrar"/>
@@ -9994,6 +10000,20 @@ function Assinar({uid,email,onClose,onVerificar,venceu}){
   const workerOk = !WORKER_URL.startsWith("COLE_");
 
   const cpfLimpo=(cpf||"").replace(/\D/g,"");
+  const [emailMp,setEmailMp]=useState(email||"");
+  const mensalTxt="R$ "+(((window.PRECO_CFG||{}).VALOR_MENSAL)||19.9).toFixed(2).replace(".",",");
+  const assinarMensal=async()=>{
+    if(!workerOk){setMsg("Falta configurar a WORKER_URL no topo do arquivo.");setEtapa("erro");return;}
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test((emailMp||"").trim())){setMsg("Digite o e-mail da sua conta Mercado Pago.");return;}
+    setEtapa("carregando");
+    try{
+      const r=await wfetch("/criar-assinatura",{email_mp:emailMp.trim()});
+      const d=await r.json();
+      if(!r.ok||d.error||!d.init_point) throw new Error(typeof d.error==="string"?d.error:"Falha ao iniciar a assinatura.");
+      try{ localStorage.setItem("preceptor_assinatura_pendente",String(Date.now())); }catch(e){}
+      window.location.href=d.init_point;
+    }catch(e){setMsg(e.message);setEtapa("erro");}
+  };
   const criar=async(plano)=>{
     if(!workerOk){setMsg("Falta configurar a WORKER_URL no topo do arquivo.");setEtapa("erro");return;}
     if(cpfLimpo.length!==11){setMsg("Digite um CPF válido (11 dígitos) para gerar o Pix.");return;}
@@ -10018,12 +10038,12 @@ function Assinar({uid,email,onClose,onVerificar,venceu}){
 
       {etapa==="plano" && <div>
         {venceu && <div className="card" style={{marginBottom:12,borderColor:"var(--gold)",background:"rgba(230,180,80,.08)"}}><b style={{color:"var(--gold)"}}>Sua assinatura venceu.</b> Isto é uma renovação, não uma cobrança nova — seu histórico e progresso continuam salvos.</div>}
-        <div className="muted" style={{fontSize:14,marginBottom:14}}>Pagamento único por Pix. Acesso liberado na hora após a confirmação.</div>
+        <div className="muted" style={{fontSize:14,marginBottom:14}}>Escolha: Pix à vista por 6 meses ou mensal no cartão. Acesso liberado automaticamente após a confirmação.</div>
 
         <div className="card" style={{background:"linear-gradient(135deg,#123528,#16302b)",border:"1px solid var(--gold)",marginBottom:12,position:"relative"}}>
           <b style={{fontSize:16}}>Acesso completo — 6 meses</b>
           <div style={{fontSize:28,fontWeight:800,letterSpacing:"-.02em",margin:"4px 0 0"}}>{((window.__PRECO||{}).txt||"R$ 49,90")}<span style={{fontSize:13,fontWeight:600,color:"var(--muted)"}}> pagamento único</span></div>
-          <div className="muted" style={{fontSize:13,margin:"2px 0 6px"}}>Tudo liberado por 6 meses: {CURRICULO.length} assuntos, 4.200+ questões, simulados, aula adaptativa e correção por IA. Sem mensalidade, sem renovação automática.</div>
+          <div className="muted" style={{fontSize:13,margin:"2px 0 6px"}}>Tudo liberado por 6 meses: {CURRICULO.length} assuntos, 11 mil+ questões, simulados, aula adaptativa e correção por IA. Sem mensalidade, sem renovação automática.</div>
           <div style={{fontSize:12,color:"var(--acc)",marginBottom:12}}>{"Menos de R$ "+Math.ceil((((window.__PRECO||{}).valor)||49.9)/(((window.__PRECO||{}).meses)||6))+" por mês para organizar sua reta final."}</div>
           <div style={{marginBottom:10}}>
             <label style={{fontSize:12,color:"var(--muted)",display:"block",marginBottom:4}}>CPF (obrigatório para o Pix)</label>
@@ -10034,9 +10054,18 @@ function Assinar({uid,email,onClose,onVerificar,venceu}){
           {msg && etapa==="plano" && <div style={{fontSize:12.5,color:"var(--bad,#ff6b6b)",marginBottom:8}}>{msg}</div>}
           <button className="btn" style={{width:"100%",opacity:cpfLimpo.length===11?1:.6}} onClick={()=>criar("semestral")}>Pagar {((window.__PRECO||{}).txt||"R$ 49,90")} no Pix</button>
         </div>
+        <div className="card" style={{marginBottom:4}}>
+          <b style={{fontSize:16}}>Mensal no cartão</b>
+          <div style={{fontSize:26,fontWeight:800,letterSpacing:"-.02em",margin:"4px 0 0"}}>{mensalTxt}<span style={{fontSize:13,fontWeight:600,color:"var(--muted)"}}> por mês</span></div>
+          <div className="muted" style={{fontSize:13,margin:"2px 0 10px"}}>Mesmo acesso completo. Renova todo mês no cartão de crédito pelo Mercado Pago; cancele quando quiser e o acesso vale até o fim do mês pago.</div>
+          <label style={{fontSize:12,color:"var(--muted)",display:"block",marginBottom:4}}>E-mail da sua conta Mercado Pago</label>
+          <input value={emailMp} onChange={e=>setEmailMp(e.target.value)} type="email" placeholder="voce@email.com"
+            style={{width:"100%",padding:"11px 13px",borderRadius:9,border:"1px solid var(--line)",background:"var(--bg)",color:"var(--ink)",fontSize:15,marginBottom:10}} />
+          <button className="btn ghost" style={{width:"100%"}} onClick={assinarMensal}>Assinar por {mensalTxt}/mês</button>
+        </div>
       </div>}
 
-      {etapa==="carregando" && <div className="muted" style={{padding:"20px 0",textAlign:"center"}}>Gerando cobrança Pix...</div>}
+      {etapa==="carregando" && <div className="muted" style={{padding:"20px 0",textAlign:"center"}}>Preparando o pagamento...</div>}
 
       {etapa==="pix" && pix && <div style={{textAlign:"center"}}>
         <div className="muted" style={{fontSize:13,marginBottom:10}}>Escaneie o QR ou use o copia-e-cola. A liberação é automática.</div>
