@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.11.4.2";
+  window.APP_VERSION="2026.11.4.3";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:89.90, VALOR_MENSAL:19.90, MESES:6 };
@@ -3054,7 +3054,7 @@ function temaCurtoPlano(t){ const s=""+(t||""); const i=s.indexOf(" · "); if(i>
 function resumoCaminho(c){ if(!c) return "";
   const o=(OBJETIVOS.find(x=>x[0]===c.objetivo)||[,""])[1];
   if(c.objetivo==="internato"){ const m=(MODULOS_INTERNATO.find(x=>x.id===c.modulo)||{}).nome||c.modulo;
-    return "Internato · "+m+" "+c.metade+(c.dataProva?" · N2 em "+c.dataProva.split("-").reverse().slice(0,2).join("/"):"")+(c.misto?" · + ENAMED":""); }
+    return "Internato · "+m+" "+c.metade+(c.dataProva?" · N2 em "+c.dataProva.split("-").reverse().slice(0,2).join("/"):"")+(c.misto==="igual"?" · + ENAMED (metade da semana)":c.misto?" · + ENAMED":""); }
   return o+(c.dataProva?" · prova em "+c.dataProva.split("-").reverse().join("/"):""); }
 
 function assuntoDoTema(area,tema,pool){
@@ -3112,7 +3112,7 @@ function acoesPossiveis(diag,caminho,pool,store){
     // assuntos de alto rendimento ainda não estudados (útil para quem começou agora)
     const dom=store.dominio||{};
     const area=caminho.objetivo==="tecm"?"CM":null;
-    CURRICULO.filter(t=>!dom[t.id]&&(!area||t.area===area)).sort((a,b)=>b.yield-a.yield).slice(0,internato?2:5)
+    CURRICULO.filter(t=>!dom[t.id]&&(!area||t.area===area)).sort((a,b)=>b.yield-a.yield).slice(0,internato&&caminho.misto!=="igual"?2:5)
       .forEach(t=>{ if(!A.some(x=>x.assunto===t.id)) A.push({id:id("A"),tipo:"aula",assunto:t.id,label:"Aula da trilha: "+t.nome,info:"alto rendimento, ainda não estudado"}); });
   }
   if(diag.vencidas>0) A.push({id:"R",tipo:"revisao",label:"Revisão espaçada ("+diag.vencidas+" vencidas)",info:"todo dia que houver vencidas"});
@@ -3125,7 +3125,8 @@ function planoAutomatico(diag,acoes,caminho){
   const dias=[...Array(7)].map(()=>({titulo:"",tarefas:[]}));
   const limite=caminho.dataProva?Math.max(1,Math.min(7,diasEntre(diag.hoje,caminho.dataProva))):7; // não planeja o dia da prova
   const R=acoes.find(a=>a.tipo==="revisao");
-  const put=(d,a,p)=>{ if(d<limite&&a&&dias[d].tarefas.length<4) dias[d].tarefas.push({acao:a.id,porque:p}); };
+  const cap=caminho.misto==="igual"?5:4;
+  const put=(d,a,p)=>{ if(d<limite&&a&&dias[d].tarefas.length<cap) dias[d].tarefas.push({acao:a.id,porque:p}); };
   if(diag.internato){
     const tops=diag.internato.topicos.slice().sort((a,b)=>((a.pct==null?-1:a.pct)-(b.pct==null?-1:b.pct))); // nunca treinados e piores primeiro
     let d=0;
@@ -3143,7 +3144,8 @@ function planoAutomatico(diag,acoes,caminho){
     aulas.forEach((a,i)=>put(Math.min(limite-1,i%limite),a,a.info&&a.info.startsWith("tema fraco")?"Entenda o tema onde você errou.":"Assunto que mais cai e você ainda não viu."));
     treinos.forEach((t,i)=>put(Math.min(limite-1,(i+2)%limite),t,"Treine o tema dias depois da aula: é o que fixa."));
   }
-  if(caminho.misto&&diag.internato){ const en=acoes.filter(a=>a.tipo==="aula"||a.tipo==="treino"); en.forEach((a,i)=>put(Math.min(limite-1,i),a,"Uma tarefa de ENAMED por dia, sem atrapalhar o rodízio.")); }
+  if(caminho.misto&&diag.internato){ const porDia=caminho.misto==="igual"?2:1; const en=acoes.filter(a=>a.tipo==="aula"||a.tipo==="treino");
+    en.forEach((a,i)=>put(Math.min(limite-1,Math.floor(i/porDia)),a,porDia>1?"ENAMED em paralelo: metade do dia para a prova nacional.":"Uma tarefa de ENAMED por dia, sem atrapalhar o rodízio.")); }
   for(let i=0;i<limite;i++) if(R&&!dias[i].tarefas.some(t=>t.acao==="R")) dias[i].tarefas.unshift({acao:"R",porque:"As vencidas de hoje — é o que segura a memória."});
   dias.forEach((d,i)=>{ d.titulo=i>=limite?(caminho.dataProva&&i===limite?"Dia da prova":"Descanso e revisão leve"):(d.tarefas.length?"":"Dia livre: pratique questões soltas"); });
   const fr=diag.fracos.slice(0,3).map(f=>temaCurtoPlano(f.tema));
@@ -3164,7 +3166,7 @@ async function planoComIA(diag,acoes,caminho){
     "AÇÕES DISPONÍVEIS (use SÓ estes ids):\n"+acoes.map(a=>a.id+" — "+a.label+(a.info?" ["+a.info+"]":"")).join("\n"),
     "DIAS: "+datas.map((d,i)=>"dia "+i+" = "+d+(i>=limite?" (SEM tarefas: "+(i===limite&&caminho.dataProva?"dia da prova":"após a prova")+")":"")).join("; "),
     "REGRAS: 2 a 4 tarefas por dia útil; não repita a mesma ação no mesmo dia; inclua R em todo dia útil se existir; "+
-      (diag.internato?"o rodízio vem primeiro: cubra todos os temas da metade antes da prova, Super Revisão (G) antes do Bloco (B) do mesmo tema, temas com acerto baixo voltam 2 a 3 dias depois, e o Modo Rodízio (M) no último dia útil"+(caminho.misto?"; no máximo 1 ação de ENAMED (A ou T) por dia":"")+"."
+      (diag.internato?"o rodízio vem primeiro: cubra todos os temas da metade antes da prova, Super Revisão (G) antes do Bloco (B) do mesmo tema, temas com acerto baixo voltam 2 a 3 dias depois, e o Modo Rodízio (M) no último dia útil"+(caminho.misto==="igual"?"; o aluno prepara ENAMED e N2 ao mesmo tempo: em cada dia útil, cerca de metade das tarefas é de ENAMED (A ou T) e metade do rodízio":caminho.misto?"; no máximo 1 ação de ENAMED (A ou T) por dia":"")+"."
         :"aula (A) do tema fraco antes do treino (T) do mesmo tema, com 2 a 3 dias de intervalo; se existir D, ponha no dia 0.")+
       " Se o aluno mais 'leu errado' ou 'chutou', diga isso na dica. Não invente números: use só os dados acima.",
     "RESPONDA SÓ EM JSON VÁLIDO: {\"resumo\":\"2 a 3 frases sobre a semana do aluno e o foco do plano\",\"dias\":[{\"titulo\":\"foco do dia em até 6 palavras\",\"tarefas\":[{\"acao\":\"id\",\"porque\":\"até 12 palavras\"}]}],\"dica\":\"1 frase prática\"} com exatamente 7 itens em dias."
@@ -3190,14 +3192,23 @@ function CaminhoSetup({inicial,meta,onSalvar,onCancelar}){
   return <div>
     <div className="muted" style={{fontSize:13,margin:"4px 0 10px"}}>Me conta o que você precisa agora. O plano segue o seu caminho, e você muda quando quiser.</div>
     <label style={{marginTop:0}}>Meu foco agora é</label>
-    <div className="row" style={{gap:6,flexWrap:"wrap"}}>{OBJETIVOS.map(([k,l])=>chip(c.objetivo===k,l,()=>set("objetivo",k),k))}</div>
+    {(()=>{ const selInt=c.objetivo==="internato", selEn=c.objetivo==="enamed"||(selInt&&!!c.misto);
+      const clicar=k=>setC(x=>{ const int=x.objetivo==="internato", en=x.objetivo==="enamed"||(int&&!!x.misto);
+        if(k==="enamed"){ if(int) return {...x,misto:x.misto?false:true}; return {...x,objetivo:"enamed",misto:false}; }
+        if(k==="internato"){ if(int) return x.misto?{...x,objetivo:"enamed",misto:false}:x; return {...x,objetivo:"internato",misto:en?true:false}; }
+        return {...x,objetivo:k,misto:false}; });
+      const on=k=>k==="enamed"?selEn:k==="internato"?selInt:c.objetivo===k;
+      return <>
+        <div className="row" style={{gap:6,flexWrap:"wrap"}}>{OBJETIVOS.map(([k,l])=>chip(on(k),l,()=>clicar(k),k))}</div>
+        <div className="muted" style={{fontSize:12,marginTop:6}}>Dá para marcar <b>ENAMED e Internato (N2) juntos</b>: o plano divide a semana entre os dois.</div>
+      </>; })()}
     {intern && <>
       <label style={{marginTop:12}}>Rodízio atual</label>
       <div className="row" style={{gap:6,flexWrap:"wrap"}}>{MODULOS_INTERNATO.map(m=>chip(c.modulo===m.id,m.icone+" "+(MOD_TEMA[m.id]||m.nome),()=>set("modulo",m.id),m.id))}</div>
       <label style={{marginTop:12}}>Metade</label>
       <div className="row" style={{gap:6}}>{["A","B"].map(h=>chip(c.metade===h,"Temas "+h,()=>set("metade",h),h))}</div>
-      <label style={{marginTop:12}}>Também quero manter o ENAMED em dia</label>
-      <div className="row" style={{gap:6}}>{chip(!c.misto,"Só o rodízio",()=>set("misto",false),"so")}{chip(c.misto,"Rodízio + 1 tarefa de ENAMED por dia",()=>set("misto",true),"mix")}</div>
+      <label style={{marginTop:12}}>Como dividir a semana</label>
+      <div className="row" style={{gap:6,flexWrap:"wrap"}}>{chip(!c.misto,"Só o rodízio (N2)",()=>set("misto",false),"so")}{chip(c.misto===true,"Rodízio + 1 tarefa de ENAMED por dia",()=>set("misto",true),"mix")}{chip(c.misto==="igual","Metade N2, metade ENAMED",()=>set("misto","igual"),"igual")}</div>
     </>}
     <label style={{marginTop:12}}>{intern?"Data da N2":"Data da prova"} <span className="muted" style={{fontSize:12}}>(opcional)</span></label>
     <input type="date" value={c.dataProva||""} min={dataLocal()} onChange={e=>set("dataProva",e.target.value)} style={{maxWidth:200,margin:0}}/>
