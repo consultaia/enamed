@@ -5,7 +5,7 @@
    ao usuário, sem precisar limpar cache. O cache serve só de
    reserva para quando estiver offline.
    ================================================================ */
-const VERSION = 'enamed-v' + '2026-11-04-01';  // troque a data a cada deploy grande
+const VERSION = 'enamed-v' + '2026-11-04-02';  // troque a data a cada deploy grande
 const CACHE = VERSION;
 // Arquivos que valem manter em cache como reserva offline.
 const ASSETS = [
@@ -40,7 +40,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   // Supabase (dados do aluno, assinatura) e o worker da IA vão SEMPRE direto
   // à rede: servir do cache mostraria progresso e assinatura desatualizados.
-  if (/(^|\.)supabase\.co$|(^|\.)workers\.dev$/.test(url.hostname)) return;
+  if (/(^|\.)supabase\.co$|(^|\.)workers\.dev$|mercadopago|mercadolibre|mercadolivre|mlstatic/.test(url.hostname)) return;
   const isHTML =
     req.mode === 'navigate' ||
     req.destination === 'document' ||
