@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.11.4.1";
+  window.APP_VERSION="2026.11.4.2";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:89.90, VALOR_MENSAL:19.90, MESES:6 };
@@ -327,6 +327,8 @@ const SUPABASE_URL = "https://jtkkqmqlydqenxwnttyi.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_KhmIwvVbXtecadyEPrBonQ_ZUTQVLRP";
 // URL do seu Cloudflare Worker (ex.: https://enamed-worker.SEU-SUBDOMINIO.workers.dev)
 const WORKER_URL = "https://enamed-worker.janan-almeida.workers.dev";
+/* Public Key de produção do Mercado Pago (é pública por definição: fica no app; o Access Token fica só no worker) */
+const MP_PUBLIC_KEY = "APP_USR-34b10f79-262c-4f9f-9574-73b590289c52";
 let AUTH_TOKEN = "";
 /* =================== REGRAS CLÍNICAS INEGOCIÁVEIS (injetadas em toda chamada de IA) =================== */
 const REGRAS_CLINICAS = [
@@ -10002,6 +10004,39 @@ function Assinar({uid,email,onClose,onVerificar,venceu}){
   const cpfLimpo=(cpf||"").replace(/\D/g,"");
   const [emailMp,setEmailMp]=useState(email||"");
   const mensalTxt="R$ "+(((window.PRECO_CFG||{}).VALOR_MENSAL)||19.9).toFixed(2).replace(".",",");
+  /* Assinatura mensal com o cartão digitado aqui (formulário seguro do Mercado Pago): não exige conta MP */
+  const brickRef=React.useRef(null);
+  const valorMensal=((window.PRECO_CFG||{}).VALOR_MENSAL)||19.9;
+  const carregarSDK=()=>new Promise((ok,falha)=>{ if(window.MercadoPago) return ok();
+    const sc=document.createElement("script"); sc.src="https://sdk.mercadopago.com/js/v2"; sc.onload=()=>ok(); sc.onerror=()=>falha(new Error("Não consegui carregar o formulário do Mercado Pago.")); document.head.appendChild(sc); });
+  const abrirCartao=async()=>{
+    if(!workerOk){setMsg("Falta configurar a WORKER_URL no topo do arquivo.");setEtapa("erro");return;}
+    setMsg(""); setEtapa("cartao");
+    try{
+      await carregarSDK();
+      const mp=new window.MercadoPago(MP_PUBLIC_KEY,{locale:"pt-BR"});
+      if(brickRef.current){ try{ brickRef.current.unmount(); }catch(e){} brickRef.current=null; }
+      brickRef.current=await mp.bricks().create("cardPayment","mp-card-brick",{
+        initialization:{ amount:valorMensal, payer:{ email:email||"" } },
+        customization:{ paymentMethods:{ maxInstallments:1, types:{ excluded:["debit_card","prepaid_card"] } }, visual:{ style:{ theme:"dark" } } },
+        callbacks:{
+          onReady:()=>{},
+          onError:(e)=>{ try{ console.warn("brick",e); }catch(x){} },
+          onSubmit:(dados)=>new Promise(async(resolve,reject)=>{
+            try{
+              const r=await wfetch("/criar-assinatura",{card_token_id:dados.token,email_mp:((dados.payer&&dados.payer.email)||email||"").trim()});
+              const d=await r.json();
+              if(!r.ok||d.error) throw new Error(typeof d.error==="string"?d.error:"O Mercado Pago não aprovou a assinatura.");
+              resolve();
+              setEtapa("aguardando");
+              pollRef.current=setInterval(async()=>{const ok=await onVerificar();if(ok){clearInterval(pollRef.current);setEtapa("sucesso");}},5000);
+            }catch(e){ reject(); setMsg(e.message); setEtapa("erro"); }
+          }),
+        },
+      });
+    }catch(e){ setMsg(e.message||"Falha ao abrir o pagamento com cartão."); setEtapa("erro"); }
+  };
+  useEffect(()=>()=>{ if(brickRef.current){ try{ brickRef.current.unmount(); }catch(e){} } },[]);
   const assinarMensal=async()=>{
     if(!workerOk){setMsg("Falta configurar a WORKER_URL no topo do arquivo.");setEtapa("erro");return;}
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test((emailMp||"").trim())){setMsg("Digite o e-mail da sua conta Mercado Pago.");return;}
@@ -10057,15 +10092,21 @@ function Assinar({uid,email,onClose,onVerificar,venceu}){
         <div className="card" style={{marginBottom:4}}>
           <b style={{fontSize:16}}>Mensal no cartão</b>
           <div style={{fontSize:26,fontWeight:800,letterSpacing:"-.02em",margin:"4px 0 0"}}>{mensalTxt}<span style={{fontSize:13,fontWeight:600,color:"var(--muted)"}}> por mês</span></div>
-          <div className="muted" style={{fontSize:13,margin:"2px 0 10px"}}>Mesmo acesso completo. Renova todo mês no cartão de crédito pelo Mercado Pago; cancele quando quiser e o acesso vale até o fim do mês pago.</div>
-          <label style={{fontSize:12,color:"var(--muted)",display:"block",marginBottom:4}}>E-mail da sua conta Mercado Pago</label>
-          <input value={emailMp} onChange={e=>setEmailMp(e.target.value)} type="email" placeholder="voce@email.com"
-            style={{width:"100%",padding:"11px 13px",borderRadius:9,border:"1px solid var(--line)",background:"var(--bg)",color:"var(--ink)",fontSize:15,marginBottom:10}} />
-          <button className="btn ghost" style={{width:"100%"}} onClick={assinarMensal}>Assinar por {mensalTxt}/mês</button>
+          <div className="muted" style={{fontSize:13,margin:"2px 0 10px"}}>Mesmo acesso completo. Renova todo mês no cartão de crédito, com pagamento seguro pelo Mercado Pago (não precisa ter conta). Cancele quando quiser: o acesso vale até o fim do mês pago.</div>
+          <button className="btn ghost" style={{width:"100%"}} onClick={abrirCartao}>Assinar por {mensalTxt}/mês no cartão</button>
         </div>
       </div>}
 
       {etapa==="carregando" && <div className="muted" style={{padding:"20px 0",textAlign:"center"}}>Preparando o pagamento...</div>}
+      {etapa==="cartao" && <div>
+        <div className="muted" style={{fontSize:13,marginBottom:8}}>Assinatura mensal de <b>{mensalTxt}</b> no cartão de crédito. Os dados do cartão vão direto para o Mercado Pago.</div>
+        <div id="mp-card-brick" style={{minHeight:120}}/>
+        <div className="row" style={{justifyContent:"space-between",marginTop:10,gap:8,flexWrap:"wrap"}}>
+          <button className="btn ghost sm" onClick={()=>{ if(brickRef.current){ try{ brickRef.current.unmount(); }catch(e){} brickRef.current=null; } setEtapa("plano"); }}>← Voltar</button>
+          <span className="link" style={{fontSize:12}} onClick={assinarMensal}>Prefiro pagar na página do Mercado Pago (com conta)</span>
+        </div>
+      </div>}
+      {etapa==="aguardando" && <div className="muted" style={{padding:"20px 0",textAlign:"center"}}>Assinatura enviada. Aguardando a confirmação do Mercado Pago...<div style={{marginTop:10}}><button className="btn sm" onClick={verificarAgora}>Verificar agora</button></div></div>}
 
       {etapa==="pix" && pix && <div style={{textAlign:"center"}}>
         <div className="muted" style={{fontSize:13,marginBottom:10}}>Escaneie o QR ou use o copia-e-cola. A liberação é automática.</div>
