@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.11.4.3";
+  window.APP_VERSION="2026.11.4.4";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:89.90, VALOR_MENSAL:19.90, MESES:6 };
@@ -4064,6 +4064,18 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
   const fracosSet=new Set((temasFracos||[]).map(x=>x.split("||")[1]));
   const [areaSel,setAreaSel]=useState(null); // area escolhida
   const [aberto,setAberto]=useState(null);   // assunto em estudo
+  const [modoPadrao,setModoPadrao]=useState(false); // estudando pela trilha recomendada (o que mais cai)
+  const [verPadrao,setVerPadrao]=useState(false);
+  /* Trilha recomendada: todos os assuntos (menos os do TECM), na ordem de quantas questões de
+     prova real do banco caem em cada um. Para quem não quer começar pelo diagnóstico. */
+  const padrao=useMemo(()=>{ try{
+    const qs=(store.questoes||[]).filter(q=>{ const t=normTransv(q.transv||[])[0]; return t==="ENAMED"||t==="RESID"||t==="USP"||t==="ENARE"||t==="SUS"||t==="REVALIDA"; });
+    const nt=qs.map(q=>({tm:normTema(q.tema),area:q.area}));
+    return CURRICULO.filter(t=>t.nivel!=="tecm"&&!String(t.id).startsWith("tecm-"))
+      .map(t=>{ const re=reDoTema(t.id); if(!re) return {t,n:(t.questoes||[]).length};
+        let n=0; for(let i=0;i<nt.length;i++){ const x=nt[i]; if(x.tm&&(t.area!=="PED"||x.area==="PED")&&re.test(x.tm)) n++; } return {t,n}; })
+      .sort((a,b)=>(b.n-a.n)||(b.t.yield-a.t.yield));
+  }catch(e){ return []; } },[(store.questoes||[]).length]);
   const [n2Mod,setN2Mod]=useState(null);     // módulo das aulas do Internato aberto aqui
   const [n2Num,setN2Num]=useState(null);     // aula pedida de outra aba (trilha TECM)
   const yc=y=>y>=3?"var(--gold)":y===2?"var(--acc2)":"var(--muted)";
@@ -4072,8 +4084,8 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
   const concluido=t=>!!store.dominio[t.id];
   // assuntos de uma area, em ordem de rendimento (o caminho)
   const caminho=k=>CURRICULO.filter(t=>t.area===k).sort((a,b)=>b.yield-a.yield);
-  const abrir=t=>{ if(!liberado(t)){onAssinar();return;} setAberto(t.id); irAoTopo(); };
-  useEffect(()=>{ try{ window.__ABRIR_ASSUNTO=(id)=>{ const t=assuntoPorId(id); if(!t) return;
+  const abrir=(t,doPadrao)=>{ if(!liberado(t)){onAssinar();return;} setModoPadrao(!!doPadrao); setAberto(t.id); irAoTopo(); };
+  useEffect(()=>{ try{ window.__ABRIR_ASSUNTO=(id)=>{ const t=assuntoPorId(id); if(!t) return; setModoPadrao(false);
     if(!liberado(t)){onAssinar();return;} setN2Mod(null); setN2Num(null); setAreaSel(t.area); setAberto(t.id); irAoTopo(); };
     window.__ABRIR_AULA_N2=(mod,num)=>{ setN2Num(num); setN2Mod(mod); irAoTopo(); };
     /* pedido vindo de outra aba (Início, plano da semana): a Trilha acabou de montar */
@@ -4106,7 +4118,7 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
           onFim={()=>{ // ao concluir, emenda no proximo pendente da area
             limparParada(uid,t.id);
             if(t.nivel==="tecm"){ setAberto(null); irAoTopo(); return; } // tema TECM: não emenda no caminho do ENAMED
-            const lista=caminho(t.area);
+            const lista=modoPadrao?padrao.map(x=>x.t):caminho(t.area);
             const idx=lista.findIndex(x=>x.id===t.id);
             const prox=lista.slice(idx+1).find(x=>!concluido(x));
             if(prox && liberado(prox)){ setAberto(prox.id); } else { setAberto(null); }
@@ -4176,6 +4188,30 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
   return <div>
     <h2 style={{fontSize:22,marginBottom:4}}>Escolha por onde começar</h2>
     <div className="muted" style={{fontSize:14,marginBottom:18}}>Cada área é um caminho. Siga do primeiro ao último no seu ritmo.</div>
+
+    {padrao.length>0 && (()=>{
+      const feitos=padrao.filter(x=>concluido(x.t)).length;
+      const prox=padrao.find(x=>!concluido(x.t)&&liberado(x.t))||padrao.find(x=>!concluido(x.t));
+      const lista=verPadrao?padrao:padrao.slice(0,8);
+      return <div className="card" style={{marginBottom:18,borderColor:"var(--acc)",background:"linear-gradient(135deg,#123528,#16302b)"}}>
+        <div className="tag" style={{color:"var(--acc)"}}>🧭 TRILHA RECOMENDADA</div>
+        <b style={{fontSize:17,display:"block",marginTop:6}}>Siga pelo que mais cai nas provas</b>
+        <div className="muted" style={{fontSize:13,marginTop:4,lineHeight:1.5}}>Não quer fazer o diagnóstico? Comece por aqui: os assuntos de todas as áreas, na ordem de quantas questões de prova real o banco tem sobre cada um.</div>
+        <div className="row" style={{justifyContent:"space-between",marginTop:10,fontSize:12.5}}><span className="muted">{feitos} de {padrao.length} assuntos concluídos</span></div>
+        <div className="bar" style={{marginTop:6}}><i style={{width:(feitos/padrao.length*100)+"%",background:"var(--acc)"}}/></div>
+        {prox && <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,marginTop:12,flexWrap:"wrap"}}>
+          <div style={{minWidth:0}}><div className="muted" style={{fontSize:12}}>{feitos?"Próximo da trilha":"Comece por"}</div><b style={{fontSize:15}}>{prox.t.nome}</b> <span className="muted" style={{fontSize:12.5}}>· {areaNome(prox.t.area)}{prox.n?" · "+prox.n+" questões de prova":""}</span></div>
+          <button className="btn sm" onClick={()=>abrir(prox.t,true)}>{liberado(prox.t)?(feitos?"Continuar ›":"Começar ›"):"🔒 Assinar"}</button>
+        </div>}
+        <div style={{marginTop:12}}>
+          {lista.map((x,i)=><div key={x.t.id} className="row" style={{justifyContent:"space-between",alignItems:"center",gap:8,padding:"7px 2px",borderTop:"1px solid var(--line)"}}>
+            <span style={{fontSize:13.5,minWidth:0}}><span className="muted" style={{display:"inline-block",width:26}}>{concluido(x.t)?"✓":(i+1)+"."}</span>{x.t.nome} <span className="muted" style={{fontSize:12}}>· {x.t.area}{x.n?" · "+x.n:""}</span></span>
+            <button className="btn ghost sm" onClick={()=>abrir(x.t,true)}>{concluido(x.t)?"Revisar":"Estudar"}</button>
+          </div>)}
+          {padrao.length>8 && <span className="link" style={{fontSize:13,display:"inline-block",marginTop:8}} onClick={()=>setVerPadrao(v=>!v)}>{verPadrao?"Ver só os 8 primeiros":"Ver a trilha completa ("+padrao.length+" assuntos)"}</span>}
+        </div>
+      </div>;
+    })()}
 
     {fracosSet.size>0 && (()=>{
       const prioritarios=CURRICULO.filter(t=>fracosSet.has(t.nome));
