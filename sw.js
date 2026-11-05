@@ -5,7 +5,7 @@
    ao usuário, sem precisar limpar cache. O cache serve só de
    reserva para quando estiver offline.
    ================================================================ */
-const VERSION = 'enamed-v' + '2026-11-04-07';  // troque a data a cada deploy grande
+const VERSION = 'enamed-v' + '2026-11-05-01';  // troque a data a cada deploy grande
 const CACHE = VERSION;
 // Arquivos que valem manter em cache como reserva offline.
 const ASSETS = [
