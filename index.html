@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.11.5.2";
+  window.APP_VERSION="2026.11.5.3";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:89.90, VALOR_MENSAL:19.90, MESES:6 };
@@ -3041,7 +3041,27 @@ function CardInstalarApp(){
       ações que o app sabe executar (aula, treino, bloco, Super Revisão, rodízio,
       revisão, diagnóstico). 4) A IA (PRO) organiza essas ações em 7 dias e diz o
       porquê de cada uma; sem IA, um plano automático com a mesma lógica. */
-const OBJETIVOS=[["enamed","ENAMED / residência"],["internato","Internato (N2)"],["revalida","Revalida"],["tecm","TECM"]];
+const OBJETIVOS=[["enamed","ENAMED / residência"],["internato","Internato (N2)"],["revalida","Revalida"],["tecm","TECM"],["outra","Outra prova"]];
+const AREAS_PROVA=[["CM","Clínica"],["CIR","Cirurgia"],["GO","GO"],["PED","Pediatria"],["MFC","Preventiva"]];
+/* banca de origem de uma questão de prova (só acesso direto) */
+function bancaDaQuestao(q){ const t=String(((q&&q.transv)||[])[1]||""); if(!t||/_(RMAIS|R\+)$|_ESP$|_MI$/.test(t)) return null;
+  let m=/^RESID_(.+?)_\d{4}(?:_\d)?$/.exec(t); if(m) return m[1];
+  if(/^USP_\d{4}$/.test(t)) return "USP"; if(/^ENARE_\d{4}/.test(t)) return "ENARE";
+  m=/^SUS_([A-Z]{2})_\d{4}/.exec(t); if(m) return "SUS_"+m[1];
+  if(/^REVALIDA/.test(t)) return "REVALIDA"; return null; }
+function nomeBanca(k){ if(k==="USP") return "USP (FUVEST)"; if(k==="ENARE") return "ENARE"; if(k==="REVALIDA") return "Revalida";
+  if(/^SUS_/.test(k)) return "SUS-"+k.slice(4); return RESID_BANCAS[k]||String(k||"").replace(/_/g," "); }
+function bancasDisponiveis(pool){ const n={}; (pool||[]).forEach(q=>{ const b=bancaDaQuestao(q); if(b&&typeof q.correta==="number"&&q.correta>=0) n[b]=(n[b]||0)+1; });
+  return Object.keys(n).filter(k=>n[k]>=40).map(k=>[k,nomeBanca(k),n[k]]).sort((a,b)=>a[1].localeCompare(b[1],"pt")); }
+function areasDoCaminho(c){ return c&&c.objetivo==="outra"&&Array.isArray(c.areas)&&c.areas.length&&c.areas.length<5?c.areas:null; }
+function dataBR(iso,ano){ const p=String(iso||"").split("-"); return ano?p.reverse().join("/"):p.reverse().slice(0,2).join("/"); }
+/* segunda prova (quem faz N2 + ENAMED): o dia dela fica sem tarefas */
+function marcarSegundaProva(dias,inicio,caminho){
+  if(!caminho||!caminho.misto||!caminho.dataProva2) return dias;
+  const k=diasEntre(inicio,caminho.dataProva2);
+  if(k>=0&&k<dias.length){ dias[k].tarefas=[]; dias[k].titulo="Dia do ENAMED / da outra prova"; }
+  return dias;
+}
 function caminhoKey(uid){ return "preceptor_caminho_"+(uid||"anon"); }
 function planoKey(uid){ return "preceptor_plano_"+(uid||"anon"); }
 function lerJSON(k){ try{ return JSON.parse(PLS.get(k)||"null"); }catch(e){ return null; } }
@@ -3066,9 +3086,9 @@ function aplicarDisponibilidade(dias,inicio,caminho,limite,cap){
   return dias;
 }
 function resumoCaminho(c){ if(!c) return "";
-  const o=(OBJETIVOS.find(x=>x[0]===c.objetivo)||[,""])[1];
+  const o=c.objetivo==="outra"?(c.banca?nomeBanca(c.banca):c.nomeProva?String(c.nomeProva).slice(0,40):"Outra prova")+(areasDoCaminho(c)?" ("+areasDoCaminho(c).map(a=>(AREAS_PROVA.find(x=>x[0]===a)||[,a])[1]).join(", ")+")":""):(OBJETIVOS.find(x=>x[0]===c.objetivo)||[,""])[1];
   if(c.objetivo==="internato"){ const m=(MODULOS_INTERNATO.find(x=>x.id===c.modulo)||{}).nome||c.modulo;
-    return "Internato · "+m+" "+c.metade+(c.dataProva?" · N2 em "+c.dataProva.split("-").reverse().slice(0,2).join("/"):"")+(c.misto==="igual"?" · + ENAMED (metade da semana)":c.misto?" · + ENAMED":"")+(diasEstudo(c).length===7?"":" · estuda "+DIAS_SEM.filter(([k])=>diasEstudo(c).includes(k)).map(x=>x[1]).join(", ")); }
+    return "Internato · "+m+" "+c.metade+(c.dataProva?" · N2 em "+c.dataProva.split("-").reverse().slice(0,2).join("/"):"")+(c.misto==="igual"?" · + ENAMED (metade da semana)":c.misto?" · + ENAMED":"")+(c.misto&&c.dataProva2?" · ENAMED/outra prova em "+dataBR(c.dataProva2):"")+(diasEstudo(c).length===7?"":" · estuda "+DIAS_SEM.filter(([k])=>diasEstudo(c).includes(k)).map(x=>x[1]).join(", ")); }
   const ds=diasEstudo(c); const txtDias=ds.length===7?"":" · estuda "+DIAS_SEM.filter(([k])=>ds.includes(k)).map(x=>x[1]).join(", ");
   return o+(c.dataProva?" · prova em "+c.dataProva.split("-").reverse().join("/"):"")+txtDias; }
 
@@ -3118,7 +3138,8 @@ function acoesPossiveis(diag,caminho,pool,store){
     A.push({id:id("M"),tipo:"rodizio",modulo:mod,metade:h,label:"Modo Rodízio "+nomeMod+" "+h+" (todas as questões, embaralhadas)",info:"simulado da metade"});
   }
   if(!internato||caminho.misto){
-    diag.fracos.forEach(f=>{
+    const areasOk=areasDoCaminho(caminho);
+    diag.fracos.filter(f=>!areasOk||areasOk.includes(f.area)).forEach(f=>{
       const t=assuntoDoTema(f.area,f.tema,pool);
       if(t) A.push({id:id("A"),tipo:"aula",assunto:t.id,label:"Aula da trilha: "+t.nome,info:"tema fraco: "+temaCurtoPlano(f.tema)+(f.pct!=null?" ("+f.pct+"% de acerto, "+f.erros+" erros)":" (do diagnóstico)")});
       const qn=(pool||[]).filter(q=>q.tema===f.tema).length;
@@ -3127,8 +3148,17 @@ function acoesPossiveis(diag,caminho,pool,store){
     // assuntos de alto rendimento ainda não estudados (útil para quem começou agora)
     const dom=store.dominio||{};
     const area=caminho.objetivo==="tecm"?"CM":null;
-    CURRICULO.filter(t=>!dom[t.id]&&(!area||t.area===area)).sort((a,b)=>b.yield-a.yield).slice(0,internato&&caminho.misto!=="igual"?2:5)
+    CURRICULO.filter(t=>!dom[t.id]&&(!area||t.area===area)&&(!areasOk||areasOk.includes(t.area))&&(caminho.objetivo==="tecm"||t.nivel!=="tecm")).sort((a,b)=>b.yield-a.yield).slice(0,internato&&caminho.misto!=="igual"?2:5)
       .forEach(t=>{ if(!A.some(x=>x.assunto===t.id)) A.push({id:id("A"),tipo:"aula",assunto:t.id,label:"Aula da trilha: "+t.nome,info:"alto rendimento, ainda não estudado"}); });
+  }
+  if(caminho.objetivo==="outra"&&caminho.banca){
+    const nb=nomeBanca(caminho.banca), daBanca=(pool||[]).filter(q=>bancaDaQuestao(q)===caminho.banca&&typeof q.correta==="number"&&q.correta>=0);
+    const areasOk=areasDoCaminho(caminho);
+    if(daBanca.length>=20) A.push({id:id("P"),tipo:"treinoBanca",banca:caminho.banca,n:20,label:"Bloco de 20 questões de provas da "+nb,info:"estilo da banca, áreas misturadas"});
+    const porArea={}; daBanca.forEach(q=>{ porArea[q.area]=(porArea[q.area]||0)+1; });
+    const acertoArea={}; diag.fracos.forEach(f=>{ acertoArea[f.area]=Math.min(acertoArea[f.area]==null?101:acertoArea[f.area],f.pct==null?50:f.pct); });
+    Object.keys(porArea).filter(a=>porArea[a]>=10&&(!areasOk||areasOk.includes(a))).sort((a,b)=>(acertoArea[a]==null?101:acertoArea[a])-(acertoArea[b]==null?101:acertoArea[b]))
+      .forEach(a=>A.push({id:id("P"),tipo:"treinoBanca",banca:caminho.banca,area:a,n:15,label:"Treinar 15 questões da "+nb+" de "+((AREAS_PROVA.find(x=>x[0]===a)||[,areaNome(a)])[1]),info:porArea[a]+" questões dessa banca na área"}));
   }
   if(diag.vencidas>0) A.push({id:"R",tipo:"revisao",label:"Revisão espaçada ("+diag.vencidas+" vencidas)",info:"todo dia que houver vencidas"});
   if(!internato&&diag.respondidas<15) A.push({id:"D",tipo:"diag",label:"Diagnóstico rápido (~20 questões)",info:"poucos dados ainda — mapeia os pontos fracos"});
@@ -3156,6 +3186,7 @@ function planoAutomatico(diag,acoes,caminho){
   }else{
     const D=acoes.find(a=>a.tipo==="diag"); if(D) put(0,D,"Mapeia onde você mais erra.");
     const aulas=acoes.filter(a=>a.tipo==="aula"), treinos=acoes.filter(a=>a.tipo==="treino");
+    acoes.filter(a=>a.tipo==="treinoBanca").forEach((a,i)=>put(Math.min(limite-1,i%limite),a,a.area?"Treine no estilo da banca a área que você mais erra.":"Questões da própria banca: acostume-se com o jeito dela cobrar."));
     aulas.forEach((a,i)=>put(Math.min(limite-1,i%limite),a,a.info&&a.info.startsWith("tema fraco")?"Entenda o tema onde você errou.":"Assunto que mais cai e você ainda não viu."));
     treinos.forEach((t,i)=>put(Math.min(limite-1,(i+2)%limite),t,"Treine o tema dias depois da aula: é o que fixa."));
   }
@@ -3166,6 +3197,7 @@ function planoAutomatico(diag,acoes,caminho){
   for(let i=0;i<limite;i++) if(R&&estudaDia(i)&&!dias[i].tarefas.some(t=>t.acao==="R")) dias[i].tarefas.unshift({acao:"R",porque:"As vencidas de hoje — é o que segura a memória."});
   dias.forEach((d,i)=>{ if(i<limite&&!estudaDia(i)){ d.titulo="Folga (dia sem estudo)"; return; } d.titulo=i>=limite?(caminho.dataProva&&i===limite?"Dia da prova":"Descanso e revisão leve"):(d.tarefas.length?"":"Dia livre: pratique questões soltas"); });
   const fr=diag.fracos.slice(0,3).map(f=>temaCurtoPlano(f.tema));
+  marcarSegundaProva(dias,diag.hoje,caminho);
   return {resumo:(diag.respondidas?("Nos últimos 7 dias: "+diag.respondidas+" questões, "+diag.acerto+"% de acerto, em "+diag.diasAtivos+" dia"+(diag.diasAtivos===1?"":"s")+". "):"Ainda não há respostas nesta semana. ")+
     (diag.internato?"Foco nos temas de "+(MOD_TEMA[diag.internato.modulo]||"")+" "+diag.internato.metade+", começando pelos que você ainda não treinou ou mais errou.":(fr.length?"Pontos a atacar: "+fr.join(", ")+".":"Vamos começar pelos assuntos que mais caem.")),
     dias, dica:"", fonte:"auto"};
@@ -3177,14 +3209,14 @@ async function planoComIA(diag,acoes,caminho){
   const datas=[...Array(7)].map((_,i)=>somaDias(diag.hoje,i));
   const contexto=[
     "Você é o Preceptor, um preceptor de estudos de medicina bem-humorado que chama o aluno de 'Doc'. Monte o plano de estudo dos próximos 7 dias.",
-    "CAMINHO COMBINADO COM O ALUNO: "+resumoCaminho(caminho)+(caminho.dataProva?" (faltam "+diasEntre(diag.hoje,caminho.dataProva)+" dias para a prova)":""),
+    "CAMINHO COMBINADO COM O ALUNO: "+resumoCaminho(caminho)+(caminho.dataProva?" (faltam "+diasEntre(diag.hoje,caminho.dataProva)+" dias para "+(caminho.objetivo==="internato"?"a N2":"a prova")+")":"")+(caminho.misto&&caminho.dataProva2?" (faltam "+diasEntre(diag.hoje,caminho.dataProva2)+" dias para o ENAMED/outra prova; nesse dia, SEM tarefas)":""),
     "META DIÁRIA: "+(caminho.meta||20)+" questões.",
     "SEMANA DO ALUNO: "+JSON.stringify({respondidas:diag.respondidas,acerto_pct:diag.acerto,dias_ativos:diag.diasAtivos,revisoes_vencidas:diag.vencidas,motivos_de_erro:diag.motivos,temas_fracos:diag.fracos.map(f=>({tema:temaCurtoPlano(f.tema),acerto_pct:f.pct,erros:f.erros}))}),
     "AÇÕES DISPONÍVEIS (use SÓ estes ids):\n"+acoes.map(a=>a.id+" — "+a.label+(a.info?" ["+a.info+"]":"")).join("\n"),
     "DIAS: "+datas.map((d,i)=>"dia "+i+" = "+d+(i>=limite?" (SEM tarefas: "+(i===limite&&caminho.dataProva?"dia da prova":"após a prova")+")":(!diasEstudo(caminho).includes(diaSemanaISO(d))?" (FOLGA: o aluno não estuda neste dia, SEM tarefas)":""))).join("; "),
     "REGRAS: 2 a 4 tarefas por dia útil; não repita a mesma ação no mesmo dia; inclua R em todo dia útil se existir; "+
       (diag.internato?"o rodízio vem primeiro: cubra todos os temas da metade antes da prova, Super Revisão (G) antes do Bloco (B) do mesmo tema, temas com acerto baixo voltam 2 a 3 dias depois, e o Modo Rodízio (M) no último dia útil"+(caminho.misto==="igual"?"; o aluno prepara ENAMED e N2 ao mesmo tempo: em cada dia útil, cerca de metade das tarefas é de ENAMED (A ou T) e metade do rodízio":caminho.misto?"; no máximo 1 ação de ENAMED (A ou T) por dia":"")+"."
-        :"aula (A) do tema fraco antes do treino (T) do mesmo tema, com 2 a 3 dias de intervalo; se existir D, ponha no dia 0.")+
+        :"aula (A) do tema fraco antes do treino (T) do mesmo tema, com 2 a 3 dias de intervalo; se existir D, ponha no dia 0"+(caminho.objetivo==="outra"&&caminho.banca?"; o aluno vai fazer a prova da "+nomeBanca(caminho.banca)+": inclua 1 ação P (questões da própria banca) em cada dia útil.":"."))+
       " Se o aluno mais 'leu errado' ou 'chutou', diga isso na dica. Não invente números: use só os dados acima.",
     "RESPONDA SÓ EM JSON VÁLIDO: {\"resumo\":\"2 a 3 frases sobre a semana do aluno e o foco do plano\",\"dias\":[{\"titulo\":\"foco do dia em até 6 palavras\",\"tarefas\":[{\"acao\":\"id\",\"porque\":\"até 12 palavras\"}]}],\"dica\":\"1 frase prática\"} com exatamente 7 itens em dias."
   ].join("\n\n");
@@ -3197,13 +3229,14 @@ async function planoComIA(diag,acoes,caminho){
     const tarefas=(i>=limite?[]:(x.tarefas||[])).filter(t=>t&&ids.has(t.acao)&&!vistos.has(t.acao)&&vistos.add(t.acao)).slice(0,4).map(t=>({acao:t.acao,porque:(""+(t.porque||"")).slice(0,140)}));
     return {titulo:(""+(x.titulo||"")).slice(0,60),tarefas}; });
   aplicarDisponibilidade(dias,diag.hoje,caminho,limite,5);
+  marcarSegundaProva(dias,diag.hoje,caminho);
   if(dias.reduce((s,x)=>s+x.tarefas.length,0)<3) throw new Error("plano vazio");
   return {resumo:(""+(p.resumo||"")).slice(0,500),dias,dica:(""+(p.dica||"")).slice(0,240),fonte:"ia"};
 }
 
 /* ---- 1) combinar o caminho ---- */
-function CaminhoSetup({inicial,meta,onSalvar,onCancelar}){
-  const [c,setC]=useState(()=>({objetivo:"enamed",modulo:"CM",metade:"A",dataProva:"",misto:false,diasEstudo:[0,1,2,3,4,5,6],...(inicial||{})}));
+function CaminhoSetup({inicial,meta,pool,onSalvar,onCancelar}){
+  const [c,setC]=useState(()=>({objetivo:"enamed",modulo:"CM",metade:"A",dataProva:"",dataProva2:"",nomeProva:"",banca:"",areas:["CM","CIR","GO","PED","MFC"],misto:false,diasEstudo:[0,1,2,3,4,5,6],...(inicial||{})}));
   const set=(k,v)=>setC(x=>({...x,[k]:v}));
   const chip=(on,txt,fn,key)=><button key={key||txt} type="button" className={"btn sm"+(on?"":" ghost")} aria-pressed={on} onClick={fn}>{on?"✓ ":""}{txt}</button>;
   const intern=c.objetivo==="internato";
@@ -3228,15 +3261,32 @@ function CaminhoSetup({inicial,meta,onSalvar,onCancelar}){
       <label style={{marginTop:12}}>Como dividir a semana</label>
       <div className="row" style={{gap:6,flexWrap:"wrap"}}>{chip(!c.misto,"Só o rodízio (N2)",()=>set("misto",false),"so")}{chip(c.misto===true,"Rodízio + 1 tarefa de ENAMED por dia",()=>set("misto",true),"mix")}{chip(c.misto==="igual","Metade N2, metade ENAMED",()=>set("misto","igual"),"igual")}</div>
     </>}
-    <label style={{marginTop:12}}>{intern?"Data da N2":"Data da prova"} <span className="muted" style={{fontSize:12}}>(opcional)</span></label>
-    <input type="date" value={c.dataProva||""} min={dataLocal()} onChange={e=>set("dataProva",e.target.value)} style={{maxWidth:200,margin:0}}/>
+    {c.objetivo==="outra" && <>
+      <label style={{marginTop:12}}>Qual prova (banca)?</label>
+      <select value={c.banca||""} onChange={e=>set("banca",e.target.value)} style={{maxWidth:340,margin:0}}>
+        <option value="">Outra (digitar o nome)</option>
+        {bancasDisponiveis(pool).map(([k,l,n])=><option key={k} value={k}>{l} · {n} questões</option>)}
+      </select>
+      {!c.banca && <input type="text" value={c.nomeProva||""} maxLength={40} placeholder="Ex.: prova da faculdade, concurso" onChange={e=>set("nomeProva",e.target.value)} style={{maxWidth:340,margin:"8px 0 0"}}/>}
+      <div className="muted" style={{fontSize:12,marginTop:6}}>{c.banca?"O plano inclui todo dia questões das provas anteriores dessa banca.":"Sem banca escolhida, o plano usa as questões gerais do banco."}</div>
+      <label style={{marginTop:12}}>Áreas que caem nela</label>
+      <div className="row" style={{gap:6,flexWrap:"wrap"}}>{AREAS_PROVA.map(([k,l])=>{ const sel=(c.areas||[]).includes(k);
+        return chip(sel,l,()=>setC(x=>{ const cur=x.areas||[]; const nv=cur.includes(k)?cur.filter(v=>v!==k):cur.concat(k); return {...x,areas:nv.length?nv:cur}; }),"a"+k); })}</div>
+      <div className="muted" style={{fontSize:12,marginTop:6}}>O plano puxa aulas e treinos só dessas áreas.</div>
+    </>}
+    <div className="row" style={{gap:16,flexWrap:"wrap"}}>
+      <div><label style={{marginTop:12}}>{intern?"Data da N2":"Data da prova"} <span className="muted" style={{fontSize:12}}>(opcional)</span></label>
+      <input type="date" value={c.dataProva||""} min={dataLocal()} onChange={e=>set("dataProva",e.target.value)} style={{maxWidth:200,margin:0}}/></div>
+      {intern&&c.misto && <div><label style={{marginTop:12}}>Data do ENAMED ou da outra prova <span className="muted" style={{fontSize:12}}>(opcional)</span></label>
+      <input type="date" value={c.dataProva2||""} min={dataLocal()} onChange={e=>set("dataProva2",e.target.value)} style={{maxWidth:200,margin:0}}/></div>}
+    </div>
     <label style={{marginTop:12}}>Dias em que consigo estudar</label>
     <div className="row" style={{gap:6,flexWrap:"wrap"}}>{DIAS_SEM.map(([k,l])=>{ const sel=diasEstudo(c).includes(k);
       return chip(sel,l,()=>setC(x=>{ const cur=diasEstudo(x); const nv=cur.includes(k)?cur.filter(v=>v!==k):cur.concat(k); return {...x,diasEstudo:nv.length?nv:cur}; }),"d"+k); })}</div>
     <div className="muted" style={{fontSize:12,marginTop:6}}>Desmarque os dias em que você já sabe que não vai estudar: o plano deixa esses dias livres e redistribui as tarefas.</div>
     <div className="muted" style={{fontSize:12,marginTop:8}}>Ritmo: {meta||20} questões por dia (é a sua meta diária — ajuste no cartão da meta).</div>
     <div className="row" style={{gap:10,marginTop:14}}>
-      <button className="btn sm" onClick={()=>onSalvar({...c,dataProva:(c.dataProva&&c.dataProva>=dataLocal())?c.dataProva:""})}>Combinado — montar meu plano</button>
+      <button className="btn sm" onClick={()=>onSalvar({...c,dataProva:(c.dataProva&&c.dataProva>=dataLocal())?c.dataProva:"",dataProva2:(c.misto&&c.dataProva2&&c.dataProva2>=dataLocal())?c.dataProva2:"",nomeProva:String(c.nomeProva||"").trim().slice(0,40)})}>Combinado — montar meu plano</button>
       {onCancelar && <span className="link muted" style={{fontSize:13,alignSelf:"center"}} onClick={onCancelar}>Cancelar</span>}
     </div>
   </div>;
@@ -3291,7 +3341,7 @@ function PlanoSemana({uid,store,srs,pool,temasFracos,meta,isPro,acoes:exec}){
   const [erro,setErro]=useState("");
   const hoje=dataLocal();
   const cam=caminho?{...caminho,meta:(meta&&meta.meta)||20}:null;
-  const assinatura=cam?JSON.stringify([cam.objetivo,cam.modulo,cam.metade,cam.dataProva,cam.misto,diasEstudo(cam).slice().sort().join("")]):"";
+  const assinatura=cam?JSON.stringify([cam.objetivo,cam.modulo,cam.metade,cam.dataProva,cam.dataProva2||"",cam.nomeProva||"",(cam.areas||[]).join(""),cam.banca||"",cam.misto,diasEstudo(cam).slice().sort().join("")]):"";
   const diag=useMemo(()=>cam?diagnosticoSemana({store,srs,pool,temasFracos,caminho:cam}):null,[assinatura,store.log.length,store.questoes.length,(store.caderno||[]).length,Object.keys(srs||{}).length]);
   const acoes=useMemo(()=>diag?acoesPossiveis(diag,cam,pool,store):[],[diag]);
   const valido=p=>p&&p.caminho===assinatura&&p.inicio&&diasEntre(p.inicio,hoje)>=0&&diasEntre(p.inicio,hoje)<7;
@@ -3312,6 +3362,9 @@ function PlanoSemana({uid,store,srs,pool,temasFracos,meta,isPro,acoes:exec}){
     if(a.tipo==="revisao") exec.revisar();
     else if(a.tipo==="diag") exec.diag("rapido");
     else if(a.tipo==="aula") exec.assunto(a.assunto);
+    else if(a.tipo==="treinoBanca"){ const ja=new Set((store.log||[]).map(l=>l.id)); const base=(pool||[]).filter(q=>bancaDaQuestao(q)===a.banca&&(!a.area||q.area===a.area)&&typeof q.correta==="number"&&q.correta>=0);
+      const mix=l=>l.sort(()=>Math.random()-0.5); const qs=mix(base.filter(q=>!ja.has(q.id))).concat(mix(base.filter(q=>ja.has(q.id)))).slice(0,a.n||15);
+      exec.treinar(qs,"Plano · "+nomeBanca(a.banca)+(a.area?" · "+areaNome(a.area):"")); }
     else if(a.tipo==="treino"){ const qs=(pool||[]).filter(q=>q.tema===a.tema).sort(()=>Math.random()-0.5).slice(0,15); exec.treinar(qs,"Plano · "+temaCurtoPlano(a.tema)); }
     else if(a.tipo==="bloco"||a.tipo==="guia"||a.tipo==="rodizio") exec.internato({modulo:a.modulo,metade:a.metade,topico:a.topico,modo:a.tipo});
   };
@@ -3324,7 +3377,7 @@ function PlanoSemana({uid,store,srs,pool,temasFracos,meta,isPro,acoes:exec}){
 
   if(!cam||editando) return <div className="card" style={{marginBottom:16,borderColor:"var(--acc)"}}>
     {titulo}<b style={{fontSize:16,display:"block",marginTop:6}}>{cam?"Mudar o caminho":"Vamos combinar seu caminho?"}</b>
-    <CaminhoSetup inicial={cam} meta={meta&&meta.meta} onSalvar={salvarCaminho} onCancelar={cam?()=>setEditando(false):null}/>
+    <CaminhoSetup inicial={cam} meta={meta&&meta.meta} pool={pool} onSalvar={salvarCaminho} onCancelar={cam?()=>setEditando(false):null}/>
   </div>;
   if(!plano||!valido(plano)) return null;
 
@@ -3366,6 +3419,7 @@ function PlanoSemana({uid,store,srs,pool,temasFracos,meta,isPro,acoes:exec}){
     for(let k=0;k<limite;k++) if(R&&!dias[k].tarefas.some(t=>t.acao==="R")) dias[k].tarefas.unshift({acao:"R",porque:"As vencidas de hoje — é o que segura a memória."});
     dias.forEach((d,k)=>{ if(k>=limite){ d.tarefas=[]; d.titulo=cam.dataProva&&k===limite?"Dia da prova":"Descanso e revisão leve"; } else if(!d.tarefas.length) d.titulo="Dia livre: pratique questões soltas"; });
     aplicarDisponibilidade(dias,hoje,cam,limite,5);
+    marcarSegundaProva(dias,hoje,cam);
     { const okD=new Set(diasEstudo(cam)); dias.forEach((d,k)=>{ if(k<limite&&!okD.has(diaSemanaISO(somaDias(hoje,k)))){ d.tarefas=[]; d.titulo="Folga (dia sem estudo)"; } }); }
     const np={...plano,dias,feitos,inicio:hoje,corrigidoEm:hoje}; setPlano(np); gravarJSON(planoKey(uid),np); setSemana(false);
   };
