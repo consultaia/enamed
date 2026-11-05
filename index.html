@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.11.5.3";
+  window.APP_VERSION="2026.11.5.4";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:89.90, VALOR_MENSAL:19.90, MESES:6 };
@@ -3884,10 +3884,11 @@ function Shell({session}){
       {!jaFezDiag
         ? <div className="card" style={{marginBottom:16,borderColor:"var(--acc)"}}>
             <b style={{fontSize:16}} id="tour-diag">Comece pelo diagnóstico</b>
-            <div className="muted" style={{fontSize:13,margin:"6px 0 12px"}}>Responda uma rodada curta e eu descubro onde você mais erra — a partir daí, a trilha passa a priorizar isso pra você. Leva poucos minutos e é feito uma vez só.</div>
+            <div className="muted" style={{fontSize:13,margin:"6px 0 12px"}}>Responda uma rodada curta e eu descubro onde você mais erra — a partir daí, a trilha passa a priorizar isso pra você. Leva poucos minutos e é feito uma vez só. Prefere não fazer agora? Siga a trilha do que mais cai nas provas.</div>
             <div className="row" style={{gap:10,flexWrap:"wrap"}}>
               <button className="btn" onClick={()=>setDiag("rapido")}>⚡ Diagnóstico rápido (~20)</button>
               <button className="btn ghost" onClick={()=>setDiag("enamed")}>🏛️ Prova Oficial ENAMED 2025.2</button>
+              <button className="btn ghost" onClick={()=>{ setDiag(null); setRevisando(false); setTab("trilha"); try{ window.scrollTo(0,0); }catch(e){} }}>🧭 Seguir a trilha do que mais cai</button>
             </div>
           </div>
         : (()=>{ /* já fez: sai da frente. Só volta a sugerir se ficou velho. */
