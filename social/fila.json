@@ -81,24 +81,27 @@
   "legenda": "Salva pra revisar antes da prova 🔖\n\nEpidemiologia cai em toda prova: ENAMED, Revalida, USP, ENARE. E quase sempre do mesmo jeito: o que acontece quando muda o ponto de corte.\n\nNo Preceptor cada assunto tem aula curta mostrando como a banca cobra.\n\n🔗 preceptor.api.br (link na bio)\n\n#epidemiologia #enamed #revalida #residenciamedica #medicina #estudantedemedicina"
  },
  {
-  "id": "2026-11-06_e4_enamed_ponto_corte",
+  "id": "2026-11-06_m2_revisao_espacada",
   "quando": "2026-11-06T12:00:00-03:00",
+  "tipo": "carrossel",
+  "imagens": [
+   "https://preceptor.api.br/social/2026-11/m2_revisao_1.jpg",
+   "https://preceptor.api.br/social/2026-11/m2_revisao_2.jpg",
+   "https://preceptor.api.br/social/2026-11/m2_revisao_3.jpg",
+   "https://preceptor.api.br/social/2026-11/m2_revisao_4.jpg",
+   "https://preceptor.api.br/social/2026-11/m2_revisao_5.jpg"
+  ],
+  "legenda": "Estudou, entendeu… e uma semana depois esqueceu? Não é falta de capacidade, é a curva do esquecimento 🧠\n\nO que a ciência da memória mostra que funciona:\n✅ Recuperação ativa: responder questões fixa mais que reler\n✅ Espaçamento: revisar em dias espaçados vence a maratona na véspera\n✅ Intercalar temas\n\nNo Preceptor a revisão é automática: a questão que você errou volta em intervalos cada vez maiores, e o Início mostra todo dia o que está para vencer.\n\nSalva pra lembrar 🔖\n\n🎁 Teste grátis por 24 h: preceptor.api.br (link na bio)\n\n#metododeestudo #revisaoespacada #enamed #residenciamedica #medicina #estudantedemedicina"
+ },
+ {
+  "id": "2026-11-06_e4_enamed_ponto_corte",
+  "quando": "2026-11-06T19:00:00-03:00",
   "tipo": "carrossel",
   "imagens": [
    "https://preceptor.api.br/social/2026-11/e4_enamed_ponto_corte_1.jpg",
    "https://preceptor.api.br/social/2026-11/e4_enamed_ponto_corte_2.jpg"
   ],
   "legenda": "Questão de raciocínio puro que caiu no ENAMED 2026 📊\n\nQual a sua letra? 👇\n\nSe você viu o post de hoje cedo sobre sensibilidade e especificidade, essa é fácil.\n\n🔗 Teste grátis por 24 h: preceptor.api.br (link na bio)\n\n#enamed #enamed2026 #epidemiologia #medicina #estudantedemedicina #residenciamedica"
- },
- {
-  "id": "2026-11-06_d5_usp_mama",
-  "quando": "2026-11-06T19:00:00-03:00",
-  "tipo": "carrossel",
-  "imagens": [
-   "https://preceptor.api.br/social/2026-11/d5_usp_mama_1.jpg",
-   "https://preceptor.api.br/social/2026-11/d5_usp_mama_2.jpg"
-  ],
-  "legenda": "Parece fácil, mas muita gente erra 👀\n\nComente sua letra antes do gabarito 👇\n\nEssa é da USP 2024. No Preceptor tem a USP de 2021 a 2026, além de UNIFESP, Einstein, Sírio, Santa Casa e muito mais.\n\n🔗 preceptor.api.br (link na bio)\n\n#ginecologia #usp #residenciamedica #enamed #medicina #estudantedemedicina"
  },
  {
   "id": "2026-11-07_e3_usp_pep_hiv",
@@ -111,8 +114,20 @@
   "legenda": "PEP depois de 72 horas: ainda dá? ⏱️\n\nComente sua letra 👇\n\nEssa é da USP 2026. No Preceptor tem a USP de 2021 a 2026 comentada, além de Einstein, UNIFESP, Santa Casa e mais 170 provas.\n\n🔗 preceptor.api.br (link na bio)\n\n#usp #residenciamedica #ginecologia #infectologia #enamed #medicina #estudantedemedicina"
  },
  {
-  "id": "2026-11-07_e5_revalida_soda",
+  "id": "2026-11-07_m3_trilha",
   "quando": "2026-11-07T12:00:00-03:00",
+  "tipo": "carrossel",
+  "imagens": [
+   "https://preceptor.api.br/social/2026-11/m3_trilha_1.jpg",
+   "https://preceptor.api.br/social/2026-11/m3_trilha_2.jpg",
+   "https://preceptor.api.br/social/2026-11/m3_trilha_3.jpg",
+   "https://preceptor.api.br/social/2026-11/m3_trilha_4.jpg"
+  ],
+  "legenda": "Não sabe por onde começar a estudar pro ENAMED? 🧭\n\nA trilha recomendada do Preceptor coloca todos os assuntos na ordem de quanto caem em 170+ provas reais. Você começa pelo que mais vale ponto e só aperta \"continuar\".\n\n🎁 Teste grátis por 24 h: preceptor.api.br (link na bio)\n\n#enamed #residenciamedica #metododeestudo #medicina #estudantedemedicina #internato"
+ },
+ {
+  "id": "2026-11-08_e5_revalida_soda",
+  "quando": "2026-11-08T07:00:00-03:00",
   "tipo": "carrossel",
   "imagens": [
    "https://preceptor.api.br/social/2026-11/e5_revalida_soda_1.jpg",
@@ -121,24 +136,16 @@
   "legenda": "Ingestão de cáustico: o que NÃO fazer 🚫\n\nComente sua letra 👇\n\nEssa é do Revalida 2026. No Preceptor tem as provas do Revalida com cada alternativa comentada.\n\n🔗 preceptor.api.br (link na bio)\n\n#revalida #revalida2026 #emergencia #clinicamedica #medicina #estudantedemedicina"
  },
  {
-  "id": "2026-11-08_e6_usp_cefoxitina",
-  "quando": "2026-11-08T07:00:00-03:00",
-  "tipo": "carrossel",
-  "imagens": [
-   "https://preceptor.api.br/social/2026-11/e6_usp_cefoxitina_1.jpg",
-   "https://preceptor.api.br/social/2026-11/e6_usp_cefoxitina_2.jpg"
-  ],
-  "legenda": "Antibiótico profilático em cirurgia de cólon: qual você marcaria? 💉\n\nComente sua letra 👇\n\nNo Preceptor, cada tema de cirurgia tem aula curta, passo a passo e questões de prova.\n\n🔗 preceptor.api.br (link na bio)\n\n#cirurgiageral #residenciamedica #usp #medicina #estudantedemedicina #enamed"
- },
- {
-  "id": "2026-11-08_e7_usp_billings",
+  "id": "2026-11-08_m4_plano",
   "quando": "2026-11-08T12:00:00-03:00",
   "tipo": "carrossel",
   "imagens": [
-   "https://preceptor.api.br/social/2026-11/e7_usp_billings_1.jpg",
-   "https://preceptor.api.br/social/2026-11/e7_usp_billings_2.jpg"
+   "https://preceptor.api.br/social/2026-11/m4_plano_1.jpg",
+   "https://preceptor.api.br/social/2026-11/m4_plano_2.jpg",
+   "https://preceptor.api.br/social/2026-11/m4_plano_3.jpg",
+   "https://preceptor.api.br/social/2026-11/m4_plano_4.jpg"
   ],
-  "legenda": "Método de Billings: cai mais do que parece 🥚\n\nQual a sua letra? 👇\n\nNo Preceptor você treina com 17 mil+ questões comentadas de 170+ provas.\n\n🔗 Teste grátis por 24 h: preceptor.api.br (link na bio)\n\n#ginecologia #planejamentofamiliar #usp #enamed #medicina #estudantedemedicina"
+  "legenda": "Sua semana de estudo montada pra você 📅\n\nVocê conta o foco (ENAMED, N2, Revalida, TECM ou outra banca), a data da prova e os dias em que consegue estudar. O Preceptor monta cada dia com revisão, aula e treino dos temas em que você mais erra.\n\n🎁 Teste grátis por 24 h: preceptor.api.br (link na bio)\n\n#enamed #planodeestudos #residenciamedica #medicina #estudantedemedicina #internato"
  },
  {
   "id": "2026-11-08_d7_decore_digital",
@@ -150,8 +157,40 @@
   "legenda": "A banca e a evidência nem sempre concordam 🤔\n\nNo bloqueio digital, a resposta de prova ainda é lidocaína sem vasoconstritor, mas a prática mudou.\n\nNo Preceptor, quando a banca diverge da evidência atual, o comentário explica os dois lados.\n\n🔗 preceptor.api.br (link na bio)\n\n#urgencia #emergencia #cirurgia #residenciamedica #enamed #medicina #estudantedemedicina"
  },
  {
-  "id": "2026-11-09_e8_usp_vies_or",
+  "id": "2026-11-09_e6_usp_cefoxitina",
   "quando": "2026-11-09T07:00:00-03:00",
+  "tipo": "carrossel",
+  "imagens": [
+   "https://preceptor.api.br/social/2026-11/e6_usp_cefoxitina_1.jpg",
+   "https://preceptor.api.br/social/2026-11/e6_usp_cefoxitina_2.jpg"
+  ],
+  "legenda": "Antibiótico profilático em cirurgia de cólon: qual você marcaria? 💉\n\nComente sua letra 👇\n\nNo Preceptor, cada tema de cirurgia tem aula curta, passo a passo e questões de prova.\n\n🔗 preceptor.api.br (link na bio)\n\n#cirurgiageral #residenciamedica #usp #medicina #estudantedemedicina #enamed"
+ },
+ {
+  "id": "2026-11-09_m5_erro",
+  "quando": "2026-11-09T12:00:00-03:00",
+  "tipo": "carrossel",
+  "imagens": [
+   "https://preceptor.api.br/social/2026-11/m5_erro_1.jpg",
+   "https://preceptor.api.br/social/2026-11/m5_erro_2.jpg",
+   "https://preceptor.api.br/social/2026-11/m5_erro_3.jpg",
+   "https://preceptor.api.br/social/2026-11/m5_erro_4.jpg"
+  ],
+  "legenda": "Errar a questão é a melhor parte, se você entender o porquê ❌➡️✅\n\nNo Preceptor cada alternativa é comentada, inclusive as erradas, que é onde mora a pegadinha. E o erro vira plano: a questão volta na revisão espaçada e o tema entra no seu plano da semana.\n\n🎁 Teste grátis por 24 h: preceptor.api.br (link na bio)\n\n#enamed #residenciamedica #metododeestudo #medicina #estudantedemedicina"
+ },
+ {
+  "id": "2026-11-09_e7_usp_billings",
+  "quando": "2026-11-09T19:00:00-03:00",
+  "tipo": "carrossel",
+  "imagens": [
+   "https://preceptor.api.br/social/2026-11/e7_usp_billings_1.jpg",
+   "https://preceptor.api.br/social/2026-11/e7_usp_billings_2.jpg"
+  ],
+  "legenda": "Método de Billings: cai mais do que parece 🥚\n\nQual a sua letra? 👇\n\nNo Preceptor você treina com 17 mil+ questões comentadas de 170+ provas.\n\n🔗 Teste grátis por 24 h: preceptor.api.br (link na bio)\n\n#ginecologia #planejamentofamiliar #usp #enamed #medicina #estudantedemedicina"
+ },
+ {
+  "id": "2026-11-10_e8_usp_vies_or",
+  "quando": "2026-11-10T07:00:00-03:00",
   "tipo": "carrossel",
   "imagens": [
    "https://preceptor.api.br/social/2026-11/e8_usp_vies_or_1.jpg",
@@ -160,8 +199,20 @@
   "legenda": "Viés em caso-controle: pense antes de arrastar 🧠\n\nComente sua letra 👇\n\nEpidemiologia é onde muita gente perde ponto fácil. No Preceptor tem aula e treino só disso.\n\n🔗 preceptor.api.br (link na bio)\n\n#epidemiologia #usp #residenciamedica #enamed #medicina #estudantedemedicina"
  },
  {
-  "id": "2026-11-09_e9_enamed_laqueadura",
-  "quando": "2026-11-09T12:00:00-03:00",
+  "id": "2026-11-10_m6_simulado",
+  "quando": "2026-11-10T12:00:00-03:00",
+  "tipo": "carrossel",
+  "imagens": [
+   "https://preceptor.api.br/social/2026-11/m6_simulado_1.jpg",
+   "https://preceptor.api.br/social/2026-11/m6_simulado_2.jpg",
+   "https://preceptor.api.br/social/2026-11/m6_simulado_3.jpg",
+   "https://preceptor.api.br/social/2026-11/m6_simulado_4.jpg"
+  ],
+  "legenda": "Treine a prova, não só a matéria ⏱️\n\n100 questões cansam, e resistência também se treina. No Preceptor você faz provas inteiras cronometradas, escolhe ver o gabarito na hora ou no fim e descobre em que área perde mais ponto.\n\n🎁 Teste grátis por 24 h: preceptor.api.br (link na bio)\n\n#enamed #simulado #residenciamedica #medicina #estudantedemedicina #internato"
+ },
+ {
+  "id": "2026-11-10_e9_enamed_laqueadura",
+  "quando": "2026-11-10T19:00:00-03:00",
   "tipo": "carrossel",
   "imagens": [
    "https://preceptor.api.br/social/2026-11/e9_enamed_laqueadura_1.jpg",
@@ -170,8 +221,8 @@
   "legenda": "Laqueadura: a lei mudou e a prova cobra a versão nova ⚖️\n\nComente sua letra 👇\n\nEssa caiu no ENAMED 2026. No Preceptor os comentários seguem a legislação e os protocolos atuais.\n\n🔗 preceptor.api.br (link na bio)\n\n#enamed #enamed2026 #ginecologia #planejamentofamiliar #medicina #estudantedemedicina"
  },
  {
-  "id": "2026-11-09_e10_revalida_parenteral",
-  "quando": "2026-11-09T19:00:00-03:00",
+  "id": "2026-11-11_e10_revalida_parenteral",
+  "quando": "2026-11-11T07:00:00-03:00",
   "tipo": "carrossel",
   "imagens": [
    "https://preceptor.api.br/social/2026-11/e10_revalida_parenteral_1.jpg",
@@ -180,8 +231,30 @@
   "legenda": "Nutrição na UTI: enteral nem sempre é a resposta 🏥\n\nQual a sua letra? 👇\n\nEssa é do Revalida 2026. No Preceptor tem as provas completas com gabarito comentado.\n\n🔗 preceptor.api.br (link na bio)\n\n#revalida #uti #terapiaintensiva #nutricao #medicina #estudantedemedicina"
  },
  {
-  "id": "2026-11-10_e11_decore_melanoma",
-  "quando": "2026-11-10T07:00:00-03:00",
+  "id": "2026-11-11_m7_osce",
+  "quando": "2026-11-11T12:00:00-03:00",
+  "tipo": "carrossel",
+  "imagens": [
+   "https://preceptor.api.br/social/2026-11/m7_osce_1.jpg",
+   "https://preceptor.api.br/social/2026-11/m7_osce_2.jpg",
+   "https://preceptor.api.br/social/2026-11/m7_osce_3.jpg",
+   "https://preceptor.api.br/social/2026-11/m7_osce_4.jpg"
+  ],
+  "legenda": "OSCE se treina falando, não lendo 🩺\n\nNo Preceptor você atende um paciente simulado por IA em 82 estações, ou cria uma estação inédita digitando o tema. No fim, o examinador corrige o checklist item por item, com feedback.\n\n🎁 Teste grátis por 24 h: preceptor.api.br (link na bio)\n\n#osce #provapratica #internato #medicina #estudantedemedicina #enamed"
+ },
+ {
+  "id": "2026-11-11_d5_usp_mama",
+  "quando": "2026-11-11T19:00:00-03:00",
+  "tipo": "carrossel",
+  "imagens": [
+   "https://preceptor.api.br/social/2026-11/d5_usp_mama_1.jpg",
+   "https://preceptor.api.br/social/2026-11/d5_usp_mama_2.jpg"
+  ],
+  "legenda": "Parece fácil, mas muita gente erra 👀\n\nComente sua letra antes do gabarito 👇\n\nEssa é da USP 2024. No Preceptor tem a USP de 2021 a 2026, além de UNIFESP, Einstein, Sírio, Santa Casa e muito mais.\n\n🔗 preceptor.api.br (link na bio)\n\n#ginecologia #usp #residenciamedica #enamed #medicina #estudantedemedicina"
+ },
+ {
+  "id": "2026-11-12_e11_decore_melanoma",
+  "quando": "2026-11-12T07:00:00-03:00",
   "tipo": "imagem",
   "imagens": [
    "https://preceptor.api.br/social/2026-11/e11_decore_melanoma_1.jpg"
@@ -189,8 +262,8 @@
   "legenda": "Salva esse post 🔖\n\nMargem de melanoma é decoreba que cai em residência de Cirurgia, USP e ENAMED. Na USP 2026 caiu um Breslow de 4,5 mm com ulceração: margem de 2 cm e sentinela.\n\nNo Preceptor, cada tema tem aula curta e questões de prova.\n\n🔗 preceptor.api.br (link na bio)\n\n#cirurgiageral #dermatologia #oncologia #residenciamedica #medicina #estudantedemedicina"
  },
  {
-  "id": "2026-11-10_e12_usp_climaterio",
-  "quando": "2026-11-10T12:00:00-03:00",
+  "id": "2026-11-12_e12_usp_climaterio",
+  "quando": "2026-11-12T19:00:00-03:00",
   "tipo": "carrossel",
   "imagens": [
    "https://preceptor.api.br/social/2026-11/e12_usp_climaterio_1.jpg",
@@ -199,8 +272,8 @@
   "legenda": "Climatério na atenção primária: qual seria sua conduta? 🌡️\n\nComente sua letra 👇\n\nNo Preceptor você treina com questões da USP, ENARE, Revalida, ENAMED e mais 170 provas.\n\n🔗 Teste grátis por 24 h: preceptor.api.br (link na bio)\n\n#ginecologia #climaterio #aps #usp #medicina #estudantedemedicina"
  },
  {
-  "id": "2026-11-10_e13_usp_iu_mista",
-  "quando": "2026-11-10T19:00:00-03:00",
+  "id": "2026-11-13_e13_usp_iu_mista",
+  "quando": "2026-11-13T07:00:00-03:00",
   "tipo": "carrossel",
   "imagens": [
    "https://preceptor.api.br/social/2026-11/e13_usp_iu_mista_1.jpg",
@@ -209,8 +282,8 @@
   "legenda": "Incontinência mista: por onde começar? 💧\n\nQual a sua letra? 👇\n\nEssa é da USP 2026. No Preceptor cada alternativa vem comentada, inclusive as erradas.\n\n🔗 preceptor.api.br (link na bio)\n\n#ginecologia #uroginecologia #usp #residenciamedica #medicina #estudantedemedicina"
  },
  {
-  "id": "2026-11-11_e14_enamed_prenatal_ind",
-  "quando": "2026-11-11T07:00:00-03:00",
+  "id": "2026-11-13_e14_enamed_prenatal_ind",
+  "quando": "2026-11-13T19:00:00-03:00",
   "tipo": "carrossel",
   "imagens": [
    "https://preceptor.api.br/social/2026-11/e14_enamed_prenatal_ind_1.jpg",
@@ -219,8 +292,8 @@
   "legenda": "Política de saúde que caiu no ENAMED 2026 🏥\n\nComente sua letra 👇\n\nSaúde coletiva tem peso grande no ENAMED. No Preceptor tem aula e treino com as portarias atuais.\n\n🔗 preceptor.api.br (link na bio)\n\n#enamed #enamed2026 #saudecoletiva #sus #prenatal #medicina #estudantedemedicina"
  },
  {
-  "id": "2026-11-11_e15_usp_nodulo_gestante",
-  "quando": "2026-11-11T12:00:00-03:00",
+  "id": "2026-11-14_e15_usp_nodulo_gestante",
+  "quando": "2026-11-14T07:00:00-03:00",
   "tipo": "carrossel",
   "imagens": [
    "https://preceptor.api.br/social/2026-11/e15_usp_nodulo_gestante_1.jpg",
@@ -229,26 +302,13 @@
   "legenda": "Nódulo de mama na gravidez: esperar ou investigar? 🤰\n\nComente sua letra 👇\n\nNo Preceptor você treina com 17 mil+ questões comentadas de 170+ provas.\n\n🔗 Teste grátis por 24 h: preceptor.api.br (link na bio)\n\n#mastologia #ginecologia #obstetricia #usp #medicina #estudantedemedicina"
  },
  {
-  "id": "2026-11-11_e16_usp_emulti",
-  "quando": "2026-11-11T19:00:00-03:00",
+  "id": "2026-11-14_e16_usp_emulti",
+  "quando": "2026-11-14T19:00:00-03:00",
   "tipo": "carrossel",
   "imagens": [
    "https://preceptor.api.br/social/2026-11/e16_usp_emulti_1.jpg",
    "https://preceptor.api.br/social/2026-11/e16_usp_emulti_2.jpg"
   ],
   "legenda": "eMulti: a substituta do NASF que já cai em prova 🏥\n\nQual a sua letra? 👇\n\nEssa é da USP 2026. No Preceptor tem aula de SUS e políticas atualizadas.\n\n🔗 preceptor.api.br (link na bio)\n\n#sus #saudecoletiva #aps #usp #enamed #medicina #estudantedemedicina"
- },
- {
-  "id": "2026-11-12_m2_revisao_espacada",
-  "quando": "2026-11-12T12:00:00-03:00",
-  "tipo": "carrossel",
-  "imagens": [
-   "https://preceptor.api.br/social/2026-11/m2_revisao_1.jpg",
-   "https://preceptor.api.br/social/2026-11/m2_revisao_2.jpg",
-   "https://preceptor.api.br/social/2026-11/m2_revisao_3.jpg",
-   "https://preceptor.api.br/social/2026-11/m2_revisao_4.jpg",
-   "https://preceptor.api.br/social/2026-11/m2_revisao_5.jpg"
-  ],
-  "legenda": "Estudou, entendeu… e uma semana depois esqueceu? Não é falta de capacidade, é a curva do esquecimento 🧠\n\nO que a ciência da memória mostra que funciona:\n✅ Recuperação ativa: responder questões fixa mais que reler\n✅ Espaçamento: revisar em dias espaçados vence a maratona na véspera\n✅ Intercalar temas\n\nNo Preceptor a revisão é automática: a questão que você errou volta em intervalos cada vez maiores, e o Início mostra todo dia o que está para vencer.\n\nSalva pra lembrar 🔖\n\n🎁 Teste grátis por 24 h: preceptor.api.br (link na bio)\n\n#metododeestudo #revisaoespacada #enamed #residenciamedica #medicina #estudantedemedicina"
  }
 ]
