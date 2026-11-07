@@ -155,16 +155,17 @@
   "legenda": "Ingestão de cáustico: o que NÃO fazer 🚫\n\nComente sua letra 👇\n\nEssa é do Revalida 2026. No Preceptor tem as provas do Revalida com cada alternativa comentada.\n\n🔗 preceptor.api.br (link na bio)\n\n#revalida #revalida2026 #emergencia #clinicamedica #medicina #estudantedemedicina"
  },
  {
-  "id": "2026-11-08_m4_plano",
+  "id": "2026-11-08_importancia_enamed",
   "quando": "2026-11-08T12:00:00-03:00",
   "tipo": "carrossel",
   "imagens": [
-   "https://preceptor.api.br/social/2026-11/m4_plano_1.jpg",
-   "https://preceptor.api.br/social/2026-11/m4_plano_2.jpg",
-   "https://preceptor.api.br/social/2026-11/m4_plano_3.jpg",
-   "https://preceptor.api.br/social/2026-11/m4_plano_4.jpg"
+   "https://preceptor.api.br/social/2026-11/importancia_1.jpg",
+   "https://preceptor.api.br/social/2026-11/importancia_2.jpg",
+   "https://preceptor.api.br/social/2026-11/importancia_3.jpg",
+   "https://preceptor.api.br/social/2026-11/importancia_4.jpg",
+   "https://preceptor.api.br/social/2026-11/importancia_5.jpg"
   ],
-  "legenda": "Sua semana de estudo montada pra você 📅\n\nVocê conta o foco (ENAMED, N2, Revalida, TECM ou outra banca), a data da prova e os dias em que consegue estudar. O Preceptor monta cada dia com revisão, aula e treino dos temas em que você mais erra.\n\n🎁 Teste grátis por 24 h: preceptor.api.br (link na bio)\n\n#enamed #planodeestudos #residenciamedica #medicina #estudantedemedicina #internato"
+  "legenda": "O ENAMED virou a prova que mais vai pesar na sua carreira 🩺\n\n✅ Para quem entrou a partir de 19/06/2026, a proficiência é exigida para o CRM\n✅ A nota pode valer como a etapa objetiva do ENARE\n✅ O exame também avalia a qualidade do seu curso\n\nE ele cobra raciocínio clínico: casos das 5 grandes áreas, conduta na UBS e no pronto-socorro, SUS e protocolos.\n\nNo Preceptor você tem o ENAMED oficial comentado, simulados, a trilha do que mais cai e revisão dos seus erros, tudo num lugar só.\n\n📲 Manda pra quem ainda acha que dá pra deixar pro último ano.\n\n🎁 Teste grátis por 24 h: link na bio\n\n#enamed #oabdamedicina #residenciamedica #enare #medicina #estudantedemedicina #faculdadedemedicina"
  },
  {
   "id": "2026-11-08_d7_decore_digital",
@@ -372,5 +373,17 @@
    "https://preceptor.api.br/social/2026-11/e16_usp_emulti_2.jpg"
   ],
   "legenda": "eMulti: a substituta do NASF que já cai em prova 🏥\n\nQual a sua letra? 👇\n\nEssa é da USP 2026. No Preceptor tem aula de SUS e políticas atualizadas.\n\n🔗 preceptor.api.br (link na bio)\n\n#sus #saudecoletiva #aps #usp #enamed #medicina #estudantedemedicina"
+ },
+ {
+  "id": "2026-11-15_m4_plano",
+  "quando": "2026-11-15T12:00:00-03:00",
+  "tipo": "carrossel",
+  "imagens": [
+   "https://preceptor.api.br/social/2026-11/m4_plano_1.jpg",
+   "https://preceptor.api.br/social/2026-11/m4_plano_2.jpg",
+   "https://preceptor.api.br/social/2026-11/m4_plano_3.jpg",
+   "https://preceptor.api.br/social/2026-11/m4_plano_4.jpg"
+  ],
+  "legenda": "Sua semana de estudo montada pra você 📅\n\nVocê conta o foco (ENAMED, N2, Revalida, TECM ou outra banca), a data da prova e os dias em que consegue estudar. O Preceptor monta cada dia com revisão, aula e treino dos temas em que você mais erra.\n\n🎁 Teste grátis por 24 h: preceptor.api.br (link na bio)\n\n#enamed #planodeestudos #residenciamedica #medicina #estudantedemedicina #internato"
  }
 ]
