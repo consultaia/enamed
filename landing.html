@@ -70,6 +70,12 @@ h1 em{font-style:italic;color:var(--acc);font-weight:500}
 .alt.ok{border-color:var(--acc);background:rgba(61,220,151,.08);color:var(--ink)}
 .cobra{margin-top:12px;border-left:3px solid var(--gold);background:rgba(230,180,80,.07);border-radius:0 10px 10px 0;padding:10px 12px;font-size:13px}
 .cobra b{color:var(--gold);display:block;font-size:11.5px;letter-spacing:.06em;font-family:var(--mono);font-weight:500;margin-bottom:2px}
+button.alt{width:100%;text-align:left;font:inherit;background:transparent;cursor:pointer}
+button.alt.qz:hover{border-color:var(--acc)}
+.alt.bad{border-color:#ff6b6b;background:rgba(255,107,107,.08);color:var(--ink)}
+.qz-dica{font-size:12.5px;color:var(--mut);text-align:center;margin-top:6px}
+.qz-tit{font-weight:800;font-size:15px;margin:10px 0 2px}
+.qz-cta{display:block;text-align:center;margin-top:12px}
 .float{position:absolute;right:-14px;bottom:-18px;background:var(--acc);color:#04120c;font-weight:800;font-size:13px;border-radius:12px;padding:9px 13px;box-shadow:0 12px 30px rgba(61,220,151,.3)}
 
 /* seções */
@@ -218,24 +224,29 @@ footer{border-top:1px solid var(--line);padding:30px 0 96px;background:var(--pan
 <header class="hero"><div class="wrap hero-g">
   <div>
     <span class="pill-top"><span class="dot"></span><span class="so-fundador">Preço fundador até 15/10 · <span class="faltam">últimos dias</span></span><span class="so-depois">⚖️ Agora é lei: o ENAMED vale o seu CRM</span></span>
-    <h1>O ENAMED virou a prova mais importante do curso. Estude o que <em>cai</em>.</h1>
-    <p class="sub"><b>17 mil+ questões comentadas</b> de 170+ provas reais, a <b>trilha do que mais cai</b> e um <b>plano da semana montado pelos seus erros</b>. Do internato à residência.</p>
+    <h1>Estude o que <em>cai</em> no ENAMED e na residência.</h1>
+    <p class="sub"><b>17 mil+ questões comentadas</b> de <b>170+ provas reais</b>, a trilha do que mais cai e um plano da semana montado pelos seus erros. Teste agora, sem cartão.</p>
     <div class="btns">
-      <a class="btn btn-p" href="./?app&cadastro">Criar conta e testar grátis →</a>
-      <a class="btn btn-g" href="#recursos">Ver o que tem dentro</a>
+      <a class="btn btn-p" href="./?app&cadastro">Começar grátis agora →</a>
+      <a class="btn btn-g" href="#quiz">Testar uma questão agora ↓</a>
     </div>
-    <div class="trust"><span>24 h grátis</span><span>Sem cartão</span><span>Cadastro em 30 segundos</span></div>
+    <div class="trust"><span>Grátis por 24 h</span><span>Sem cartão</span><span>Depois, a partir de R$ 0,66 por dia</span></div>
     <div style="margin-top:12px;display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:99px;border:1px solid rgba(61,220,151,.35);background:rgba(61,220,151,.08);font-size:13.5px;font-weight:700;color:#bff3dc">⚡ Quase 2 mil questões já respondidas pelos alunos</div>
   </div>
 
-  <div class="mock" aria-hidden="true">
-    <div class="mock-top"><span>CLÍNICA MÉDICA · SEPSE</span><b>3/20</b></div>
+  <div class="mock" id="quiz">
+    <div class="mock-top"><span>TESTE AGORA · CLÍNICA MÉDICA</span><b>1 questão</b></div>
     <div class="q">Idosa com febre, confusão e PA 82×50 após 30 mL/kg de cristaloide. Lactato 4,1. Qual a próxima conduta?</div>
-    <div class="alt"><b>A</b> Repetir o volume e reavaliar em 6 h</div>
-    <div class="alt ok"><b>B</b> Iniciar noradrenalina, alvo de PAM ≥ 65 mmHg</div>
-    <div class="alt"><b>C</b> Aguardar culturas para iniciar antibiótico</div>
-    <div class="cobra"><b>🎯 COMO A PROVA COBRA</b>Hipotensão que não responde ao volume é choque séptico: a banca quer o vasopressor, não mais soro.</div>
-    <div class="float">✓ Acertou · revisão em 3 dias</div>
+    <button class="alt qz" data-ok="0"><b>A</b> Repetir o volume e reavaliar em 6 h</button>
+    <button class="alt qz" data-ok="1"><b>B</b> Iniciar noradrenalina, alvo de PAM ≥ 65 mmHg</button>
+    <button class="alt qz" data-ok="0"><b>C</b> Aguardar culturas para iniciar antibiótico</button>
+    <button class="alt qz" data-ok="0"><b>D</b> Solicitar tomografia antes de qualquer conduta</button>
+    <div class="qz-dica">👆 Toque na sua resposta</div>
+    <div class="qz-res" hidden>
+      <div class="qz-tit"></div>
+      <div class="cobra"><b>🎯 COMO A PROVA COBRA</b>Hipotensão que não responde ao volume é choque séptico: a banca quer o vasopressor, não mais soro. Antibiótico na primeira hora, sem esperar cultura.</div>
+      <a class="btn btn-p qz-cta" href="./?app&cadastro">Responder mais 4 grátis →</a>
+    </div>
   </div>
 </div></header>
 
@@ -413,5 +424,6 @@ footer{border-top:1px solid var(--line);padding:30px 0 96px;background:var(--pan
   var els=document.querySelectorAll(".faltam"); for(var i=0;i<els.length;i++) els[i].textContent=t;
 }catch(e){} })();
 </script>
+<script>(function(){try{var q=document.getElementById("quiz");if(!q)return;var feito=false;q.addEventListener("click",function(e){var b=e.target.closest&&e.target.closest("button.qz");if(!b||feito)return;feito=true;var ok=b.getAttribute("data-ok")==="1";q.querySelectorAll("button.qz").forEach(function(x){if(x.getAttribute("data-ok")==="1")x.classList.add("ok");});if(!ok)b.classList.add("bad");q.querySelector(".qz-dica").hidden=true;var r=q.querySelector(".qz-res");r.hidden=false;r.querySelector(".qz-tit").textContent=ok?"✅ Acertou! Agora treine com 17 mil+ questões assim.":"❌ Quase! Essa é pegadinha clássica de prova. A certa é a B.";window.__funil&&window.__funil("landing_quiz",ok?"acertou":"errou "+b.textContent.trim().slice(0,1));});}catch(e){}})();</script>
 </body>
 </html>
