@@ -34,7 +34,7 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <script>
   // === VERSÃO DA PLATAFORMA — atualize a cada deploy (aparece no cabeçalho e no verificador) ===
-  window.APP_VERSION="2026.11.5.4";
+  window.APP_VERSION="2026.11.8.1";
   // Captura o pedido de instalação do PWA (Android/Chrome/Edge) para oferecer "Instalar" com um toque.
   // === PREÇO FUNDADOR — ⚠️ defina os dois valores abaixo (e os MESMOS no worker.js) ===
   window.PRECO_CFG={ DATA_FUNDADOR:"2026-10-15T23:59:59-03:00", VALOR_INICIAL:49.90, VALOR_NOVO:89.90, VALOR_MENSAL:19.90, MESES:6 };
@@ -2855,7 +2855,7 @@ function SetupAviso(){
 
 /* =================== AUTH =================== */
 function Auth(){
-  const [modo,setModo]=useState("entrar"); // entrar | criar | recuperar
+  const [modo,setModo]=useState(()=>{ try{ return /[?&]cadastro/.test(location.search)?"criar":"entrar"; }catch(e){ return "entrar"; } }); // entrar | criar | recuperar · quem vem da landing ("Testar grátis") já cai em criar conta
   const [nome,setNome]=useState(""),[email,setEmail]=useState(""),[senha,setSenha]=useState("");
   const [msg,setMsg]=useState(""),[busy,setBusy]=useState(false),[msgOk,setMsgOk]=useState(false);
   const submit=async()=>{
@@ -10285,12 +10285,18 @@ ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   function compilar(){ return carregarBabel().then(function(){
     return window.Babel.transform(src,{filename:"preceptor.jsx",presets:["react","env"],
       plugins:["transform-class-properties","transform-object-rest-spread","transform-flow-strip-types"],compact:true}).code; }); }
+  function pronto(){ return new Promise(function(ok){ try{ var x=new XMLHttpRequest(); x.open("GET","app.compiled.js?v="+encodeURIComponent(window.APP_VERSION||"")+"&k="+encodeURIComponent(chave),true);
+    x.timeout=60000; x.onload=function(){ var t=x.status===200?x.responseText:""; var i=t.indexOf("\n");
+      ok(i>0&&t.slice(0,i)==="//KEY:"+chave?t.slice(i+1):null); };
+    x.onerror=x.ontimeout=function(){ ok(null); }; x.send(); }catch(e){ ok(null); } }); }
   function falhou(){ var d=document.createElement("div"); d.style.cssText="padding:24px;text-align:center;color:#e8f2ee;font-family:sans-serif";
     d.innerHTML="Não consegui abrir o app agora. Verifique a internet e <a href=\"javascript:location.reload()\" style=\"color:#3ddc97\">tente de novo</a>.";
     document.body.appendChild(d); }
   abrirDB().then(function(db){ return ler(db).then(function(code){
     if(code){ rodar(code); return; }
-    return compilar().then(function(c){ rodar(c); guardar(db,c); });
+    /* 1º: versão já compilada no servidor (scripts/build_app.js); só usa se for do código atual */
+    return pronto().then(function(c){ if(c){ rodar(c); guardar(db,c); return; }
+      return compilar().then(function(c2){ rodar(c2); guardar(db,c2); }); });
   }); }).catch(falhou);
 })();
 </script>
