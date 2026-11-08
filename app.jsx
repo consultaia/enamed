@@ -2540,12 +2540,15 @@ function Auth(){
   const [modo,setModo]=useState(()=>{ try{ return /[?&]cadastro/.test(location.search)?"criar":"entrar"; }catch(e){ return "entrar"; } }); // entrar | criar | recuperar · quem vem da landing ("Testar grátis") já cai em criar conta
   const [nome,setNome]=useState(""),[email,setEmail]=useState(""),[senha,setSenha]=useState("");
   const [msg,setMsg]=useState(""),[busy,setBusy]=useState(false),[msgOk,setMsgOk]=useState(false);
+  useEffect(()=>{ try{ window.__funil&&window.__funil("auth_view",modo,null,true); }catch(e){} },[]);
   const submit=async()=>{
+    try{ window.__funil&&window.__funil(modo==="criar"?"cadastro_tentativa":modo==="entrar"?"login_tentativa":"senha_recuperar"); }catch(e){}
     setBusy(true);setMsg("");setMsgOk(false);
     try{
       if(modo==="criar"){
         const {error}=await sb.auth.signUp({email,password:senha,options:{data:{nome}}});
         if(error)throw error;
+        try{ window.__funil&&window.__funil("cadastro_ok"); }catch(e){}
         setMsg("Conta criada. Se a confirmação por e-mail estiver ativa, confirme no seu e-mail e depois entre.");
         setModo("entrar");
       }else if(modo==="recuperar"){
@@ -2557,7 +2560,7 @@ function Auth(){
         const {error}=await sb.auth.signInWithPassword({email,password:senha});
         if(error)throw error;
       }
-    }catch(e){setMsg(e.message||"Erro.");}
+    }catch(e){ try{ window.__funil&&window.__funil(modo+"_erro",e&&e.message); }catch(_){} setMsg(e.message||"Erro.");}
     setBusy(false);
   };
   return <div className="center"><div className="auth">
@@ -9808,6 +9811,7 @@ function Assinar({uid,email,onClose,onVerificar,venceu}){
   useEffect(()=>()=>{if(pollRef.current)clearInterval(pollRef.current);},[]);
 
   const workerOk = !WORKER_URL.startsWith("COLE_");
+  useEffect(()=>{ try{ window.__funil&&window.__funil("assinar_abriu",venceu?"venceu":""); }catch(e){} },[]);
 
   const cpfLimpo=(cpf||"").replace(/\D/g,"");
   const [emailMp,setEmailMp]=useState(email||"");
@@ -9819,7 +9823,7 @@ function Assinar({uid,email,onClose,onVerificar,venceu}){
     const sc=document.createElement("script"); sc.src="https://sdk.mercadopago.com/js/v2"; sc.onload=()=>ok(); sc.onerror=()=>falha(new Error("Não consegui carregar o formulário do Mercado Pago.")); document.head.appendChild(sc); });
   const abrirCartao=async()=>{
     if(!workerOk){setMsg("Falta configurar a WORKER_URL no topo do arquivo.");setEtapa("erro");return;}
-    setMsg(""); setEtapa("cartao");
+    setMsg(""); setEtapa("cartao"); try{ window.__funil&&window.__funil("assinar_cartao"); }catch(e){}
     try{
       await carregarSDK();
       const mp=new window.MercadoPago(MP_PUBLIC_KEY,{locale:"pt-BR"});
@@ -9862,6 +9866,7 @@ function Assinar({uid,email,onClose,onVerificar,venceu}){
     if(cpfLimpo.length!==11){setMsg("Digite um CPF válido (11 dígitos) para gerar o Pix.");return;}
     setEtapa("carregando");
     try{
+      try{ window.__funil&&window.__funil("assinar_pix",plano); }catch(e){}
       const r=await wfetch("/criar-pix",{user_id:uid,email,plano,cpf:cpfLimpo});
       const d=await r.json();
       if(!r.ok||d.error) throw new Error(typeof d.error==="string"?d.error:"Falha ao gerar o Pix. Confira o Worker.");
