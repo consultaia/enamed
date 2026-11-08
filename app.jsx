@@ -3334,6 +3334,14 @@ function Shell({session}){
   const trialFim = (session&&session.user&&session.user.created_at) ? new Date(new Date(session.user.created_at).getTime()+TRIAL_HORAS*3600*1000) : null;
   const trialAtivo = !isPro && !!trialFim && trialFim > new Date();
   const trialRestante = trialAtivo ? Math.max(1, Math.ceil((trialFim - new Date())/3600000)) : 0;
+  /* primeiro acesso: quem está no teste e ainda não respondeu nada vê UMA ação clara, não o Início inteiro */
+  const [verTudo,setVerTudo]=useState(()=>{ try{ return localStorage.getItem("preceptor_ver_tudo")==="1"; }catch(e){ return false; } });
+  const modoNovato = trialAtivo && !loading && !verTudo && !jaFezDiag && (log||[]).length===0;
+  const primeiras5 = ()=>{ const areas=["CM","CIR","GO","PED","MFC"], usadas=new Set(), out=[];
+    const base=(window.ENAMED_OFICIAL||[]).filter(q=>q&&typeof q.correta==="number"&&q.correta>=0&&!q.imagem&&String(q.enun||"").length<700);
+    areas.forEach(a=>{ const c=base.filter(q=>q.area===a&&!usadas.has(q.id)); if(c.length){ const q=c[Math.floor(Math.random()*c.length)]; usadas.add(q.id); out.push(q); } });
+    base.forEach(q=>{ if(out.length<5&&!usadas.has(q.id)){ usadas.add(q.id); out.push(q); } });
+    return out; };
   const acesso = isPro || trialAtivo;
   const PC=window.PRECO_CFG||{DATA_FUNDADOR:"2099-01-01",VALOR_INICIAL:49.9,VALOR_NOVO:49.9,MESES:6};
   const dataCorte=new Date(PC.DATA_FUNDADOR);
@@ -3488,7 +3496,19 @@ function Shell({session}){
       </div>
     </div>
 
-    {tab==="inicio" && trialAtivo && <div className="card" style={{marginTop:16,borderColor:"var(--acc)"}}>
+    {tab==="inicio" && modoNovato && <div className="card" style={{marginTop:16,borderColor:"var(--acc)",padding:"22px 20px"}}>
+        {(()=>{ try{ window.__funil&&window.__funil("primeiro_acesso_view",null,null,true); }catch(e){} return null; })()}
+        <div className="tag" style={{color:"var(--acc)"}}>COMECE POR AQUI · 2 MINUTOS</div>
+        <h2 style={{fontSize:24,lineHeight:1.2,margin:"8px 0 8px"}}>Responda 5 questões reais do ENAMED</h2>
+        <div style={{fontSize:14.5,lineHeight:1.55}}>Uma de cada área, com cada alternativa comentada. No fim, você já sabe por onde começar a estudar.</div>
+        <button className="btn" style={{marginTop:16,width:"100%",fontSize:16,padding:"14px 16px"}} onClick={()=>{ try{ window.__funil&&window.__funil("primeiro_acesso_iniciar"); }catch(e){} const qs=primeiras5(); if(qs.length&&window.__TREINAR_GEMEAS) window.__TREINAR_GEMEAS(qs,"Suas primeiras 5 questões · ENAMED"); else setTab("praticar"); }}>⚡ Responder 5 questões agora</button>
+        <div className="row" style={{gap:10,marginTop:10,flexWrap:"wrap"}}>
+          <button className="btn ghost sm" onClick={()=>{ try{ window.__funil&&window.__funil("primeiro_acesso_trilha"); }catch(e){} setTab("trilha"); }}>🧭 Seguir a trilha do que mais cai</button>
+          <span className="link muted" style={{fontSize:13,alignSelf:"center"}} onClick={()=>{ setVerTudo(true); try{ localStorage.setItem("preceptor_ver_tudo","1"); }catch(e){} }}>ver todas as opções</span>
+        </div>
+        <div className="muted" style={{fontSize:12.5,marginTop:12}}>Teste grátis com acesso completo por {trialRestante}h.</div>
+    </div>}
+    {tab==="inicio" && trialAtivo && !modoNovato && <div className="card" style={{marginTop:16,borderColor:"var(--acc)"}}>
         <div className="tag" style={{color:"var(--acc)"}}>TESTE GRÁTIS · {trialRestante}h restantes</div>
         <div style={{fontSize:14,lineHeight:1.55,marginTop:4}}>Você tem <b>acesso completo</b> a questões, provas oficiais, simulados, guias, flashcards e progresso até <b>{trialFim.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</b>. A <b>IA</b> — tira-dúvida, reexplicar, OSCE com paciente simulado, gerar questão e resolver por foto — é exclusiva do PRO.</div>
         <div className="row" style={{gap:10,marginTop:10,flexWrap:"wrap"}}><button className="btn sm" onClick={()=>setShowAssinar(true)}>Liberar a IA · {precoTxt}</button><span style={{fontSize:12,alignSelf:"center"}}><b style={{color:"var(--gold)"}}>Assine durante o teste e leve 7 meses pelo preço de 6.</b> <span className="muted">Pix, na hora, sem renovação automática.</span></span></div>
@@ -3528,7 +3548,7 @@ function Shell({session}){
       </div>
     : revisando ? <RevisaoHoje qs={questoesVencidas(poolVisivel,srs)} registrar={registrar} onVoltar={()=>setRevisando(false)}/>
     : <div>
-      {tab==="inicio" && <React.Fragment>
+      {tab==="inicio" && !modoNovato && <React.Fragment>
       <ContinuarCard onAbrir={(s)=>{ try{
         if(s.tipo==="bloco") abrirInternato({modulo:s.modulo,metade:s.metade,topico:s.topico,modo:"bloco"});
         else if(s.tipo==="rodizio"&&s.modulo) abrirInternato({modulo:s.modulo,metade:s.metade,modo:"rodizio"});
@@ -3593,7 +3613,7 @@ function Shell({session}){
           <button className="btn sm" onClick={atualizarApp}>Atualizar agora</button>
         </div>
       </div>}
-      {tour && !diag && !revisando && !loading && <TourInicial isPro={isPro} trialAtivo={trialAtivo} onFim={()=>setTour(false)}/>}
+      {tour && !modoNovato && !diag && !revisando && !loading && <TourInicial isPro={isPro} trialAtivo={trialAtivo} onFim={()=>setTour(false)}/>}
       {pesquisa && !tour && !isPro && <PesquisaAdesao gatilho={pesquisa} onEnviar={enviarPesquisa} onAssinar={()=>setShowAssinar(true)} onDepois={()=>pesqDepois(pesquisa)} onFechar={()=>setPesquisa(null)}/>}
       <div className="nav" id="tour-nav">
         <button type="button" className="nav-recolher" onClick={()=>setNavRec(v=>!v)} title={navRec?"Mostrar o menu":"Recolher o menu (mais tela para estudar)"} aria-label={navRec?"Mostrar o menu":"Recolher o menu"}>{navRec?"»":"«"}</button>
@@ -3612,13 +3632,13 @@ function Shell({session}){
       {tab==="suporte" && <Suporte uid={uid}/>}
       {tab==="gemeas" && sprintGemeas && <div><button className="btn ghost sm" style={{marginBottom:10}} onClick={()=>{const v=sprintGemeas&&sprintGemeas.volta;setSprintGemeas(null);if(v==="revisao"){setRevisando(true);}else{setTab("praticar");}}}>{sprintGemeas&&sprintGemeas.volta==="revisao"?"← Voltar à revisão":"← Voltar"}</button><RodizioSprint qs={sprintGemeas.qs} label={sprintGemeas.label} registrar={registrar} onVoltar={()=>{setSprintGemeas(null);setTab("praticar");}}/></div>}
       {tab==="dicas" && <DicasDoDia/>}
-      {tab==="inicio" && <ProximoPasso session={session} uid={uid} store={store} srs={srs} poolVisivel={poolVisivel}
+      {tab==="inicio" && !modoNovato && <ProximoPasso session={session} uid={uid} store={store} srs={srs} poolVisivel={poolVisivel}
         temasFracos={temasFracos} metaProg={metaProg} acertoArea={acertoArea} streak={streak}
         irRevisar={()=>setRevisando(true)}
         irAssunto={(t)=>abrirAssunto(t.id)}
         irPraticar={()=>setTab("praticar")}
         irTodas={()=>{ try{document.getElementById("tour-diag")&&document.getElementById("tour-diag").scrollIntoView({behavior:"smooth",block:"center"});}catch(e){} }}/>}
-      {tab==="inicio" && <MensagemDoDia uid={uid}/>}
+      {tab==="inicio" && !modoNovato && <MensagemDoDia uid={uid}/>}
       {tab==="trilha" && <Trilha uid={uid} store={store} acertoArea={acertoArea} avaliarDominio={avaliarDominio} registrar={registrar} irTreinar={()=>setTab("praticar")} isPro={acesso} freeTopico={FREE_TOPICO} onAssinar={()=>setShowAssinar(true)} temasFracos={temasFracos}/>}
       {tab==="praticar" && <Praticar pool={poolVisivel} store={store} registrar={registrar} metaHoje={metaProg} bloqueadas={acesso?0:bloqueadasFree} isPro={isPro} acesso={acesso} onAssinar={()=>setShowAssinar(true)} onNovasQuestoes={novas=>setQuestoes(v=>[...v,...novas])} onDiagnostico={m=>setDiag(m)} jaFezDiag={jaFezDiag}/>}
       {tab==="internato" && <Internato pool={questoes} registrar={registrar}/>}
