@@ -3198,7 +3198,7 @@ const FLAG_TAB={ENAMED:"enamed",TPI:"tpi",TECM:"tecm",REVALIDA:"revalida",ENARE:
 
 function Shell({session}){
   const uid=session.user.id;
-  const TABS_OK=["inicio","trilha","dicas","praticar","provas","graduacao","internato","enamed","tpi","tecm","revalida","enare","sus","usp","flash","videos","suporte","dash"];
+  const TABS_OK=["faculdade","inicio","trilha","dicas","praticar","provas","graduacao","internato","enamed","tpi","tecm","revalida","enare","sus","usp","flash","videos","suporte","dash"];
   const [tab,setTab]=useState(()=>{try{let t=PLS.get("preceptor_tab"); if(t==="strix") t="sus"; return (t&&TABS_OK.indexOf(t)>=0)?t:"inicio"}catch(e){return "inicio"}});
   useEffect(()=>{PLS.set("preceptor_tab",tab)},[tab]);
   const [tema,setTema]=useState(()=>{try{return localStorage.getItem("enamed_tema")||"escuro"}catch(e){return "escuro"}});
@@ -3238,6 +3238,13 @@ function Shell({session}){
   const abrirInternato=(o)=>{ setDiag(null); setRevisando(false); window.__INTERNATO_PENDENTE=o; setTab("internato"); }; // o plano vive no Início: a aba Internato monta e lê o pedido // os alvos do tour (meta, diagnóstico) ficam no Início
   const [pesquisa,setPesquisa]=useState(null); // gatilho ativo: "trial" | "paywall" | null
   const [sprintGemeas,setSprintGemeas]=useState(null); // {qs,label} — treino aberto pelas gêmeas / raio-x
+  const [turmasCoord,setTurmasCoord]=useState([]);
+  const [avisoTurma,setAvisoTurma]=useState("");
+  /* lista de e-mails enviada pela faculdade: quem estava na lista entra na turma ao abrir o app */
+  useEffect(()=>{ let vivo=true; try{ sb.rpc("aplicar_convites").then(async({data})=>{ if(!vivo||!Array.isArray(data)||!data.length) return;
+    try{ window.__funil&&window.__funil("turma_entrou_lista",data.join(", ")); }catch(e){}
+    try{ await recarregarAssinatura(); }catch(e){} setAvisoTurma("🏫 Seu acesso foi liberado pela sua faculdade: "+data.join(", ")+"."); }); }catch(e){} return ()=>{ vivo=false; }; },[]);
+  useEffect(()=>{ let vivo=true; try{ sb.rpc("minhas_turmas_coord").then(({data})=>{ if(vivo&&Array.isArray(data)) setTurmasCoord(data); }); }catch(e){} return ()=>{ vivo=false; }; },[]);
   useEffect(()=>{ try{ window.__TREINAR_GEMEAS=async(qs,label)=>{
     let ok=acesso;
     if(!ok){ try{ ok = (await recarregarAssinatura()) || trialAtivo; }catch(e){} } // acesso pode estar "desatualizado" por sessão longa — reconfere ao vivo antes de bloquear
@@ -3496,6 +3503,13 @@ function Shell({session}){
       </div>
     </div>
 
+    {avisoTurma && <div className="card" style={{marginTop:16,borderColor:"var(--acc)",fontSize:14}}>{avisoTurma} <span className="link" style={{fontSize:13,marginLeft:6}} onClick={()=>setAvisoTurma("")}>ok</span></div>}
+    {tab==="inicio" && turmasCoord.length>0 && <div className="card" style={{marginTop:16,borderColor:"var(--acc)"}}>
+        <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+          <div><div className="tag" style={{color:"var(--acc)"}}>🏫 COORDENAÇÃO</div><div style={{fontSize:14,marginTop:4}}>{turmasCoord.length===1?"1 turma":turmasCoord.length+" turmas"} · {turmasCoord.reduce((s,t)=>s+(t.alunos||0),0)} alunos</div></div>
+          <button className="btn sm" onClick={()=>{ setTab("faculdade"); irAoTopo(); }}>Abrir painel da faculdade</button>
+        </div>
+    </div>}
     {tab==="inicio" && modoNovato && <div className="card" style={{marginTop:16,borderColor:"var(--acc)",padding:"22px 20px"}}>
         {(()=>{ try{ window.__funil&&window.__funil("primeiro_acesso_view",null,null,true); }catch(e){} return null; })()}
         <div className="tag" style={{color:"var(--acc)"}}>COMECE POR AQUI · 2 MINUTOS</div>
@@ -3632,6 +3646,7 @@ function Shell({session}){
       {tab==="suporte" && <Suporte uid={uid}/>}
       {tab==="gemeas" && sprintGemeas && <div><button className="btn ghost sm" style={{marginBottom:10}} onClick={()=>{const v=sprintGemeas&&sprintGemeas.volta;setSprintGemeas(null);if(v==="revisao"){setRevisando(true);}else{setTab("praticar");}}}>{sprintGemeas&&sprintGemeas.volta==="revisao"?"← Voltar à revisão":"← Voltar"}</button><RodizioSprint qs={sprintGemeas.qs} label={sprintGemeas.label} registrar={registrar} onVoltar={()=>{setSprintGemeas(null);setTab("praticar");}}/></div>}
       {tab==="dicas" && <DicasDoDia/>}
+      {tab==="faculdade" && <PainelFaculdade turmas={turmasCoord}/>}
       {tab==="inicio" && !modoNovato && <ProximoPasso session={session} uid={uid} store={store} srs={srs} poolVisivel={poolVisivel}
         temasFracos={temasFracos} metaProg={metaProg} acertoArea={acertoArea} streak={streak}
         irRevisar={()=>setRevisando(true)}
@@ -9821,6 +9836,92 @@ function Resolver({isPro,onAssinar}){
 }
 
 /* =================== ASSINAR (checkout Pix) =================== */
+/* =================== MODO INSTITUCIONAL =================== */
+/* Aluno: entra na turma da faculdade com o código e ganha o acesso pago pela instituição. */
+function CodigoFaculdade({onOk}){
+  const [aberto,setAberto]=useState(false),[cod,setCod]=useState(""),[msg,setMsg]=useState(""),[busy,setBusy]=useState(false);
+  const entrar=async()=>{ if(!cod.trim()) return; setBusy(true); setMsg("");
+    try{ const {data,error}=await sb.rpc("entrar_turma",{p_codigo:cod.trim()}); if(error) throw error;
+      if(data&&data.ok){ try{ window.__funil&&window.__funil("turma_entrou",data.org); }catch(e){}
+        setMsg("Pronto! Você entrou na turma "+data.turma+" ("+data.org+"). Acesso liberado até "+new Date(data.ate).toLocaleDateString("pt-BR")+"."); setTimeout(()=>onOk&&onOk(),1800); }
+      else setMsg((data&&data.erro)||"Não deu certo. Confira o código.");
+    }catch(e){ setMsg("Não consegui validar agora. Tente de novo."); }
+    setBusy(false); };
+  if(!aberto) return <div style={{marginBottom:12}}><span className="link" style={{fontSize:13.5}} onClick={()=>setAberto(true)}>🏫 Sua faculdade usa o Preceptor? Tenho um código</span></div>;
+  return <div className="card" style={{marginBottom:12}}>
+    <b style={{fontSize:14.5}}>Código da faculdade</b>
+    <div className="muted" style={{fontSize:12.5,margin:"4px 0 8px"}}>A coordenação do seu curso passa esse código. O acesso é pago pela instituição.</div>
+    <div className="row" style={{gap:8}}><input value={cod} onChange={e=>setCod(e.target.value.toUpperCase())} placeholder="EX.: MED10-2026" style={{flex:1,margin:0,textTransform:"uppercase"}}/>
+      <button className="btn sm" disabled={busy||!cod.trim()} onClick={entrar}>{busy?"...":"Entrar"}</button></div>
+    {msg && <div style={{fontSize:13,marginTop:8}}>{msg}</div>}
+  </div>;
+}
+
+/* Coordenação: desempenho da turma, alunos em risco e temas com menor acerto. */
+const NOME_AREA_INST={CM:"Clínica Médica",CIR:"Cirurgia",GO:"Ginecologia e Obstetrícia",PED:"Pediatria",MFC:"Saúde Coletiva / MFC"};
+function PainelFaculdade({turmas}){
+  const [sel,setSel]=useState(turmas&&turmas[0]?turmas[0].id:null),[dias,setDias]=useState(30),[d,setD]=useState(null),[erro,setErro]=useState(""),[filtro,setFiltro]=useState("todos");
+  useEffect(()=>{ if(!sel) return; let vivo=true; setD(null); setErro("");
+    sb.rpc("painel_turma",{p_turma:sel,p_dias:dias}).then(({data,error})=>{ if(!vivo) return; if(error||!data||!data.ok) setErro((data&&data.erro)||"Não consegui carregar o painel."); else setD(data); });
+    return ()=>{ vivo=false; }; },[sel,dias]);
+  const t=(turmas||[]).find(x=>x.id===sel)||{};
+  const risco=a=>!a.sem7||(a.total>=10&&a.acerto!=null&&a.acerto<50);
+  const alunos=(d&&d.alunos||[]).filter(a=>filtro==="todos"||(filtro==="risco"?risco(a):!risco(a)));
+  const dataBr=x=>x?new Date(x).toLocaleDateString("pt-BR"):"—";
+  const csv=()=>{ const linhas=[["Nome","E-mail","Questões ("+dias+" dias)","Acerto %","Questões nos últimos 7 dias","Última atividade","Situação"]].concat((d.alunos||[]).map(a=>[a.nome,a.email,a.total,a.acerto==null?"":a.acerto,a.sem7,dataBr(a.ultimo),risco(a)?"Em risco":"Em dia"]));
+    const txt=linhas.map(l=>l.map(v=>'"'+String(v==null?"":v).replace(/"/g,'""')+'"').join(";")).join("\n");
+    const b=new Blob(["﻿"+txt],{type:"text/csv;charset=utf-8"}); const u=URL.createObjectURL(b); const el=document.createElement("a"); el.href=u; el.download="preceptor_"+(t.nome||"turma").replace(/\W+/g,"_")+".csv"; el.click(); setTimeout(()=>URL.revokeObjectURL(u),2000); };
+  const kpi=(n,l,cor)=><div className="card" style={{padding:"14px 16px"}}><div style={{fontSize:26,fontWeight:800,color:cor||"var(--ink)"}}>{n}</div><div className="muted" style={{fontSize:12.5}}>{l}</div></div>;
+  if(!turmas||!turmas.length) return <div className="card">Nenhuma turma vinculada à sua coordenação.</div>;
+  return <div>
+    <div className="tag" style={{color:"var(--acc)"}}>🏫 PAINEL DA FACULDADE</div>
+    <h2 style={{fontSize:22,margin:"6px 0 10px"}}>{t.org}</h2>
+    <div className="row" style={{gap:8,flexWrap:"wrap",marginBottom:12}}>
+      <select value={sel||""} onChange={e=>setSel(e.target.value)} style={{maxWidth:280,margin:0}}>{turmas.map(x=><option key={x.id} value={x.id}>{x.nome} · {x.alunos} alunos</option>)}</select>
+      <select value={dias} onChange={e=>setDias(+e.target.value)} style={{maxWidth:160,margin:0}}><option value={7}>Últimos 7 dias</option><option value={30}>Últimos 30 dias</option><option value={90}>Últimos 90 dias</option><option value={365}>Último ano</option></select>
+    </div>
+    <div className="card" style={{marginBottom:12,fontSize:13.5}}>Código da turma: <b style={{fontSize:16,letterSpacing:".06em"}}>{t.codigo}</b> · {t.alunos}{t.vagas?" de "+t.vagas:""} alunos · acesso até {dataBr(t.acesso_ate)}<div className="muted" style={{fontSize:12.5,marginTop:4}}>Os alunos da lista de e-mails enviada à equipe do Preceptor são liberados automaticamente ao entrar. Quem não estiver na lista pode usar o código: Assinar → "Tenho um código".</div></div>
+    {erro && <div className="card" style={{color:"var(--bad,#ff6b6b)"}}>{erro}</div>}
+    {!d && !erro && <div className="muted">Carregando…</div>}
+    {d && <React.Fragment>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10,marginBottom:14}}>
+        {kpi(d.resumo.alunos,"alunos na turma")}
+        {kpi(d.resumo.ativos7,"ativos nos últimos 7 dias","var(--acc)")}
+        {kpi(d.resumo.questoes,"questões no período")}
+        {kpi(d.resumo.acerto==null?"—":d.resumo.acerto+"%","acerto médio da turma",d.resumo.acerto!=null&&d.resumo.acerto<60?"var(--gold)":"var(--acc)")}
+      </div>
+      <div className="card" style={{marginBottom:14}}>
+        <b>Acerto por área</b>
+        {(d.areas||[]).length===0 && <div className="muted" style={{fontSize:13,marginTop:6}}>Sem respostas no período.</div>}
+        {(d.areas||[]).map(a=><div key={a.area} style={{marginTop:10}}>
+          <div className="row" style={{justifyContent:"space-between",fontSize:13.5}}><span>{NOME_AREA_INST[a.area]||a.area}</span><span><b>{a.pct}%</b> <span className="muted">· {a.n} questões</span></span></div>
+          <div className="bar" style={{marginTop:4}}><i style={{width:a.pct+"%",background:a.pct<60?"var(--gold)":"var(--acc)"}}/></div></div>)}
+      </div>
+      <div className="card" style={{marginBottom:14}}>
+        <b>Gaps da turma</b> <span className="muted" style={{fontSize:12.5}}>· assuntos com menor acerto (mínimo 3 respostas)</span>
+        {(d.gaps||[]).length===0 && <div className="muted" style={{fontSize:13,marginTop:6}}>Ainda não há respostas suficientes por assunto.</div>}
+        {(d.gaps||[]).map((g,i)=><div key={i} className="row" style={{justifyContent:"space-between",gap:8,padding:"8px 0",borderTop:i?"1px solid var(--line)":"none",fontSize:13.5}}>
+          <span style={{minWidth:0}}>{g.tema} <span className="muted" style={{fontSize:12}}>· {NOME_AREA_INST[g.area]||g.area||""}</span></span>
+          <span style={{whiteSpace:"nowrap"}}><b style={{color:g.pct<60?"var(--gold)":"var(--acc)"}}>{g.pct}%</b> <span className="muted" style={{fontSize:12}}>{g.n} resp. · {g.alunos} alunos</span></span></div>)}
+      </div>
+      <div className="card">
+        <div className="row" style={{justifyContent:"space-between",gap:8,flexWrap:"wrap"}}>
+          <b>Alunos</b>
+          <div className="row" style={{gap:6,flexWrap:"wrap"}}>
+            {[["todos","Todos"],["risco","Em risco"],["ok","Em dia"]].map(([k,l])=><button key={k} className={"btn sm"+(filtro===k?"":" ghost")} onClick={()=>setFiltro(k)}>{l}</button>)}
+            <button className="btn ghost sm" onClick={csv}>⬇ Planilha</button>
+          </div>
+        </div>
+        <div className="muted" style={{fontSize:12,marginTop:6}}>Em risco: nenhuma questão nos últimos 7 dias, ou acerto abaixo de 50% com pelo menos 10 questões.</div>
+        {alunos.map(a=><div key={a.user_id} className="row" style={{justifyContent:"space-between",gap:8,padding:"9px 0",borderTop:"1px solid var(--line)",fontSize:13.5}}>
+          <span style={{minWidth:0}}>{risco(a)?"⚠️ ":""}<b>{a.nome}</b><br/><span className="muted" style={{fontSize:12}}>última atividade {dataBr(a.ultimo)}</span></span>
+          <span style={{textAlign:"right",whiteSpace:"nowrap"}}><b>{a.total}</b> questões<br/><span className="muted" style={{fontSize:12}}>{a.acerto==null?"—":a.acerto+"% acerto"} · {a.sem7} na semana</span></span></div>)}
+        {alunos.length===0 && <div className="muted" style={{fontSize:13,marginTop:8}}>Nenhum aluno neste filtro.</div>}
+      </div>
+    </React.Fragment>}
+  </div>;
+}
+
 function Assinar({uid,email,onClose,onVerificar,venceu}){
   const [etapa,setEtapa]=useState("plano"); // plano | carregando | pix | sucesso | erro
   const [pix,setPix]=useState(null);
@@ -9907,6 +10008,7 @@ function Assinar({uid,email,onClose,onVerificar,venceu}){
       {etapa==="plano" && <div>
         {venceu && <div className="card" style={{marginBottom:12,borderColor:"var(--gold)",background:"rgba(230,180,80,.08)"}}><b style={{color:"var(--gold)"}}>Sua assinatura venceu.</b> Isto é uma renovação, não uma cobrança nova — seu histórico e progresso continuam salvos.</div>}
         <div className="muted" style={{fontSize:14,marginBottom:14}}>Escolha: Pix à vista por 6 meses ou mensal no cartão. Acesso liberado automaticamente após a confirmação.</div>
+        <CodigoFaculdade onOk={async()=>{ try{ await onVerificar(); }catch(e){} onClose(); }}/>
 
         <div className="card" style={{background:"linear-gradient(135deg,#123528,#16302b)",border:"1px solid var(--gold)",marginBottom:12,position:"relative"}}>
           <b style={{fontSize:16}}>Acesso completo — 6 meses</b>
