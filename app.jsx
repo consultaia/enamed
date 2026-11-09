@@ -9997,6 +9997,7 @@ function Assinar({uid,email,onClose,onVerificar,venceu}){
   };
   const copiar=()=>{if(pix&&pix.qr_code){navigator.clipboard.writeText(pix.qr_code);setCopiado(true);setTimeout(()=>setCopiado(false),1500);}};
   const verificarAgora=async()=>{const ok=await onVerificar();if(ok){if(pollRef.current)clearInterval(pollRef.current);setEtapa("sucesso");}};
+  useEffect(()=>{ if(etapa==="sucesso"){ try{ window.__funil&&window.__funil("pagamento_ok",String(((window.PRECO_CFG||{}).VALOR_NOVO)||89.9),null,true); }catch(e){} } },[etapa]);
 
   const overlay={position:"fixed",inset:0,background:"rgba(0,0,0,.6)",display:"flex",alignItems:"center",justifyContent:"center",padding:18,zIndex:50};
   return <div style={overlay} onClick={onClose}>
