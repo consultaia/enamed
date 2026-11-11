@@ -2535,6 +2535,24 @@ function SetupAviso(){
   </div></div>;
 }
 
+/* Paletas de cor: cada uma redefine as variáveis em index.html (html[data-tema=...]). */
+const TEMAS=[["escuro","🌙","Escuro","#0d1618","#3ddc97"],["claro","☀","Claro","#f4f7f6","#0f9d6b"],["sepia","📜","Sépia","#f3ead8","#2f7d5b"],
+  ["azul","🌌","Azul noturno","#0e1626","#6ea8ff"],["grafite","🖤","Grafite","#141516","#f0a35e"],["contraste","◐","Alto contraste","#000000","#ffe600"]];
+function SeletorTema({tema,setTema}){
+  const [aberto,setAberto]=useState(false);
+  const atual=TEMAS.find(t=>t[0]===tema)||TEMAS[0];
+  useEffect(()=>{ try{ const m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content",atual[3]); }catch(e){} },[tema]);
+  return <span style={{position:"relative",display:"inline-block"}}>
+    <span className="link" style={{fontSize:13}} onClick={()=>setAberto(a=>!a)}>🎨 Tema</span>
+    {aberto && <div className="card" style={{position:"absolute",right:0,top:24,zIndex:60,width:230,padding:10,boxShadow:"0 14px 40px rgba(0,0,0,.35)",textAlign:"left"}}>
+      <div className="muted" style={{fontSize:11.5,fontWeight:700,letterSpacing:".08em",margin:"2px 4px 8px"}}>CORES DO APP</div>
+      {TEMAS.map(([k,ic,nome,bg,acc])=><button key={k} onClick={()=>{ setTema(k); setAberto(false); }}
+        style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"8px 8px",borderRadius:10,marginBottom:4,background:tema===k?"var(--panel2)":"transparent",border:"1px solid "+(tema===k?"var(--acc)":"transparent"),color:"var(--ink)",fontSize:13.5,fontWeight:600,textAlign:"left"}}>
+        <span style={{width:26,height:26,borderRadius:99,background:bg,border:"2px solid "+acc,display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:12,flexShrink:0}}>{ic}</span>{nome}{tema===k?" ✓":""}</button>)}
+    </div>}
+  </span>;
+}
+
 /* =================== AUTH =================== */
 function Auth(){
   const [modo,setModo]=useState(()=>{ try{ return /[?&]cadastro/.test(location.search)?"criar":"entrar"; }catch(e){ return "entrar"; } }); // entrar | criar | recuperar · quem vem da landing ("Testar grátis") já cai em criar conta
@@ -3453,7 +3471,7 @@ function Shell({session}){
           <h1 style={{fontSize:28,marginTop:6}}>Olá{session.user.user_metadata&&session.user.user_metadata.nome?", "+session.user.user_metadata.nome:""}</h1>
         </div>
         <div className="row" style={{marginTop:8,justifyContent:"flex-end",gap:12}}>
-          <span className="link" style={{fontSize:13}} onClick={()=>setTema(tema==="escuro"?"claro":"escuro")}>{tema==="escuro"?"☀ Claro":"🌙 Escuro"}</span>
+          <SeletorTema tema={tema} setTema={setTema}/>
           <span className="link" style={{fontSize:13}} onClick={()=>sb.auth.signOut()}>Sair</span>
         </div>
       </div>
@@ -3497,7 +3515,7 @@ function Shell({session}){
       <div style={{textAlign:"right"}}>
         <span id="tour-pill" className="pill" style={{color:isPro?"var(--gold)":(trialAtivo?"var(--acc)":"var(--muted)"),borderColor:isPro?"var(--gold)":(trialAtivo?"var(--acc)":"var(--line)")}}>{isPro?"PRO":(trialAtivo?"TESTE GRÁTIS · "+trialRestante+"h":"Demonstração")}</span>
         <div className="row" style={{marginTop:8,justifyContent:"flex-end",gap:12}}>
-          <span className="link" style={{fontSize:13}} onClick={()=>setTema(tema==="escuro"?"claro":"escuro")}>{tema==="escuro"?"☀ Claro":"🌙 Escuro"}</span>
+          <SeletorTema tema={tema} setTema={setTema}/>
           <span className="link" style={{fontSize:13}} onClick={()=>sb.auth.signOut()}>Sair</span>
         </div>
       </div>
