@@ -2544,7 +2544,8 @@ function SeletorTema({tema,setTema}){
   useEffect(()=>{ try{ const m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute("content",atual[3]); }catch(e){} },[tema]);
   return <span style={{position:"relative",display:"inline-block"}}>
     <span className="link" style={{fontSize:13}} onClick={()=>setAberto(a=>!a)}>🎨 Tema</span>
-    {aberto && <div className="card" style={{position:"absolute",right:0,top:24,zIndex:60,width:230,padding:10,boxShadow:"0 14px 40px rgba(0,0,0,.35)",textAlign:"left"}}>
+    {aberto && <div onClick={()=>setAberto(false)} style={{position:"fixed",inset:0,zIndex:10000,background:"rgba(0,0,0,.45)"}}/>}
+    {aberto && <div className="card" style={{position:"fixed",left:"50%",top:"50%",transform:"translate(-50%,-50%)",zIndex:10001,width:"min(300px,90vw)",padding:12,boxShadow:"0 20px 60px rgba(0,0,0,.5)",textAlign:"left"}}>
       <div className="muted" style={{fontSize:11.5,fontWeight:700,letterSpacing:".08em",margin:"2px 4px 8px"}}>CORES DO APP</div>
       {TEMAS.map(([k,ic,nome,bg,acc])=><button key={k} onClick={()=>{ setTema(k); setAberto(false); }}
         style={{display:"flex",alignItems:"center",gap:10,width:"100%",padding:"8px 8px",borderRadius:10,marginBottom:4,background:tema===k?"var(--panel2)":"transparent",border:"1px solid "+(tema===k?"var(--acc)":"transparent"),color:"var(--ink)",fontSize:13.5,fontWeight:600,textAlign:"left"}}>
