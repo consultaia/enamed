@@ -4500,6 +4500,26 @@ function PesquisaAdesao({gatilho,onEnviar,onAssinar,onDepois,onFechar}){
 
 /* =================== MÉTRICAS DO ADMIN (só para o e-mail do dono) =================== */
 const ADMIN_EMAIL = "janan.almeida@gmail.com";
+/* Admin: libera acesso de cortesia por um período, somado ao que o aluno já tem. */
+const PERIODOS_CORTESIA=[[1,"+1 dia"],[3,"+3 dias"],[7,"+7 dias"],[15,"+15 dias"],[30,"+30 dias"],[90,"+3 meses"],[180,"+6 meses"],[365,"+1 ano"],[0,"Sem prazo"]];
+function BotaoCortesia({email,onFeito}){
+  const [aberto,setAberto]=useState(false),[busy,setBusy]=useState(false),[msg,setMsg]=useState("");
+  const dar=async(dias,rot)=>{ if(!window.confirm("Dar cortesia "+rot+" para "+email+"?")) return;
+    setBusy(true); setMsg("");
+    try{ const {data,error}=await sb.rpc("admin_dar_cortesia",{p_email:email,p_dias:dias||null}); if(error) throw error;
+      if(data&&data.ok){ setMsg("✓ "+(data.ate?"até "+new Date(data.ate).toLocaleDateString("pt-BR"):"sem prazo")); setAberto(false); onFeito&&onFeito(); }
+      else setMsg((data&&data.erro)||"Não deu certo."); }
+    catch(e){ setMsg("Erro: "+(e.message||e)); }
+    setBusy(false); };
+  return <span style={{display:"inline-flex",flexDirection:"column",alignItems:"flex-start",gap:6,whiteSpace:"nowrap"}}>
+    <button className="btn ghost sm" style={{padding:"3px 8px",fontSize:11.5}} disabled={busy} onClick={()=>setAberto(a=>!a)}>🎁 Cortesia</button>
+    {msg && <span style={{fontSize:11,color:"var(--acc)"}}>{msg}</span>}
+    {aberto && <div className="card" style={{padding:8,display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6,width:250}}>
+      {PERIODOS_CORTESIA.map(([d,rot])=><button key={rot} className="btn sm ghost" style={{padding:"6px 6px",fontSize:12}} disabled={busy} onClick={()=>dar(d,rot)}>{rot}</button>)}
+    </div>}
+  </span>;
+}
+
 function AdminMetricas({sb}){
   const [m,setM]=useState(null);
   const [alunos,setAlunos]=useState([]);
@@ -4603,7 +4623,7 @@ function AdminMetricas({sb}){
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
           <thead><tr>{["E-mail","Cadastro","Último login","Questões","Última","Plano","Expira","🔥","Pesquisa"].map(h=><th key={h} style={{textAlign:"left",padding:"6px 8px",borderBottom:"1px solid var(--line)",whiteSpace:"nowrap"}} className="muted">{h}</th>)}</tr></thead>
           <tbody>{lista.map(x=><tr key={x.email}>
-            <td style={{padding:"6px 8px",borderBottom:"1px solid var(--line)"}}>{x.email}</td>
+            <td style={{padding:"6px 8px",borderBottom:"1px solid var(--line)"}}><div className="row" style={{gap:6,flexWrap:"nowrap"}}><span>{x.email}</span><BotaoCortesia email={x.email} onFeito={carregar}/></div></td>
             <td style={{padding:"6px 8px",borderBottom:"1px solid var(--line)"}}>{dt(x.cadastro)}</td>
             <td style={{padding:"6px 8px",borderBottom:"1px solid var(--line)"}}>{dt(x.ultimo_login)}</td>
             <td style={{padding:"6px 8px",borderBottom:"1px solid var(--line)",fontFamily:"var(--mono)"}}>{x.questoes_respondidas}</td>
