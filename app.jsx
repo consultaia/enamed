@@ -4010,7 +4010,7 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
       const feitos=padrao.filter(x=>concluido(x.t)).length;
       const prox=padrao.find(x=>!concluido(x.t)&&liberado(x.t))||padrao.find(x=>!concluido(x.t));
       const lista=verPadrao?padrao:padrao.slice(0,8);
-      return <div className="card" style={{marginBottom:18,borderColor:"var(--acc)",background:"linear-gradient(135deg,#123528,#16302b)"}}>
+      return <div className="card" style={{marginBottom:18,borderColor:"var(--acc)",background:"var(--flip)",color:"var(--flipink)"}}>
         <div className="tag" style={{color:"var(--acc)"}}>🧭 TRILHA RECOMENDADA</div>
         <b style={{fontSize:17,display:"block",marginTop:6}}>Siga pelo que mais cai nas provas</b>
         <div className="muted" style={{fontSize:13,marginTop:4,lineHeight:1.5}}>Não quer fazer o diagnóstico? Comece por aqui: os assuntos de todas as áreas, na ordem de quantas questões de prova real o banco tem sobre cada um.</div>
@@ -10029,7 +10029,7 @@ function Assinar({uid,email,onClose,onVerificar,venceu}){
         <div className="muted" style={{fontSize:14,marginBottom:14}}>Escolha: Pix à vista por 6 meses ou mensal no cartão. Acesso liberado automaticamente após a confirmação.</div>
         <CodigoFaculdade onOk={async()=>{ try{ await onVerificar(); }catch(e){} onClose(); }}/>
 
-        <div className="card" style={{background:"linear-gradient(135deg,#123528,#16302b)",border:"1px solid var(--gold)",marginBottom:12,position:"relative"}}>
+        <div className="card" style={{background:"var(--flip)",color:"var(--flipink)",border:"1px solid var(--gold)",marginBottom:12,position:"relative"}}>
           <b style={{fontSize:16}}>Acesso completo — 6 meses</b>
           <div style={{fontSize:28,fontWeight:800,letterSpacing:"-.02em",margin:"4px 0 0"}}>{((window.__PRECO||{}).txt||"R$ 49,90")}<span style={{fontSize:13,fontWeight:600,color:"var(--muted)"}}> pagamento único</span></div>
           <div className="muted" style={{fontSize:13,margin:"2px 0 6px"}}>Tudo liberado por 6 meses: {CURRICULO.length} assuntos, 11 mil+ questões, simulados, aula adaptativa e correção por IA. Sem mensalidade, sem renovação automática.</div>
