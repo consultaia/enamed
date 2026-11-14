@@ -2558,28 +2558,41 @@ function SeletorTema({tema,setTema}){
 function Auth(){
   const [modo,setModo]=useState(()=>{ try{ return /[?&]cadastro/.test(location.search)?"criar":"entrar"; }catch(e){ return "entrar"; } }); // entrar | criar | recuperar · quem vem da landing ("Testar grátis") já cai em criar conta
   const [nome,setNome]=useState(""),[email,setEmail]=useState(""),[senha,setSenha]=useState("");
-  const [msg,setMsg]=useState(""),[busy,setBusy]=useState(false),[msgOk,setMsgOk]=useState(false);
+  const [msg,setMsg]=useState(""),[busy,setBusy]=useState(false),[msgOk,setMsgOk]=useState(false),[verSenha,setVerSenha]=useState(false),[acaoErro,setAcaoErro]=useState("");
   useEffect(()=>{ try{ window.__funil&&window.__funil("auth_view",modo,null,true); }catch(e){} },[]);
   const submit=async()=>{
     try{ window.__funil&&window.__funil(modo==="criar"?"cadastro_tentativa":modo==="entrar"?"login_tentativa":"senha_recuperar"); }catch(e){}
-    setBusy(true);setMsg("");setMsgOk(false);
+    setBusy(true);setMsg("");setMsgOk(false);setAcaoErro("");
+    const em=String(email||"").trim().toLowerCase();
     try{
       if(modo==="criar"){
-        const {error}=await sb.auth.signUp({email,password:senha,options:{data:{nome}}});
+        if(String(senha||"").length<6) throw new Error("Password should be at least 6 characters");
+        const {error}=await sb.auth.signUp({email:em,password:senha,options:{data:{nome}}});
         if(error)throw error;
         try{ window.__funil&&window.__funil("cadastro_ok"); }catch(e){}
         setMsg("Conta criada. Se a confirmação por e-mail estiver ativa, confirme no seu e-mail e depois entre.");
         setModo("entrar");
       }else if(modo==="recuperar"){
-        const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+        const {error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:location.origin+location.pathname});
         if(error)throw error;
         setMsg("Se esse e-mail tiver uma conta, mandamos um link de recuperação. Confira sua caixa de entrada (e o spam).");
         setMsgOk(true);
       }else{
-        const {error}=await sb.auth.signInWithPassword({email,password:senha});
+        const {error}=await sb.auth.signInWithPassword({email:em,password:senha});
         if(error)throw error;
       }
-    }catch(e){ try{ window.__funil&&window.__funil(modo+"_erro",e&&e.message); }catch(_){} setMsg(e.message||"Erro.");}
+    }catch(e){ const m=String((e&&e.message)||"");
+      try{ window.__funil&&window.__funil(modo+"_erro",m); }catch(_){}
+      /* mensagens em português, com a saída certa para cada erro */
+      if(/already registered|already been registered|user_already_exists/i.test(m)){ setModo("entrar"); setSenha(""); setMsg("Você já tem conta com esse e-mail. Digite sua senha para entrar."); setAcaoErro("recuperar"); }
+      else if(/invalid login credentials|invalid_credentials/i.test(m)){ setMsg("E-mail ou senha incorretos. Confira a senha: maiúsculas e minúsculas fazem diferença."); setAcaoErro("recuperar"); }
+      else if(/at least 6|password should be/i.test(m)){ setMsg("A senha precisa ter pelo menos 6 caracteres."); }
+      else if(/invalid format|valid email|email address.*invalid/i.test(m)){ setMsg("Esse e-mail parece incompleto. Confira e tente de novo."); }
+      else if(/rate limit|too many|security purposes/i.test(m)){ setMsg("Muitas tentativas seguidas. Aguarde 1 minuto e tente de novo."); }
+      else if(/failed to fetch|network|load failed/i.test(m)){ setMsg("Sem conexão agora. Verifique a internet e tente de novo."); }
+      else if(/email not confirmed/i.test(m)){ setMsg("Falta confirmar o e-mail: abra o link que enviamos (veja também o spam)."); }
+      else setMsg(m||"Não deu certo. Tente de novo.");
+    }
     setBusy(false);
   };
   return <div className="center"><div className="auth">
@@ -2588,10 +2601,12 @@ function Auth(){
     <div className="muted" style={{fontSize:13,marginBottom:16}}>Seu progresso fica salvo e sincroniza entre aparelhos.</div>
     <div className="card">
       {modo==="criar" && <><label>Nome</label><input value={nome} onChange={e=>setNome(e.target.value)}/></>}
-      <label>E-mail</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)}/>
-      {modo!=="recuperar" && <><label>Senha</label><input type="password" value={senha} onChange={e=>setSenha(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()}/></>}
+      <label>E-mail</label><input type="email" inputMode="email" autoComplete="email" autoCapitalize="none" value={email} onChange={e=>setEmail(e.target.value)}/>
+      {modo!=="recuperar" && <><label>Senha</label><div style={{position:"relative"}}><input type={verSenha?"text":"password"} value={senha} onChange={e=>setSenha(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submit()} style={{paddingRight:70}} autoComplete={modo==="criar"?"new-password":"current-password"}/>
+        <span className="link" style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:12.5}} onClick={()=>setVerSenha(v=>!v)}>{verSenha?"ocultar":"mostrar"}</span></div>
+        {modo==="criar" && <div className="muted" style={{fontSize:12,marginTop:4}}>Mínimo de 6 caracteres.</div>}</>}
       {modo==="entrar" && <div style={{marginTop:8,textAlign:"right"}}><span className="link" style={{fontSize:13}} onClick={()=>{setModo("recuperar");setMsg("");setMsgOk(false);}}>Esqueci minha senha</span></div>}
-      {msg && <div className="muted" style={{fontSize:13,marginTop:12,color:msgOk?"var(--acc)":"var(--acc2)"}}>{msg}</div>}
+      {msg && <div className="muted" style={{fontSize:13,marginTop:12,color:msgOk?"var(--acc)":"var(--acc2)"}}>{msg}{acaoErro==="recuperar" && <> <span className="link" style={{fontSize:13}} onClick={()=>{setModo("recuperar");setMsg("");setAcaoErro("");}}>Criar nova senha</span></>}</div>}
       <div style={{marginTop:16}}><button className="btn" style={{width:"100%"}} disabled={busy||(modo==="recuperar"&&!email)} onClick={submit}>{busy?"...":(modo==="criar"?"Criar conta":(modo==="recuperar"?"Enviar link de recuperação":"Entrar"))}</button></div>
     </div>
     <div style={{marginTop:14,fontSize:14}} className="muted">
