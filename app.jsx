@@ -2580,9 +2580,10 @@ function Auth(){
       }else{
         const {error}=await sb.auth.signInWithPassword({email:em,password:senha});
         if(error)throw error;
+        try{ window.__funil&&window.__funil("login_ok"); }catch(e){}
       }
     }catch(e){ const m=String((e&&e.message)||"");
-      try{ window.__funil&&window.__funil(modo+"_erro",m); }catch(_){}
+      try{ window.__funil&&window.__funil(modo+"_erro",m+" | "+em); }catch(_){}
       /* mensagens em português, com a saída certa para cada erro */
       if(/already registered|already been registered|user_already_exists/i.test(m)){ setModo("entrar"); setSenha(""); setMsg("Você já tem conta com esse e-mail. Digite sua senha para entrar."); setAcaoErro("recuperar"); }
       else if(/invalid login credentials|invalid_credentials/i.test(m)){ setMsg("E-mail ou senha incorretos. Confira a senha: maiúsculas e minúsculas fazem diferença."); setAcaoErro("recuperar"); }
