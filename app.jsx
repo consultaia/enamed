@@ -3537,6 +3537,12 @@ function Shell({session}){
       </div>
     </div>
 
+    {trialAtivo && trialRestante<=3 && <div className="card" style={{marginTop:16,borderColor:"var(--gold)",background:"linear-gradient(135deg,rgba(212,175,55,.14),transparent)"}}>
+        {(()=>{ try{ window.__funil&&window.__funil("trial_acabando_view","h"+trialRestante,null,true); }catch(e){} return null; })()}
+        {(()=>{ const min=Math.max(1,Math.round((trialFim-new Date())/60000)); const txt=min<60?min+" min":(Math.floor(min/60)+"h"+(min%60?String(min%60).padStart(2,"0"):"")); return <div className="tag" style={{color:"var(--gold)"}}>⏳ SEU TESTE ACABA EM {txt}</div>; })()}
+        <div style={{fontSize:14,lineHeight:1.55,marginTop:6}}>{log.length>0?<span>Você já respondeu <b>{log.length}</b> {log.length===1?"questão":"questões"}. </span>:null}Assine agora para não perder o ritmo: seu progresso, caderno de erros e revisões continuam exatamente de onde estão.</div>
+        <div className="row" style={{gap:10,marginTop:10,flexWrap:"wrap",alignItems:"center"}}><button className="btn sm" onClick={()=>{ try{ window.__funil&&window.__funil("trial_acabando_cta","h"+trialRestante); }catch(e){} setShowAssinar(true); }}>Continuar com acesso · {precoTxt} / 6 meses</button><span style={{fontSize:12}}><b style={{color:"var(--gold)"}}>Assinando durante o teste: 7 meses pelo preço de 6.</b> <span className="muted">Pix ou cartão, liberação na hora.</span></span></div>
+    </div>}
     {avisoTurma && <div className="card" style={{marginTop:16,borderColor:"var(--acc)",fontSize:14}}>{avisoTurma} <span className="link" style={{fontSize:13,marginLeft:6}} onClick={()=>setAvisoTurma("")}>ok</span></div>}
     {tab==="inicio" && turmasCoord.length>0 && <div className="card" style={{marginTop:16,borderColor:"var(--acc)"}}>
         <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
@@ -3556,7 +3562,7 @@ function Shell({session}){
         </div>
         <div className="muted" style={{fontSize:12.5,marginTop:12}}>Teste grátis com acesso completo por {trialRestante}h.</div>
     </div>}
-    {tab==="inicio" && trialAtivo && !modoNovato && <div className="card" style={{marginTop:16,borderColor:"var(--acc)"}}>
+    {tab==="inicio" && trialAtivo && trialRestante>3 && !modoNovato && <div className="card" style={{marginTop:16,borderColor:"var(--acc)"}}>
         <div className="tag" style={{color:"var(--acc)"}}>TESTE GRÁTIS · {trialRestante}h restantes</div>
         <div style={{fontSize:14,lineHeight:1.55,marginTop:4}}>Você tem <b>acesso completo</b> a questões, provas oficiais, simulados, guias, flashcards e progresso até <b>{trialFim.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</b>. A <b>IA</b> — tira-dúvida, reexplicar, OSCE com paciente simulado, gerar questão e resolver por foto — é exclusiva do PRO.</div>
         <div className="row" style={{gap:10,marginTop:10,flexWrap:"wrap"}}><button className="btn sm" onClick={()=>setShowAssinar(true)}>Liberar a IA · {precoTxt}</button><span style={{fontSize:12,alignSelf:"center"}}><b style={{color:"var(--gold)"}}>Assine durante o teste e leve 7 meses pelo preço de 6.</b> <span className="muted">Pix, na hora, sem renovação automática.</span></span></div>
