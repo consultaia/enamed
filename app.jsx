@@ -1746,7 +1746,10 @@ const SEED_TECM = [
 function assuntoPorId(id){ return CURRICULO.find(x=>x.id===id)||CURRICULO_TECM.find(x=>x.id===id)||null; }
 
 /* ---- fallback local (só usado se a tabela questoes estiver vazia) ---- */
+/* Questões do quiz da landing: quem respondeu lá antes de criar a conta leva a resposta para o progresso. */
+const LP_QUESTOES = {"lp-sepse-1":{id:"lp-sepse-1",area:"CM",tema:"Infectologia — Sepse",transv:[],dif:1,premium:false,enun:"Idosa com febre, confusão e PA 82×50 após 30 mL/kg de cristaloide. Lactato 4,1. Qual a próxima conduta?",alts:["Repetir o volume e reavaliar em 6 h","Iniciar noradrenalina, alvo de PAM ≥ 65 mmHg","Aguardar culturas para iniciar antibiótico","Solicitar tomografia antes de qualquer conduta"],correta:1,coment:"Hipotensão que não responde a 30 mL/kg de cristaloide, com lactato alto, é choque séptico: a conduta é iniciar vasopressor (noradrenalina é a primeira escolha), com alvo de PAM ≥ 65 mmHg. Repetir volume e esperar 6 h atrasa o tratamento; antibiótico entra na primeira hora, sem esperar cultura (colhe-se a cultura antes, mas não se espera o resultado); e exame de imagem não vem antes de estabilizar o paciente."}};
 const SEED = [
+  LP_QUESTOES["lp-sepse-1"],
   {id:"cm1",area:"CM",tema:"Endocrinologia — DM2",transv:[],dif:1,premium:false,enun:"Homem de 52 anos, IMC 31, HbA1c 7,4% confirmada, sem comorbidade. Conduta inicial?",alts:["Insulina NPH","Metformina","Glibenclamida","Só mudança de estilo de vida por 12 meses"],correta:1,coment:"Entre as opções, a metformina é a escolha: barata, segura, no SUS e sem contraindicação neste paciente (HbA1c 7,4%, abaixo de 7,5%, permite começar com um só remédio). Insulina NPH fica para HbA1c muito alta ou sintomas de catabolismo; glibenclamida causa mais hipoglicemia e ganho de peso; e só estilo de vida por 12 meses atrasa o controle de quem já tem diagnóstico. Atualização SBD 2025: com IMC 31, um agonista de GLP-1 também seria preferencial pelo benefício no peso — mas não está entre as alternativas."},
   {id:"mfc1",area:"MFC",tema:"APS — Atributos",transv:[],dif:1,premium:false,enun:"Paciente sempre atendido pela mesma equipe da ESF, que acompanha sua história ao longo dos anos. Atributo?",alts:["Integralidade","Longitudinalidade","Competência cultural","Focalização"],correta:1,coment:"Acompanhamento contínuo no tempo = longitudinalidade."},
   {id:"has_q1",area:"CM",tema:"Cardiologia — HAS",transv:[],dif:2,premium:false,enun:"Homem de 55 anos, assintomático, comparece à UBS com PA de 152/96 mmHg aferida hoje. Nega comorbidades. Qual a conduta MAIS adequada neste momento?",alts:["Iniciar dois anti-hipertensivos imediatamente","Confirmar o diagnóstico com nova medida ou MAPA/MRPA antes de rotular como hipertenso","Prescrever betabloqueador e reavaliar em 30 dias","Solicitar internação para controle pressórico"],correta:1,coment:"Uma única aferição não fecha HAS. Confirma-se com nova medida em outra consulta ou, idealmente, MAPA/MRPA (afasta efeito do jaleco branco). Rotular e medicar com uma medida só é erro clássico."},
@@ -3241,12 +3244,13 @@ function Shell({session}){
   const [loading,setLoading]=useState(true);
   const [diag,setDiag]=useState(null); // null | "rapido" | "completo"
   const [temasFracos,setTemasFracos]=useState(()=>{try{return JSON.parse(localStorage.getItem("enamed_fracos")||"[]")}catch(e){return[]}});
+  const [lpRes,setLpRes]=useState(null),[lpVer,setLpVer]=useState(false);
   const [jaFezDiag,setJaFezDiag]=useState(()=>{try{return localStorage.getItem("enamed_diag_feito")==="1"}catch(e){return false}});
   const [questoes,setQuestoes]=useState([]);
   const [log,setLog]=useState([]);
   const [srs,setSrs]=useState({});
   const [dominio,setDominio]=useState({});
-  const [assinatura,setAssinatura]=useState(null);
+  const [assinatura,setAssinatura]=useState(null);const [inicioTeste,setInicioTeste]=useState(null);
   const [showAssinar,setShowAssinar]=useState(false);
   const [streak,setStreak]=useState(()=>{try{return JSON.parse(localStorage.getItem("enamed_streak")||"null")}catch(e){return null}});
   const [revisando,setRevisando]=useState(false);
@@ -3326,7 +3330,7 @@ function Shell({session}){
 
   useEffect(()=>{(async()=>{
     setLoading(true);
-    const [q,r,d,s,a,st,mt,md,va,stq,cad,pp]=await Promise.all([
+    const [q,r,d,s,a,st,mt,md,va,stq,cad,pp,tg]=await Promise.all([
       (async()=>{let all=[],from=0;const step=1000;for(;;){const{data,error}=await sb.from("questoes").select("*").order("id",{ascending:true}).range(from,from+step-1);if(error||!data||!data.length)break;all=all.concat(data);if(data.length<step)break;from+=step;}return{data:all};})(),
       todasAsLinhas(()=>sb.from("respostas").select("*").eq("user_id",uid)),
       sb.from("dominio").select("*").eq("user_id",uid),
@@ -3339,6 +3343,7 @@ function Shell({session}){
       sb.rpc("stats_questoes").then(r=>r,()=>({data:[]})),
       sb.from("caderno_erros").select("questao_id,area,tema,motivo,criado_em").eq("user_id",uid).order("criado_em",{ascending:false}).limit(400).then(r=>r,()=>({data:[]})),
       sb.from("assinaturas").select("plano,criado_em").eq("user_id",uid).not("plano","in","(free,cortesia)").order("criado_em",{ascending:true}).limit(1).then(r=>r,()=>({data:[]})),
+      sb.from("teste_gratis").select("iniciado_em").eq("user_id",uid).maybeSingle().then(r=>r,()=>({data:null})),
     ]);
     let qs=(q.data||[]).map(x=>({id:x.id,area:x.area,tema:x.tema,transv:normTransv(x.transv),dif:x.dificuldade,enun:x.enunciado,alts:x.alternativas,correta:x.correta,coment:x.comentario,premium:x.premium,imagem:x.imagem||null,anulada:!(x.correta>=0)}));
     if(qs.length===0){ qs=SEED; }
@@ -3360,6 +3365,10 @@ function Shell({session}){
     try{ const m={}; (stq&&stq.data||[]).forEach(x=>{m[x.questao_id]={n:+x.n,ok:+x.acertos};}); window.__STATS=m; }catch(e){}
     if(cad&&cad.data){setCaderno(cad.data||[]);}
     if(pp&&pp.data&&pp.data[0]){setPrimeiraPaga(pp.data[0]);}
+    /* teste grátis: 24h contadas da 1ª questão respondida (servidor grava na 1ª resposta) */
+    { let ini=(tg&&tg.data&&tg.data.iniciado_em)||null;
+      if(!ini){ const ts=(r.data||[]).map(x=>new Date(x.criado_em||x.created_at).getTime()).concat(fila.filter(i=>i&&i.r&&i.t).map(i=>i.t)).filter(n=>n>0); if(ts.length) ini=new Date(Math.min(...ts)).toISOString(); }
+      setInicioTeste(ini); }
     if(md&&md.data){const ds=(md.data||[]).map(x=>(x.dia+"").slice(0,10));setMetaDias(ds);try{localStorage.setItem("preceptor_meta_dias",JSON.stringify(ds))}catch(e){}}
     const dm={};(d.data||[]).forEach(x=>dm[x.topico_id]={nivel:x.nivel,last:x.atualizado_em});setDominio(dm);
     const sr={};(s.data||[]).forEach(x=>sr[x.questao_id]={ef:x.ef,intervalo:x.intervalo,reps:x.reps,due:x.due});
@@ -3371,19 +3380,28 @@ function Shell({session}){
   })()},[uid]);
 
   const isPro = assinatura && assinatura.status==="ativa" && assinatura.plano!=="free" && (!assinatura.expira_em || new Date(assinatura.expira_em)>new Date());
-  // === TESTE GRÁTIS: acesso completo ao conteúdo por TRIAL_HORAS a partir do cadastro; IA continua exclusiva do PRO ===
+  // === TESTE GRÁTIS: acesso completo ao conteúdo por TRIAL_HORAS a partir da 1ª QUESTÃO respondida (não do cadastro); IA continua exclusiva do PRO ===
   const TRIAL_HORAS = 24;
-  const trialFim = (session&&session.user&&session.user.created_at) ? new Date(new Date(session.user.created_at).getTime()+TRIAL_HORAS*3600*1000) : null;
-  const trialAtivo = !isPro && !!trialFim && trialFim > new Date();
-  const trialRestante = trialAtivo ? Math.max(1, Math.ceil((trialFim - new Date())/3600000)) : 0;
+  const trialNaoIniciado = !isPro && !inicioTeste;
+  const trialFim = inicioTeste ? new Date(new Date(inicioTeste).getTime()+TRIAL_HORAS*3600*1000) : null;
+  const trialAtivo = !isPro && (trialNaoIniciado || (!!trialFim && trialFim > new Date()));
+  const trialRestante = trialAtivo ? (trialNaoIniciado ? TRIAL_HORAS : Math.max(1, Math.ceil((trialFim - new Date())/3600000))) : 0;
   /* primeiro acesso: quem está no teste e ainda não respondeu nada vê UMA ação clara, não o Início inteiro */
   const [verTudo,setVerTudo]=useState(()=>{ try{ return localStorage.getItem("preceptor_ver_tudo")==="1"; }catch(e){ return false; } });
-  const modoNovato = trialAtivo && !loading && !verTudo && !jaFezDiag && (log||[]).length===0;
+  const modoNovato = trialAtivo && !loading && !verTudo && !jaFezDiag && (log||[]).filter(x=>x&&!String(x.id||"").startsWith("lp-")).length===0;
   const primeiras5 = ()=>{ const areas=["CM","CIR","GO","PED","MFC"], usadas=new Set(), out=[];
     const base=(window.ENAMED_OFICIAL||[]).filter(q=>q&&typeof q.correta==="number"&&q.correta>=0&&!q.imagem&&String(q.enun||"").length<700);
     areas.forEach(a=>{ const c=base.filter(q=>q.area===a&&!usadas.has(q.id)); if(c.length){ const q=c[Math.floor(Math.random()*c.length)]; usadas.add(q.id); out.push(q); } });
     base.forEach(q=>{ if(out.length<5&&!usadas.has(q.id)){ usadas.add(q.id); out.push(q); } });
     return out; };
+  useEffect(()=>{ if(loading||!uid) return; let lista=null; try{ lista=JSON.parse(localStorage.getItem("preceptor_lp_quiz")||"null"); }catch(e){}
+    if(!lista) return; if(!Array.isArray(lista)) lista=[lista];
+    const ja=new Set((log||[]).map(x=>x&&x.id)); const feitas=[];
+    lista.forEach(it=>{ const q=it&&LP_QUESTOES[it.id]; if(!q||!(Date.now()-(it.t||0)<14*86400000)) return; const ok=!!it.ok; feitas.push({q,ok,sel:it.sel});
+      if(!ja.has(q.id)){ try{ registrar(q,ok); }catch(e){} if(!ok){ try{ window.__REGISTRAR_ERRO&&window.__REGISTRAR_ERRO(q,"nao_sabia"); }catch(e){} } } });
+    try{ localStorage.removeItem("preceptor_lp_quiz"); }catch(e){}
+    if(feitas.length){ setLpRes(feitas); try{ window.__funil&&window.__funil("landing_quiz_importado",feitas.filter(f=>f.ok).length+"/"+feitas.length); }catch(e){} }
+  },[loading,uid]);
   const acesso = isPro || trialAtivo;
   const PC=window.PRECO_CFG||{DATA_FUNDADOR:"2099-01-01",VALOR_INICIAL:49.9,VALOR_NOVO:49.9,MESES:6};
   const dataCorte=new Date(PC.DATA_FUNDADOR);
@@ -3432,6 +3450,7 @@ function Shell({session}){
     try{ await sb.from("meta_diaria").upsert({user_id:uid,meta:m.meta,modo:m.modo,area_foco:m.area_foco,atualizado_em:new Date().toISOString()}); }catch(e){}
   };
   const registrar=async(q,ok)=>{
+    setInicioTeste(v=>v||new Date().toISOString());
     const entrada={id:q.id,area:q.area,tema:q.tema,ok,dia:dataLocal()};
     setLog(l=>[...l,entrada]);
     const nova=schedule(srs[q.id],ok);
@@ -3551,6 +3570,16 @@ function Shell({session}){
           <button className="btn sm" onClick={()=>{ setTab("faculdade"); irAoTopo(); }}>Abrir painel da faculdade</button>
         </div>
     </div>}
+    {tab==="inicio" && lpRes && lpRes.length>0 && (()=>{ const ac=lpRes.filter(f=>f.ok).length, er=lpRes.filter(f=>!f.ok); const L="ABCDE"; return <div className="card" style={{marginTop:16,borderColor:ac===lpRes.length?"var(--acc)":"var(--gold)"}}>
+        <div className="row" style={{justifyContent:"space-between",alignItems:"flex-start",gap:10}}><div className="tag" style={{color:ac===lpRes.length?"var(--acc)":"var(--gold)"}}>{ac===lpRes.length?"✅":"📝"} SUA QUESTÃO DA PÁGINA INICIAL</div><span className="link muted" style={{fontSize:12}} onClick={()=>setLpRes(null)}>fechar</span></div>
+        <div style={{fontSize:15,lineHeight:1.5,marginTop:6}}>Você já acertou <b>{ac} de {lpRes.length}</b>. {er.length?(er.length===1?"Ela já foi para o seu caderno de erros.":"Elas já foram para o seu caderno de erros."):"Ela já conta no seu progresso."}</div>
+        {er.length>0 && !lpVer && <button className="btn ghost sm" style={{marginTop:10}} onClick={()=>setLpVer(true)}>Ver o comentário da que errou</button>}
+        {er.length>0 && lpVer && er.map(f=><div key={f.q.id} style={{marginTop:10,fontSize:14,lineHeight:1.55}}>
+          <div className="muted" style={{fontSize:13}}>{f.q.enun}</div>
+          {typeof f.sel==="number" && f.q.alts[f.sel]!=null && <div style={{marginTop:6}}>Você marcou: <b style={{color:"var(--bad)"}}>{L[f.sel]}) {f.q.alts[f.sel]}</b></div>}
+          <div style={{marginTop:4}}>Certa: <b style={{color:"var(--acc)"}}>{L[f.q.correta]}) {f.q.alts[f.q.correta]}</b></div>
+          <div style={{marginTop:6}}>{f.q.coment}</div></div>)}
+    </div>; })()}
     {tab==="inicio" && modoNovato && <div className="card" style={{marginTop:16,borderColor:"var(--acc)",padding:"22px 20px"}}>
         {(()=>{ try{ window.__funil&&window.__funil("primeiro_acesso_view",null,null,true); }catch(e){} return null; })()}
         <div className="tag" style={{color:"var(--acc)"}}>COMECE POR AQUI · 2 MINUTOS</div>
@@ -3561,11 +3590,11 @@ function Shell({session}){
           <button className="btn ghost sm" onClick={()=>{ try{ window.__funil&&window.__funil("primeiro_acesso_trilha"); }catch(e){} setTab("trilha"); }}>🧭 Seguir a trilha do que mais cai</button>
           <span className="link muted" style={{fontSize:13,alignSelf:"center"}} onClick={()=>{ setVerTudo(true); try{ localStorage.setItem("preceptor_ver_tudo","1"); }catch(e){} }}>ver todas as opções</span>
         </div>
-        <div className="muted" style={{fontSize:12.5,marginTop:12}}>Teste grátis com acesso completo por {trialRestante}h.</div>
+        <div className="muted" style={{fontSize:12.5,marginTop:12}}>{trialNaoIniciado?"Seu teste grátis de 24h começa na sua primeira questão. Até lá, tudo liberado.":"Teste grátis com acesso completo por "+trialRestante+"h."}</div>
     </div>}
     {tab==="inicio" && trialAtivo && trialRestante>3 && !modoNovato && <div className="card" style={{marginTop:16,borderColor:"var(--acc)"}}>
-        <div className="tag" style={{color:"var(--acc)"}}>TESTE GRÁTIS · {trialRestante}h restantes</div>
-        <div style={{fontSize:14,lineHeight:1.55,marginTop:4}}>Você tem <b>acesso completo</b> a questões, provas oficiais, simulados, guias, flashcards e progresso até <b>{trialFim.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</b>. A <b>IA</b> — tira-dúvida, reexplicar, OSCE com paciente simulado, gerar questão e resolver por foto — é exclusiva do PRO.</div>
+        <div className="tag" style={{color:"var(--acc)"}}>{trialNaoIniciado?"TESTE GRÁTIS · AINDA NÃO COMEÇOU":"TESTE GRÁTIS · "+trialRestante+"h restantes"}</div>
+        <div style={{fontSize:14,lineHeight:1.55,marginTop:4}}>{trialNaoIniciado?<span>Seu teste de <b>24 horas</b> só começa a contar na <b>sua primeira questão respondida</b>. Até lá, você tem <b>acesso completo</b> a questões, provas oficiais, simulados, guias, flashcards e progresso.</span>:<span>Você tem <b>acesso completo</b> a questões, provas oficiais, simulados, guias, flashcards e progresso até <b>{trialFim.toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</b>.</span>} A <b>IA</b> — tira-dúvida, reexplicar, OSCE com paciente simulado, gerar questão e resolver por foto — é exclusiva do PRO.</div>
         <div className="row" style={{gap:10,marginTop:10,flexWrap:"wrap"}}><button className="btn sm" onClick={()=>setShowAssinar(true)}>Liberar a IA · {precoTxt}</button><span style={{fontSize:12,alignSelf:"center"}}><b style={{color:"var(--gold)"}}>Assine durante o teste e leve 7 meses pelo preço de 6.</b> <span className="muted">Pix, na hora, sem renovação automática.</span></span></div>
     </div>}
     {tab==="inicio" && isPro && (fundador || (diasParaVencer!==null && diasParaVencer<=30)) && <div className="card" style={{marginTop:16,borderColor:"var(--gold)"}}>
@@ -3683,7 +3712,7 @@ function Shell({session}){
       <Pomodoro/>
 
       {tab==="videos" && <Videoaulas videos={videoaulas}/>}
-      {tab==="admin" && isAdmin && <div style={{display:"grid",gap:14}}><AdminMetricas sb={sb}/><AdminSuporte/></div>}
+      {tab==="admin" && isAdmin && <div style={{display:"grid",gap:14,gridTemplateColumns:"minmax(0,1fr)"}}><AdminMetricas sb={sb}/><AdminSuporte/></div>}
       {tab==="suporte" && <Suporte uid={uid}/>}
       {tab==="gemeas" && sprintGemeas && <div><button className="btn ghost sm" style={{marginBottom:10}} onClick={()=>{const v=sprintGemeas&&sprintGemeas.volta;setSprintGemeas(null);if(v==="revisao"){setRevisando(true);}else{setTab("praticar");}}}>{sprintGemeas&&sprintGemeas.volta==="revisao"?"← Voltar à revisão":"← Voltar"}</button><RodizioSprint qs={sprintGemeas.qs} label={sprintGemeas.label} registrar={registrar} onVoltar={()=>{setSprintGemeas(null);setTab("praticar");}}/></div>}
       {tab==="dicas" && <DicasDoDia/>}
@@ -4442,7 +4471,7 @@ function TourInicial({isPro,trialAtivo,onFim}){
     isPro
       ? {alvo:"tour-pill",titulo:"Você é PRO ⭐",txt:"IA liberada: tira-dúvida em cada aula, 'explica de outro jeito', OSCE com paciente e examinador simulados, gerar questão inédita e resolver por foto. Bons estudos!"}
       : (trialAtivo
-        ? {alvo:"tour-pill",titulo:"Teste grátis ativo",txt:"Por 24 horas você tem acesso completo ao conteúdo. A IA (tira-dúvida, OSCE, gerar questão, resolver por foto) é exclusiva do PRO — "+((window.__PRECO||{}).txt||"R$ 49,90")+" por 6 meses, Pix, sem renovação automática."}
+        ? {alvo:"tour-pill",titulo:"Teste grátis ativo",txt:"Você tem 24 horas de acesso completo ao conteúdo, contadas a partir da sua primeira questão respondida. A IA (tira-dúvida, OSCE, gerar questão, resolver por foto) é exclusiva do PRO — "+((window.__PRECO||{}).txt||"R$ 49,90")+" por 6 meses, Pix, sem renovação automática."}
         : {alvo:"tour-pill",titulo:"Demonstração",txt:"Você vê uma amostra do método. O PRO libera mais de 4.200 questões, provas oficiais, simulados, OSCE e toda a IA — "+((window.__PRECO||{}).txt||"R$ 49,90")+" por 6 meses."})
   ].filter(Boolean);
   const p=passos[passo];
@@ -4582,17 +4611,28 @@ function AdminMetricas({sb}){
   if(!m) return <div className="card muted">Carregando métricas…</div>;
   const f=m.funil_30d||{};
   const pct=(a,b)=>b?Math.round(100*a/b)+"%":"—";
-  return <div style={{display:"grid",gap:14}}>
+  return <div style={{display:"grid",gap:14,gridTemplateColumns:"minmax(0,1fr)"}}>
     <div className="row" style={{justifyContent:"space-between",alignItems:"center"}}>
       <div><div className="tag" style={{color:"var(--gold)"}}>📊 MÉTRICAS · SOMENTE VOCÊ</div><div className="muted" style={{fontSize:12}}>Atualizado {m.gerado_em?new Date(m.gerado_em).toLocaleString("pt-BR"):""}</div></div>
       <button className="btn ghost sm" onClick={carregar} disabled={busy}>{busy?"…":"Atualizar"}</button>
     </div>
 
+    {(()=>{ const sem=(m.ativacao_semanas||[]); if(!sem.length) return null; const ult4=sem.slice(0,4); const cad=ult4.reduce((t,x)=>t+(+x.cadastros||0),0), q1=ult4.reduce((t,x)=>t+(+x.q1||0),0), q5=ult4.reduce((t,x)=>t+(+x.q5||0),0); const p1=cad?Math.round(100*q1/cad):0;
+      return <div className="card" style={{borderColor:p1>=50?"var(--acc)":"var(--gold)",minWidth:0,maxWidth:"100%",overflow:"hidden"}}>
+        <div className="tag" style={{color:p1>=50?"var(--acc)":"var(--gold)",whiteSpace:"normal",lineHeight:1.4}}>🚀 ATIVAÇÃO · CADASTRO → QUESTÕES (últimas 4 semanas)</div>
+        <div className="row" style={{gap:22,flexWrap:"wrap",marginTop:8,alignItems:"baseline"}}>
+          <div><div style={{fontSize:30,fontWeight:800,color:p1>=50?"var(--acc)":"var(--gold)"}}>{pct(q1,cad)}</div><div className="muted" style={{fontSize:12}}>respondem a 1ª questão ({q1} de {cad})</div></div>
+          <div><div style={{fontSize:30,fontWeight:800}}>{pct(q5,cad)}</div><div className="muted" style={{fontSize:12}}>chegam a 5 questões ({q5} de {cad})</div></div>
+        </div>
+        <div className="muted" style={{fontSize:12,marginTop:6}}>Meta: passar de 50% em cadastro → 1ª questão antes de investir em anúncio. A questão da landing não conta aqui.</div>
+        <div style={{overflowX:"auto",marginTop:10}}><table style={{width:"100%",fontSize:12.5,borderCollapse:"collapse"}}><thead><tr className="muted" style={{textAlign:"left"}}><th style={{padding:"4px 6px"}}>Semana de</th><th style={{padding:"4px 6px"}}>Cadastros</th><th style={{padding:"4px 6px"}}>1ª questão</th><th style={{padding:"4px 6px"}}>5 questões</th></tr></thead>
+          <tbody>{sem.map(x=><tr key={x.semana} style={{borderTop:"1px solid var(--line)"}}><td style={{padding:"4px 6px"}}>{new Date(x.semana+"T12:00:00").toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"})}</td><td style={{padding:"4px 6px"}}>{x.cadastros}</td><td style={{padding:"4px 6px",fontWeight:700,color:(x.cadastros&&x.q1/x.cadastros>=.5)?"var(--acc)":"var(--gold)"}}>{pct(x.q1,x.cadastros)} <span className="muted" style={{fontWeight:400}}>({x.q1})</span></td><td style={{padding:"4px 6px"}}>{pct(x.q5,x.cadastros)} <span className="muted">({x.q5})</span></td></tr>)}</tbody></table></div>
+      </div>; })()}
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10}}>
       <K t="Assinantes pagos" v={fmt(m.pagos_ativos)} sub={"+"+fmt(m.pagos_30d)+" nos últimos 30 d"} cor="var(--gold)"/>
       <K t="Receita (assinantes atuais)" v={brl(m.receita_ativa)} sub={fmt(m.pagos_fundador)+" a R$ 49,90 · "+fmt(m.pagos_novo_preco)+" no preço novo"} cor="var(--gold)"/>
       <K t="Cortesias ativas" v={fmt(m.cortesias_ativas)}/>
-      <K t="Em trial (24 h)" v={fmt(m.trials_ativas)} sub={fmt(m.free_sem_plano)+" free sem plano"}/>
+      <K t="Em teste grátis" v={fmt(m.trials_ativas)} sub={"inclui quem ainda não respondeu · "+fmt(m.free_sem_plano)+" com teste encerrado"}/>
       <K t="Expiram em 30 d" v={fmt(m.expiram_30d)} sub="renovação a cobrar"/>
       <K t="Usuários" v={fmt(m.usuarios_total)} sub={"+"+fmt(m.novos_7d)+" em 7 d · +"+fmt(m.novos_30d)+" em 30 d"}/>
     </div>
