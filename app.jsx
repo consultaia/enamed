@@ -2537,7 +2537,7 @@ function SetupAviso(){
 
 /* Paletas de cor: cada uma redefine as variáveis em index.html (html[data-tema=...]). */
 const TEMAS=[["escuro","🌙","Escuro","#0d1618","#3ddc97"],["claro","☀","Claro","#f4f7f6","#0f9d6b"],["sepia","📜","Sépia","#f3ead8","#2f7d5b"],
-  ["azul","🌌","Azul noturno","#0e1626","#6ea8ff"],["grafite","🖤","Grafite","#141516","#f0a35e"],["contraste","◐","Alto contraste","#000000","#ffe600"]];
+  ["azul","🌌","Azul noturno","#0e1626","#6ea8ff"],["grafite","🖤","Grafite","#141516","#f0a35e"],["contraste","◐","Alto contraste","#000000","#ffe600"],["vibrante","🌈","Vibrante","#faf7f4","#e8378a"]];
 function SeletorTema({tema,setTema}){
   const [aberto,setAberto]=useState(false);
   const atual=TEMAS.find(t=>t[0]===tema)||TEMAS[0];
