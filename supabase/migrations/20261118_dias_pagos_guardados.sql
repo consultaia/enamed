@@ -1,5 +1,5 @@
 -- ============================================================================
--- Item 8 — Quem já pagou nunca perde quando a faculdade contrata (NÃO APLICADA: aguardando revisão)
+-- Item 8 — Quem já pagou nunca perde quando a faculdade contrata (APLICADA em 18/11/2026)
 --
 -- Ao entrar numa turma institucional, se o aluno tem assinatura individual paga com dias sobrando:
 --   1. os dias que sobram são guardados (tabela dias_guardados);

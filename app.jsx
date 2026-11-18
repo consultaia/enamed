@@ -3279,10 +3279,14 @@ function Shell({session}){
   const [sprintGemeas,setSprintGemeas]=useState(null); // {qs,label} — treino aberto pelas gêmeas / raio-x
   const [turmasCoord,setTurmasCoord]=useState([]);
   const [avisoTurma,setAvisoTurma]=useState("");
+  /* dias pagos guardados enquanto o aluno está no acesso da faculdade (voltam quando ele termina) */
+  const [diasGuardados,setDiasGuardados]=useState(0);
+  const carregarGuardados=async()=>{ try{ const {data}=await sb.from("dias_guardados").select("dias").is("devolvido_em",null); setDiasGuardados(Math.round((data||[]).reduce((t,x)=>t+(+x.dias||0),0))); }catch(e){} };
+  useEffect(()=>{ try{ window.__CARREGAR_GUARDADOS=carregarGuardados; }catch(e){} carregarGuardados(); },[]);
   /* lista de e-mails enviada pela faculdade: quem estava na lista entra na turma ao abrir o app */
   useEffect(()=>{ let vivo=true; try{ sb.rpc("aplicar_convites").then(async({data})=>{ if(!vivo||!Array.isArray(data)||!data.length) return;
     try{ window.__funil&&window.__funil("turma_entrou_lista",data.join(", ")); }catch(e){}
-    try{ await recarregarAssinatura(); }catch(e){} setAvisoTurma("🏫 Seu acesso foi liberado pela sua faculdade: "+data.join(", ")+"."); }); }catch(e){} return ()=>{ vivo=false; }; },[]);
+    try{ await recarregarAssinatura(); }catch(e){} carregarGuardados(); setAvisoTurma("🏫 Seu acesso foi liberado pela sua faculdade: "+data.join(", ")+"."); }); }catch(e){} return ()=>{ vivo=false; }; },[]);
   useEffect(()=>{ let vivo=true; try{ sb.rpc("minhas_turmas_coord").then(({data})=>{ if(vivo&&Array.isArray(data)) setTurmasCoord(data); }); }catch(e){} return ()=>{ vivo=false; }; },[]);
   useEffect(()=>{ try{ window.__TREINAR_GEMEAS=async(qs,label)=>{
     let ok=acesso;
@@ -3330,6 +3334,8 @@ function Shell({session}){
 
   useEffect(()=>{(async()=>{
     setLoading(true);
+    /* se o acesso da faculdade acabou, os dias pagos guardados voltam antes de ler a assinatura */
+    try{ const {data:dv}=await sb.rpc("devolver_dias_guardados"); if(dv&&dv.devolvidos>0){ setAvisoTurma("✅ O acesso da faculdade terminou e os seus "+dv.dias+" dias pagos voltaram."); try{ window.__funil&&window.__funil("dias_devolvidos",String(dv.dias)); }catch(e){} } }catch(e){}
     const [q,r,d,s,a,st,mt,md,va,stq,cad,pp,tg]=await Promise.all([
       (async()=>{let all=[],from=0;const step=1000;for(;;){const{data,error}=await sb.from("questoes").select("*").order("id",{ascending:true}).range(from,from+step-1);if(error||!data||!data.length)break;all=all.concat(data);if(data.length<step)break;from+=step;}return{data:all};})(),
       todasAsLinhas(()=>sb.from("respostas").select("*").eq("user_id",uid)),
@@ -3563,6 +3569,7 @@ function Shell({session}){
         <div style={{fontSize:14,lineHeight:1.55,marginTop:6}}>{log.length>0?<span>Você já respondeu <b>{log.length}</b> {log.length===1?"questão":"questões"}. </span>:null}Assine agora para não perder o ritmo: seu progresso, caderno de erros e revisões continuam exatamente de onde estão.</div>
         <div className="row" style={{gap:10,marginTop:10,flexWrap:"wrap",alignItems:"center"}}><button className="btn sm" onClick={()=>{ try{ window.__funil&&window.__funil("trial_acabando_cta","h"+trialRestante); }catch(e){} setShowAssinar(true); }}>Continuar com acesso · {precoTxt} / 6 meses</button><span style={{fontSize:12}}><b style={{color:"var(--gold)"}}>Assinando durante o teste: 7 meses pelo preço de 6.</b> <span className="muted">Pix ou cartão, liberação na hora.</span></span></div>
     </div>}
+    {tab==="inicio" && diasGuardados>0 && <div className="card" style={{marginTop:16,borderColor:"var(--gold)",fontSize:14,lineHeight:1.5}}><b style={{color:"var(--gold)"}}>🏫 Seus {diasGuardados} dias pagos estão guardados.</b> Eles voltam automaticamente depois do acesso da faculdade: você não perde nada.</div>}
     {avisoTurma && <div className="card" style={{marginTop:16,borderColor:"var(--acc)",fontSize:14}}>{avisoTurma} <span className="link" style={{fontSize:13,marginLeft:6}} onClick={()=>setAvisoTurma("")}>ok</span></div>}
     {tab==="inicio" && turmasCoord.length>0 && <div className="card" style={{marginTop:16,borderColor:"var(--acc)"}}>
         <div className="row" style={{justifyContent:"space-between",alignItems:"center",gap:10,flexWrap:"wrap"}}>
@@ -10125,7 +10132,7 @@ function Assinar({uid,email,onClose,onVerificar,venceu}){
       {etapa==="plano" && <div>
         {venceu && <div className="card" style={{marginBottom:12,borderColor:"var(--gold)",background:"rgba(230,180,80,.08)"}}><b style={{color:"var(--gold)"}}>Sua assinatura venceu.</b> Isto é uma renovação, não uma cobrança nova — seu histórico e progresso continuam salvos.</div>}
         <div className="muted" style={{fontSize:14,marginBottom:14}}>Escolha: Pix à vista por 6 meses ou mensal no cartão. Acesso liberado automaticamente após a confirmação.</div>
-        <CodigoFaculdade onOk={async()=>{ try{ await onVerificar(); }catch(e){} onClose(); }}/>
+        <CodigoFaculdade onOk={async()=>{ try{ await onVerificar(); }catch(e){} try{ window.__CARREGAR_GUARDADOS&&window.__CARREGAR_GUARDADOS(); }catch(e){} onClose(); }}/>
 
         <div className="card" style={{background:"var(--flip)",color:"var(--flipink)",border:"1px solid var(--gold)",marginBottom:12,position:"relative"}}>
           <b style={{fontSize:16}}>Acesso completo — 6 meses</b>
