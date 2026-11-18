@@ -3549,7 +3549,7 @@ function Shell({session}){
         <h1 style={{fontSize:28,marginTop:6}}>Olá{session.user.user_metadata&&session.user.user_metadata.nome?", "+session.user.user_metadata.nome:""}</h1>
       </div>
       <div style={{textAlign:"right"}}>
-        <span id="tour-pill" className="pill" style={{color:isPro?"var(--gold)":(trialAtivo?"var(--acc)":"var(--muted)"),borderColor:isPro?"var(--gold)":(trialAtivo?"var(--acc)":"var(--line)")}}>{isPro?"PRO":(trialAtivo?"TESTE GRÁTIS · "+trialRestante+"h":"Demonstração")}</span>{fundador&&<span className="pill" title={"Membro fundador: preço de R$ "+PC.VALOR_INICIAL.toFixed(2).replace(".",",")+" travado para sempre"} style={{marginLeft:6,color:"var(--gold)",borderColor:"var(--gold)"}}>🏅 FUNDADOR</span>}
+        <span id="tour-pill" className="pill" style={{color:isPro?"var(--gold)":(trialAtivo?"var(--acc)":"var(--muted)"),borderColor:isPro?"var(--gold)":(trialAtivo?"var(--acc)":"var(--line)")}}>{isPro?"PRO":(trialAtivo?"TESTE GRÁTIS · "+trialRestante+"h":"Demonstração")}</span>
         <div className="row" style={{marginTop:8,justifyContent:"flex-end",gap:12}}>
           <SeletorTema tema={tema} setTema={setTema}/>
           <span className="link" style={{fontSize:13}} onClick={()=>sb.auth.signOut()}>Sair</span>
@@ -3598,7 +3598,7 @@ function Shell({session}){
         <div className="row" style={{gap:10,marginTop:10,flexWrap:"wrap"}}><button className="btn sm" onClick={()=>setShowAssinar(true)}>Liberar a IA · {precoTxt}</button><span style={{fontSize:12,alignSelf:"center"}}><b style={{color:"var(--gold)"}}>Assine durante o teste e leve 7 meses pelo preço de 6.</b> <span className="muted">Pix, na hora, sem renovação automática.</span></span></div>
     </div>}
     {tab==="inicio" && isPro && (fundador || (diasParaVencer!==null && diasParaVencer<=30)) && <div className="card" style={{marginTop:16,borderColor:"var(--gold)"}}>
-      {fundador && <div style={{fontSize:13}}><b style={{color:"var(--gold)"}}>🏅 Membro fundador.</b> Seu preço de <b>{"R$ "+PC.VALOR_INICIAL.toFixed(2).replace(".",",")}</b> está travado para sempre: vale em todas as renovações, mesmo com o preço atual em {valorNovoTxt}.</div>}
+      {fundador && <div style={{fontSize:13}}><b style={{color:"var(--gold)"}}>🏅 Membro fundador.</b> Você entrou no começo — seu preço fica em <b>{"R$ "+PC.VALOR_INICIAL.toFixed(2).replace(".",",")}</b> em todas as renovações, mesmo depois do reajuste.</div>}
       {diasParaVencer!==null && diasParaVencer<=30 && <div style={{fontSize:13,marginTop:fundador?8:0}}>{diasParaVencer>0?<span>Sua assinatura vence em <b>{diasParaVencer} dia{diasParaVencer===1?"":"s"}</b>.</span>:<span><b>Sua assinatura venceu.</b></span>} Renovando agora, os dias que restam são <b>somados</b> aos novos 6 meses.
         <div style={{marginTop:8}}><button className="btn sm" onClick={()=>setShowAssinar(true)}>Renovar · {precoTxt} / 6 meses</button></div></div>}
     </div>}
