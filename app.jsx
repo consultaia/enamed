@@ -6281,7 +6281,7 @@ function blocosMetade(pool, modId, half){
 const SREV_AREA={APS:"MFC",CIR:"CIR",CM:"CM",GO:"GO",PED:"PED",UESM:"CM"};
 /* Aulas narrativas dos guias (aba "Aula"): ficam em aulas_n2/<MOD>_<A|B>.json, ao lado do
    index.html, para não pesar o app. O guia (iframe) pede ao abrir; o app busca uma vez e entrega. */
-const AULAS_N2_VER="2026.10.08d";
+const AULAS_N2_VER="2026.11.23a";
 const __aulasN2={};
 function carregarAulasN2(mod){
   if(!/^[A-Z]+_[AB]$/.test(mod)) return Promise.resolve(null);
