@@ -4203,8 +4203,8 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
       const feitos=padrao.filter(x=>concluido(x.t)).length;
       const prox=padrao.find(x=>!concluido(x.t)&&liberado(x.t))||padrao.find(x=>!concluido(x.t));
       const lista=verPadrao?padrao:padrao.slice(0,8);
-      return <div className="card" style={{marginBottom:18,borderColor:"var(--acc)",background:"var(--flip)",color:"var(--flipink)"}}>
-        <div className="tag" style={{color:"var(--acc)"}}>🧭 TRILHA RECOMENDADA</div>
+      return <div className="card card-flip" style={{marginBottom:18,borderColor:"var(--acc)",background:"var(--flip)",color:"var(--flipink)"}}>
+        <div className="tag">🧭 TRILHA RECOMENDADA</div>
         <b style={{fontSize:17,display:"block",marginTop:6}}>Siga pelo que mais cai nas provas</b>
         <div className="muted" style={{fontSize:13,marginTop:4,lineHeight:1.5}}>Não quer fazer o diagnóstico? Comece por aqui: os assuntos de todas as áreas, na ordem de quantas questões de prova real o banco tem sobre cada um.</div>
         <div className="row" style={{justifyContent:"space-between",marginTop:10,fontSize:12.5}}><span className="muted">{feitos} de {padrao.length} assuntos concluídos</span></div>
@@ -4214,9 +4214,9 @@ function Trilha({store,acertoArea,avaliarDominio,registrar,irTreinar,isPro,freeT
           <button className="btn sm" onClick={()=>abrir(prox.t,true)}>{liberado(prox.t)?(feitos?"Continuar ›":"Começar ›"):"🔒 Assinar"}</button>
         </div>}
         <div style={{marginTop:12}}>
-          {lista.map((x,i)=><div key={x.t.id} className="row" style={{justifyContent:"space-between",alignItems:"center",gap:8,padding:"7px 2px",borderTop:"1px solid var(--line)"}}>
+          {lista.map((x,i)=><div key={x.t.id} className="row" style={{justifyContent:"space-between",alignItems:"center",gap:8,padding:"7px 2px",borderTop:"1px solid color-mix(in srgb,var(--flipink) 18%,transparent)",flexWrap:"nowrap"}}>
             <span style={{fontSize:13.5,minWidth:0}}><span className="muted" style={{display:"inline-block",width:26}}>{concluido(x.t)?"✓":(i+1)+"."}</span>{x.t.nome} <span className="muted" style={{fontSize:12}}>· {x.t.area}{x.n?" · "+x.n:""}</span></span>
-            <button className="btn ghost sm" onClick={()=>abrir(x.t,true)}>{concluido(x.t)?"Revisar":"Estudar"}</button>
+            <button className="btn ghost sm" style={{flex:"none"}} onClick={()=>abrir(x.t,true)}>{concluido(x.t)?"Revisar":"Estudar"}</button>
           </div>)}
           {padrao.length>8 && <span className="link" style={{fontSize:13,display:"inline-block",marginTop:8}} onClick={()=>setVerPadrao(v=>!v)}>{verPadrao?"Ver só os 8 primeiros":"Ver a trilha completa ("+padrao.length+" assuntos)"}</span>}
         </div>
