@@ -329,6 +329,12 @@ body.modo-casado #root{max-width:1680px}
 .casado-rolagem{height:100%;overflow-y:auto;padding:12px 14px;background:var(--bg)}
 .card-flip .muted,.card-flip .tag{color:color-mix(in srgb,var(--flipink) 80%,transparent)!important}
 .card-flip .bar{background:color-mix(in srgb,var(--flipink) 22%,transparent)}
+/* cores de TEXTO legíveis (contraste ≥ 4,5) para os blocos novos */
+:root{--acc-txt:var(--acc);--muted-txt:var(--muted);--acc-fill:var(--acc);--on-acc:var(--bg)}
+html[data-tema="claro"]{--acc-txt:#087049;--muted-txt:#4d6962;--acc-fill:#087049;--on-acc:#ffffff}
+html[data-tema="sepia"]{--muted-txt:#65533f;--on-acc:#ffffff}
+html[data-tema="vibrante"],html[data-tema="vibrante_branco"]{--on-acc:#ffffff}
+.srev-nativa .muted,.vis-aula .muted{color:var(--muted-txt)!important}
 .casado-grade{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:16px;align-items:start}
 .casado-guia{position:sticky;top:10px;height:calc(100vh - 20px);border-radius:12px;overflow:hidden;border:1px solid rgba(127,127,127,.25)}
 

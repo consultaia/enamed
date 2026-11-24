@@ -3811,9 +3811,9 @@ function dadosGuia(mod){
 function VisAula({v,tx}){
   const T=s=>htmlAula(tx?tx(s):s);
   if(!v||!v.t) return null;
-  const tit=v.titulo?<div style={{fontWeight:800,fontSize:14,color:"var(--acc)",margin:"0 0 10px"}}>{T(v.titulo)}</div>:null;
+  const tit=v.titulo?<div style={{fontWeight:800,fontSize:14,color:"var(--acc-txt)",margin:"0 0 10px"}}>{T(v.titulo)}</div>:null;
   const caixa={border:"1px solid var(--line)",borderRadius:14,padding:"14px 14px 12px",margin:"4px 0 16px",background:"var(--panel)"};
-  if(v.t==="compara") return <div style={caixa}>{tit}
+  if(v.t==="compara") return <div className="vis-aula" style={caixa}>{tit}
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10}}>
       {(v.cols||[]).map((c,i)=><div key={i} style={{borderRadius:10,padding:"10px 12px",background:"color-mix(in srgb,"+(i%2?"var(--acc2)":"var(--acc)")+" 12%,var(--panel))",borderTop:"3px solid "+(i%2?"var(--acc2)":"var(--acc)")}}>
         <div style={{fontWeight:800,fontSize:14.5,marginBottom:6}}>{T(c.nome)}</div>
@@ -3821,25 +3821,25 @@ function VisAula({v,tx}){
       </div>)}
     </div></div>;
   /* tabela larga (4+ colunas) vira um cartão por linha: no celular não corta */
-  if(v.t==="tabela" && (v.cab||[]).length>3) return <div style={caixa}>{tit}
+  if(v.t==="tabela" && (v.cab||[]).length>3) return <div className="vis-aula" style={caixa}>{tit}
     {(v.linhas||[]).map((l,i)=><div key={i} style={{borderRadius:10,padding:"10px 12px",margin:"0 0 8px",background:"color-mix(in srgb,var(--acc) 8%,var(--panel))",borderLeft:"3px solid var(--acc)"}}>
       <div style={{fontWeight:900,fontSize:15,marginBottom:4}}>{(v.cab[0]?T(v.cab[0])+" ":"")}{T(l[0])}</div>
       {l.slice(1).map((c,j)=><div key={j} style={{fontSize:13.5,lineHeight:1.45,padding:"2px 0"}}><span className="muted">{T(v.cab[j+1]||"")}: </span>{T(c)}</div>)}
     </div>)}</div>;
-  if(v.t==="tabela") return <div style={caixa}>{tit}
+  if(v.t==="tabela") return <div className="vis-aula" style={caixa}>{tit}
     <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13.5,lineHeight:1.4}}>
       <thead><tr>{(v.cab||[]).map((c,i)=><th key={i} style={{textAlign:"left",padding:"8px 8px",background:"color-mix(in srgb,var(--acc) 16%,var(--panel))",borderBottom:"2px solid var(--acc)",}}>{T(c)}</th>)}</tr></thead>
       <tbody>{(v.linhas||[]).map((l,i)=><tr key={i}>{l.map((c,j)=><td key={j} style={{padding:"8px 8px",borderBottom:"1px solid var(--line)",verticalAlign:"top",fontWeight:j===0?700:400}}>{T(c)}</td>)}</tr>)}</tbody>
     </table></div></div>;
-  if(v.t==="fluxo") return <div style={caixa}>{tit}
+  if(v.t==="fluxo") return <div className="vis-aula" style={caixa}>{tit}
     {(v.passos||[]).map((s,i)=><div key={i}>
       <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-        <span style={{flex:"none",width:26,height:26,borderRadius:99,background:"var(--acc)",color:"var(--bg)",fontWeight:800,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>{i+1}</span>
+        <span style={{flex:"none",width:26,height:26,borderRadius:99,background:"var(--acc-fill)",color:"var(--on-acc)",fontWeight:800,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>{i+1}</span>
         <div style={{fontSize:14,lineHeight:1.45,paddingTop:3}}><b>{T(s.txt)}</b>{s.nota && <div className="muted" style={{fontSize:12.5,marginTop:2}}>{T(s.nota)}</div>}</div>
       </div>
       {i<(v.passos.length-1) && <div style={{width:2,height:14,background:"var(--acc)",margin:"3px 0 3px 12px",opacity:.6}}/>}
     </div>)}</div>;
-  if(v.t==="numeros") return <div style={caixa}>{tit}
+  if(v.t==="numeros") return <div className="vis-aula" style={caixa}>{tit}
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(135px,1fr))",gap:8}}>
       {(v.itens||[]).map((x,i)=><div key={i} style={{borderRadius:10,padding:"10px 10px",background:"color-mix(in srgb,var(--gold, #e6b450) 12%,var(--panel))",border:"1px solid color-mix(in srgb,var(--gold, #e6b450) 40%,transparent)"}}>
         <div style={{fontWeight:900,fontSize:17,lineHeight:1.15}}>{T(x.v)}</div>
@@ -3891,7 +3891,7 @@ function SuperRevisaoNativa({mod, topico, registrar, dominio, avaliarDominio, co
     return <button key={x.num} onClick={()=>irTopico(k)} title={x.titulo}
       style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:999,fontSize:12.5,cursor:"pointer",whiteSpace:"nowrap",
         border:"1px solid "+(on?"var(--acc)":"var(--line)"),background:on?"color-mix(in srgb,var(--acc) 16%,var(--panel))":"var(--panel)",color:"var(--ink)",fontWeight:on?700:500}}>
-      <b style={{color:"var(--acc)",fontVariantNumeric:"tabular-nums"}}>{String(x.num).padStart(2,"0")}</b>
+      <b style={{color:"var(--acc-txt)",fontVariantNumeric:"tabular-nums"}}>{String(x.num).padStart(2,"0")}</b>
       <span style={{maxWidth:compacto?140:220,overflow:"hidden",textOverflow:"ellipsis"}}>{x.titulo}</span>
       {ok && <span aria-label="dominado" style={{width:7,height:7,borderRadius:9,background:"var(--ok, #4bb58e)",flex:"none"}}/>}
     </button>; };
@@ -3918,7 +3918,7 @@ function SuperRevisaoNativa({mod, topico, registrar, dominio, avaliarDominio, co
       {!aulas && <div className="card muted">Carregando a aula…</div>}
       {aulas && !secs.length && <div className="card muted">Este tópico ainda não tem aula. Veja o Caceteiro.</div>}
       {(t.resumo||[]).filter(r=>String(r.h||"").indexOf("🎯")===0).map((r,k)=><details key={"d"+k} className="card" style={{marginBottom:14,borderColor:"var(--acc)",cursor:"pointer"}}>
-        <summary style={{fontSize:15.5,fontWeight:800,color:"var(--acc)"}}>{textoAula(r.h)} <span className="muted" style={{fontSize:12,fontWeight:500}}>· toque para abrir</span></summary>
+        <summary style={{fontSize:15.5,fontWeight:800,color:"var(--acc-txt)"}}>{textoAula(r.h)} <span className="muted" style={{fontSize:12,fontWeight:500}}>· toque para abrir</span></summary>
         <ul style={{margin:"10px 0 0 18px",padding:0}}>{(r.p||[]).map((p,j)=><li key={j} style={{fontSize:fs-1,lineHeight:1.55,marginBottom:6}}>{htmlAula(p)}</li>)}</ul></details>)}
       {secs.length>0 && !compacto && <OuvirTexto paragrafos={secs.flatMap(s=>[s.h].concat(s.p||[]).map(x=>textoAula(x)))} rotulo="Ouvir a aula"/>}
       {secs.map((s,k)=><div key={k} style={{marginBottom:18}}>
@@ -3936,22 +3936,22 @@ function SuperRevisaoNativa({mod, topico, registrar, dominio, avaliarDominio, co
     </div>}
 
     {aba==="aula" && (t.resumo||[]).some(r=>r.fig) && <div style={{marginTop:6}}>
-      <div className="tag" style={{color:"var(--acc)",marginBottom:8}}>Esquemas</div>
+      <div className="tag" style={{color:"var(--acc-txt)",marginBottom:8}}>Esquemas</div>
       {(t.resumo||[]).filter(r=>r.fig).map((r,k)=><div key={k} className="srev-fig"><div dangerouslySetInnerHTML={{__html:r.fig}}/>{r.figcap && <div className="srev-figcap">{textoAula(r.figcap)}</div>}</div>)}
     </div>}
 
     {aba==="cacete" && Array.isArray(t.cacete) && t.cacete.length>0 && <div>
       <div className="muted" style={{fontSize:12.5,marginBottom:10}}>Uma linha por fato: gatilho do enunciado → resposta. Para revisar em minutos.</div>
       {t.cacete.map((g,k)=><div key={k} className="card" style={{marginBottom:12,padding:"12px 14px"}}>
-        {g.h && <div style={{fontWeight:800,fontSize:14,color:"var(--acc)",marginBottom:6}}>{textoAula(g.h)}</div>}
+        {g.h && <div style={{fontWeight:800,fontSize:14,color:"var(--acc-txt)",marginBottom:6}}>{textoAula(g.h)}</div>}
         {(g.l||[]).map((x,j)=><div key={j} style={{display:"flex",gap:8,alignItems:"baseline",fontSize:fs-1,lineHeight:1.45,padding:"6px 0",borderTop:j?"1px solid var(--line)":"none"}}>
-          <span style={{flex:"0 0 auto",maxWidth:"45%",fontWeight:800}}>{htmlAula(x.k)}</span><span style={{color:"var(--acc)",fontWeight:800}}>→</span><span style={{minWidth:0}}>{htmlAula(x.v)}</span></div>)}
+          <span style={{flex:"0 0 auto",maxWidth:"45%",fontWeight:800}}>{htmlAula(x.k)}</span><span style={{color:"var(--acc-txt)",fontWeight:800}}>→</span><span style={{minWidth:0}}>{htmlAula(x.v)}</span></div>)}
       </div>)}
     </div>}
 
     {(aba==="resumo"||(aba==="cacete"&&!(Array.isArray(t.cacete)&&t.cacete.length))) && <div>
       {(t.resumo||[]).map((r,k)=><div key={k} className="card" style={{marginBottom:12}}>
-        <h3 style={{fontSize:compacto?16:17,margin:"0 0 10px",color:"var(--acc)"}}>{textoAula(r.h)}</h3>
+        <h3 style={{fontSize:compacto?16:17,margin:"0 0 10px",color:"var(--acc-txt)"}}>{textoAula(r.h)}</h3>
         {r.fig && <div className="srev-fig"><div dangerouslySetInnerHTML={{__html:r.fig}}/>{r.figcap && <div className="srev-figcap">{textoAula(r.figcap)}</div>}</div>}
         <ul style={{margin:"0 0 0 18px",padding:0}}>{(r.p||[]).map((p,j)=><li key={j} style={{fontSize:fs-0.5,lineHeight:1.6,marginBottom:7}}>{htmlAula(p)}</li>)}</ul>
       </div>)}
@@ -3968,7 +3968,7 @@ function SuperRevisaoNativa({mod, topico, registrar, dominio, avaliarDominio, co
     </div>}
 
     {aba==="flashcards" && <div>
-      {(t.flashcards||[]).length>0 && <div className="tag" style={{color:"var(--acc)",marginBottom:8}}>Responda de cabeça e toque para ver o verso</div>}
+      {(t.flashcards||[]).length>0 && <div className="tag" style={{color:"var(--acc-txt)",marginBottom:8}}>Responda de cabeça e toque para ver o verso</div>}
       {(t.flashcards||[]).map((x,k)=><details key={k} className="block b-metodo" style={{cursor:"pointer"}}>
         <summary>{htmlAula(x.f)}</summary><div style={{marginTop:6,fontWeight:600}}>{htmlAula(x.v)}</div></details>)}
       {!(t.flashcards||[]).length && <div className="card muted">Sem flashcards neste tópico.</div>}
