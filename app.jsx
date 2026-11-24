@@ -3806,6 +3806,49 @@ function dadosGuia(mod){
 /* Super Revisão nativa: resumo, pegadinhas, mnemônicos, flashcards e questões de cada
    tópico, nas cores do tema do app. "Dominado" fica na conta (tabela dominio, id srev_<MOD>_t<n>):
    nível 3 = dominado, nível 1 = desmarcado (nada é apagado). */
+/* Blocos visuais das aulas (comparativo, tabela, fluxograma, números, alerta): dados em JSON,
+   desenhados com as cores do tema. tx transforma o texto (ex.: semN2 na aba Estudar). */
+function VisAula({v,tx}){
+  const T=s=>htmlAula(tx?tx(s):s);
+  if(!v||!v.t) return null;
+  const tit=v.titulo?<div style={{fontWeight:800,fontSize:14,color:"var(--acc)",margin:"0 0 10px"}}>{T(v.titulo)}</div>:null;
+  const caixa={border:"1px solid var(--line)",borderRadius:14,padding:"14px 14px 12px",margin:"4px 0 16px",background:"var(--panel)"};
+  if(v.t==="compara") return <div style={caixa}>{tit}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:10}}>
+      {(v.cols||[]).map((c,i)=><div key={i} style={{borderRadius:10,padding:"10px 12px",background:"color-mix(in srgb,"+(i%2?"var(--acc2)":"var(--acc)")+" 12%,var(--panel))",borderTop:"3px solid "+(i%2?"var(--acc2)":"var(--acc)")}}>
+        <div style={{fontWeight:800,fontSize:14.5,marginBottom:6}}>{T(c.nome)}</div>
+        {(c.itens||[]).map((x,j)=><div key={j} style={{fontSize:13.5,lineHeight:1.45,padding:"4px 0",borderTop:j?"1px dashed var(--line)":"none"}}>{T(x)}</div>)}
+      </div>)}
+    </div></div>;
+  /* tabela larga (4+ colunas) vira um cartão por linha: no celular não corta */
+  if(v.t==="tabela" && (v.cab||[]).length>3) return <div style={caixa}>{tit}
+    {(v.linhas||[]).map((l,i)=><div key={i} style={{borderRadius:10,padding:"10px 12px",margin:"0 0 8px",background:"color-mix(in srgb,var(--acc) 8%,var(--panel))",borderLeft:"3px solid var(--acc)"}}>
+      <div style={{fontWeight:900,fontSize:15,marginBottom:4}}>{(v.cab[0]?T(v.cab[0])+" ":"")}{T(l[0])}</div>
+      {l.slice(1).map((c,j)=><div key={j} style={{fontSize:13.5,lineHeight:1.45,padding:"2px 0"}}><span className="muted">{T(v.cab[j+1]||"")}: </span>{T(c)}</div>)}
+    </div>)}</div>;
+  if(v.t==="tabela") return <div style={caixa}>{tit}
+    <div style={{overflowX:"auto"}}><table style={{width:"100%",borderCollapse:"collapse",fontSize:13.5,lineHeight:1.4}}>
+      <thead><tr>{(v.cab||[]).map((c,i)=><th key={i} style={{textAlign:"left",padding:"8px 8px",background:"color-mix(in srgb,var(--acc) 16%,var(--panel))",borderBottom:"2px solid var(--acc)",}}>{T(c)}</th>)}</tr></thead>
+      <tbody>{(v.linhas||[]).map((l,i)=><tr key={i}>{l.map((c,j)=><td key={j} style={{padding:"8px 8px",borderBottom:"1px solid var(--line)",verticalAlign:"top",fontWeight:j===0?700:400}}>{T(c)}</td>)}</tr>)}</tbody>
+    </table></div></div>;
+  if(v.t==="fluxo") return <div style={caixa}>{tit}
+    {(v.passos||[]).map((s,i)=><div key={i}>
+      <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+        <span style={{flex:"none",width:26,height:26,borderRadius:99,background:"var(--acc)",color:"var(--bg)",fontWeight:800,fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>{i+1}</span>
+        <div style={{fontSize:14,lineHeight:1.45,paddingTop:3}}><b>{T(s.txt)}</b>{s.nota && <div className="muted" style={{fontSize:12.5,marginTop:2}}>{T(s.nota)}</div>}</div>
+      </div>
+      {i<(v.passos.length-1) && <div style={{width:2,height:14,background:"var(--acc)",margin:"3px 0 3px 12px",opacity:.6}}/>}
+    </div>)}</div>;
+  if(v.t==="numeros") return <div style={caixa}>{tit}
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(135px,1fr))",gap:8}}>
+      {(v.itens||[]).map((x,i)=><div key={i} style={{borderRadius:10,padding:"10px 10px",background:"color-mix(in srgb,var(--gold, #e6b450) 12%,var(--panel))",border:"1px solid color-mix(in srgb,var(--gold, #e6b450) 40%,transparent)"}}>
+        <div style={{fontWeight:900,fontSize:17,lineHeight:1.15}}>{T(x.v)}</div>
+        <div className="muted" style={{fontSize:12.5,marginTop:4,lineHeight:1.35}}>{T(x.r)}</div>
+      </div>)}
+    </div></div>;
+  if(v.t==="alerta") return <div className="block b-pega" style={{margin:"4px 0 16px"}}><b>⚠️ {v.titulo?T(v.titulo):"Atenção"}:</b> {T(v.txt)}</div>;
+  return null;
+}
 const SREV_LS_ANTIGO={APS_A:"apsA_afya_v1",APS_B:"apsB_afya_v1",CIR_A:"cirurgiaA_afya_v1",CM_A:"cmA_afya_v1",CM_B:"cmB_afya_v1",
   GO_A:"goA_afya_v2",GO_B:"goB_afya_v1",PED_A:"pedA_afya_v2",PED_B:"pedB_afya_v2",UESM_A:"uesmA_afya_v1",UESM_B:"uesmB_afya_v2"};
 function srevNorm(s){ return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,""); }
@@ -3818,7 +3861,7 @@ const srevDominado=(dominio,mod,num)=>{ const d=dominio&&dominio["srev_"+mod+"_t
 function SuperRevisaoNativa({mod, topico, registrar, dominio, avaliarDominio, compacto}){
   const D=dadosGuia(mod)||[];
   const [idx,setIdx]=useState(()=>srevIndiceTopico(D,topico));
-  const [aba,setAba]=useState("resumo");
+  const [aba,setAba]=useState(compacto?"cacete":"aula");
   const [qf,setQf]=useState(()=>{ try{ return localStorage.getItem("sr_qfiltro")||"todas"; }catch(e){ return "todas"; } });
   const [aulas,setAulas]=useState(null);
   const topoRef=useRef(null);
@@ -3841,7 +3884,7 @@ function SuperRevisaoNativa({mod, topico, registrar, dominio, avaliarDominio, co
   const nN2=todas.filter(x=>!x.q.extra).length, nEx=todas.length-nN2;
   const modoQ=(qf==="n2"&&!nN2)||(qf==="extras"&&!nEx)?"todas":qf;
   const visiveis=todas.filter(x=>modoQ==="n2"?!x.q.extra:(modoQ==="extras"?!!x.q.extra:true));
-  const abas=[["aula","Aula"],["resumo","Resumo"],["pegadinhas","Pegadinhas"],["mnemonicos","Mnemônicos"],["flashcards","Flashcards"],["questoes","Questões"]];
+  const abas=[["aula","📘 Completo"],["cacete","⚡ Caceteiro"],["pegadinhas","Pegadinhas"],["mnemonicos","Mnemônicos"],["flashcards","Flashcards"],["questoes","Questões"]];
   const irTopico=k=>{ setIdx(k); try{ const el=topoRef.current, box=el&&el.closest(".casado-rolagem"); if(box) box.scrollTop=0; else if(el) el.scrollIntoView({block:"start",behavior:"smooth"}); }catch(e){} };
   const fs=compacto?14:15;
   const chip=(x,k)=>{ const on=k===idx, ok=srevDominado(dominio,mod,x.num);
@@ -3873,7 +3916,10 @@ function SuperRevisaoNativa({mod, topico, registrar, dominio, avaliarDominio, co
 
     {aba==="aula" && <div>
       {!aulas && <div className="card muted">Carregando a aula…</div>}
-      {aulas && !secs.length && <div className="card muted">Este tópico ainda não tem aula. Veja o Resumo.</div>}
+      {aulas && !secs.length && <div className="card muted">Este tópico ainda não tem aula. Veja o Caceteiro.</div>}
+      {(t.resumo||[]).filter(r=>String(r.h||"").indexOf("🎯")===0).map((r,k)=><details key={"d"+k} className="card" style={{marginBottom:14,borderColor:"var(--acc)",cursor:"pointer"}}>
+        <summary style={{fontSize:15.5,fontWeight:800,color:"var(--acc)"}}>{textoAula(r.h)} <span className="muted" style={{fontSize:12,fontWeight:500}}>· toque para abrir</span></summary>
+        <ul style={{margin:"10px 0 0 18px",padding:0}}>{(r.p||[]).map((p,j)=><li key={j} style={{fontSize:fs-1,lineHeight:1.55,marginBottom:6}}>{htmlAula(p)}</li>)}</ul></details>)}
       {secs.length>0 && !compacto && <OuvirTexto paragrafos={secs.flatMap(s=>[s.h].concat(s.p||[]).map(x=>textoAula(x)))} rotulo="Ouvir a aula"/>}
       {secs.map((s,k)=><div key={k} style={{marginBottom:18}}>
         <h3 style={{fontSize:17,marginBottom:8}}>{textoAula(s.h)}</h3>
@@ -3881,6 +3927,7 @@ function SuperRevisaoNativa({mod, topico, registrar, dominio, avaliarDominio, co
           <iframe src={"https://www.youtube-nocookie.com/embed/"+s.video.id+"?rel=0"} title={s.video.titulo||"Videoaula"} loading="lazy" allowFullScreen
             style={{position:"absolute",inset:0,width:"100%",height:"100%",border:0}}/></div>}
         {(s.p||[]).map((p,j)=><p key={j} style={{fontSize:fs,lineHeight:1.65,margin:"0 0 10px"}}>{htmlAula(p)}</p>)}
+        {(s.vis||[]).map((v,j)=><VisAula key={"v"+j} v={v}/>)}
         {s.caso && <div className="block b-nucleo"><b>Caso para fixar:</b> {htmlAula(s.caso)}</div>}
         {s.prova && <div className="block b-metodo"><b>Como a prova cobra:</b> {htmlAula(s.prova)}</div>}
         {s.pense && <details className="block b-mne" style={{cursor:"pointer"}}><summary><b>🧠 Pare e pense:</b> {htmlAula(s.pense.q)}</summary>
@@ -3888,7 +3935,21 @@ function SuperRevisaoNativa({mod, topico, registrar, dominio, avaliarDominio, co
       </div>)}
     </div>}
 
-    {aba==="resumo" && <div>
+    {aba==="aula" && (t.resumo||[]).some(r=>r.fig) && <div style={{marginTop:6}}>
+      <div className="tag" style={{color:"var(--acc)",marginBottom:8}}>Esquemas</div>
+      {(t.resumo||[]).filter(r=>r.fig).map((r,k)=><div key={k} className="srev-fig"><div dangerouslySetInnerHTML={{__html:r.fig}}/>{r.figcap && <div className="srev-figcap">{textoAula(r.figcap)}</div>}</div>)}
+    </div>}
+
+    {aba==="cacete" && Array.isArray(t.cacete) && t.cacete.length>0 && <div>
+      <div className="muted" style={{fontSize:12.5,marginBottom:10}}>Uma linha por fato: gatilho do enunciado → resposta. Para revisar em minutos.</div>
+      {t.cacete.map((g,k)=><div key={k} className="card" style={{marginBottom:12,padding:"12px 14px"}}>
+        {g.h && <div style={{fontWeight:800,fontSize:14,color:"var(--acc)",marginBottom:6}}>{textoAula(g.h)}</div>}
+        {(g.l||[]).map((x,j)=><div key={j} style={{display:"flex",gap:8,alignItems:"baseline",fontSize:fs-1,lineHeight:1.45,padding:"6px 0",borderTop:j?"1px solid var(--line)":"none"}}>
+          <span style={{flex:"0 0 auto",maxWidth:"45%",fontWeight:800}}>{htmlAula(x.k)}</span><span style={{color:"var(--acc)",fontWeight:800}}>→</span><span style={{minWidth:0}}>{htmlAula(x.v)}</span></div>)}
+      </div>)}
+    </div>}
+
+    {(aba==="resumo"||(aba==="cacete"&&!(Array.isArray(t.cacete)&&t.cacete.length))) && <div>
       {(t.resumo||[]).map((r,k)=><div key={k} className="card" style={{marginBottom:12}}>
         <h3 style={{fontSize:compacto?16:17,margin:"0 0 10px",color:"var(--acc)"}}>{textoAula(r.h)}</h3>
         {r.fig && <div className="srev-fig"><div dangerouslySetInnerHTML={{__html:r.fig}}/>{r.figcap && <div className="srev-figcap">{textoAula(r.figcap)}</div>}</div>}
@@ -4005,6 +4066,7 @@ function AulasInternato({modInicial,numInicial,onVoltar,registrar}){
         {secs.map((s,k)=><div key={k} style={{marginBottom:18}}>
           <h3 style={{fontSize:17,marginBottom:8}}>{textoAula(semN2(s.h))}</h3>
           {(s.p||[]).map((p,j)=><p key={j} style={{fontSize:15,lineHeight:1.65,margin:"0 0 10px"}}>{htmlAula(semN2(p))}</p>)}
+          {(s.vis||[]).map((v,j)=><VisAula key={"v"+j} v={v} tx={semN2}/>)}
           {s.caso && <div className="block b-nucleo"><b>Caso para fixar:</b> {htmlAula(semN2(s.caso))}</div>}
         </div>)}
         {secs.length===0 && <div className="card muted">Esta aula ainda não está disponível.</div>}
