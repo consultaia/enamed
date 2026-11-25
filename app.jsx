@@ -9570,7 +9570,7 @@ function EstudarAssunto({t,store,avaliarDominio,registrar,irTreinar,isPro,onAssi
     {/* ETAPA 0 — AULA */}
     {etapa===0 && <div>
       {temAula
-        ? <AulaAdaptativa tema={t.nome} aula={t.aula} fonte={t.fonte} figs={t.figs}/>
+        ? <AulaAdaptativa tema={t.nome} aula={t.aula} fonte={t.fonte} figs={t.figs} vis={(extraEstudo(t.id)||{}).vis}/>
         : <div><div className="tag" style={{color:"var(--acc)",marginBottom:6}}>Resumo</div>
             <OuvirTexto paragrafos={t.nucleo} rotulo="Ouvir o resumo"/>
             <ul style={{margin:"0 0 0 18px",padding:0,fontSize:14.5,lineHeight:1.7}}>{t.nucleo.map((n,i)=><li key={i} style={{marginBottom:6}}>{n}</li>)}</ul>
@@ -9606,6 +9606,7 @@ function EstudarAssunto({t,store,avaliarDominio,registrar,irTreinar,isPro,onAssi
 
     {/* ETAPA 3 — FIXE */}
     {etapa===3 && <div>
+      {(()=>{ const ex=extraEstudo(t.id); return ex&&ex.cacete ? <div style={{marginBottom:14}}><CaceteiroLista cac={ex.cacete}/></div> : null; })()}
       <div className="b-mne block"><b>Gancho pra memorizar:</b> {t.mne}</div>
       <div className="b-sus block"><b>Âncora SUS/DCN:</b> {t.sus}</div>
       <div className="b-metodo block" style={{marginTop:10}}><b>Em uma frase:</b> {t.nucleo[0]}</div>
@@ -9741,7 +9742,29 @@ function PraticaTema({t,store,registrar,isPro,onAssinar}){
 }
 
 /* =================== AULA ADAPTATIVA =================== */
-function AulaAdaptativa({tema,aula,fonte,figs}){
+/* Conteúdo visual da aba Estudar (blocos por parágrafo e Caceteiro), compactado em
+   window.ESTUDAR_EXTRA_GZ e aberto uma vez. */
+let __extraEstudo=null;
+function extraEstudo(id){
+  if(__extraEstudo===null){ __extraEstudo={};
+    try{ const gz=window.ESTUDAR_EXTRA_GZ; if(gz&&window.fflate){ const bin=atob(gz), u=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+      __extraEstudo=JSON.parse(new TextDecoder("utf-8").decode(window.fflate.gunzipSync(u)))||{}; } }catch(e){ __extraEstudo={}; } }
+  return __extraEstudo[id]||null;
+}
+function CaceteiroLista({cac,tx}){
+  const T=s=>htmlAula(tx?tx(s):s);
+  if(!Array.isArray(cac)||!cac.length) return null;
+  return <div>
+    <div className="tag" style={{color:"var(--acc-txt)",marginBottom:6}}>⚡ Caceteiro — revisão em minutos</div>
+    <div className="muted" style={{fontSize:12.5,marginBottom:10}}>Uma linha por fato: gatilho do enunciado → resposta.</div>
+    {cac.map((g,k)=><div key={k} className="card srev-nativa" style={{marginBottom:12,padding:"12px 14px"}}>
+      {g.h && <div style={{fontWeight:800,fontSize:14,color:"var(--acc-txt)",marginBottom:6}}>{T(g.h)}</div>}
+      {(g.l||[]).map((x,j)=><div key={j} style={{display:"flex",gap:8,alignItems:"baseline",fontSize:14,lineHeight:1.45,padding:"6px 0",borderTop:j?"1px solid var(--line)":"none"}}>
+        <span style={{flex:"0 0 auto",maxWidth:"45%",fontWeight:800}}>{T(x.k)}</span><span style={{color:"var(--acc-txt)",fontWeight:800}}>→</span><span style={{minWidth:0}}>{T(x.v)}</span></div>)}
+    </div>)}
+  </div>;
+}
+function AulaAdaptativa({tema,aula,fonte,figs,vis}){
   const [lendo,setLendo]=useState(null); // parágrafo sendo lido em voz alta
   const [extra,setExtra]=useState(null); // texto reescrito pela IA
   const [busy,setBusy]=useState("");
@@ -9767,7 +9790,7 @@ function AulaAdaptativa({tema,aula,fonte,figs}){
   return <div style={{marginTop:6}}>
     <div className="tag" style={{color:"var(--acc)",marginBottom:6}}>A aula</div>
     <OuvirTexto paragrafos={aula} onAtual={setLendo}/>
-    {aula.map((p,i)=><ParagrafoLido key={i} ativo={lendo===i} style={{fontSize:14.5,lineHeight:1.65,margin:"0 0 12px"}}>{p}</ParagrafoLido>)}
+    {aula.map((p,i)=><React.Fragment key={i}><ParagrafoLido ativo={lendo===i} style={{fontSize:14.5,lineHeight:1.65,margin:"0 0 12px"}}>{p}</ParagrafoLido>{vis&&Array.isArray(vis[String(i)])&&vis[String(i)].map((v,j)=><VisAula key={"v"+j} v={v}/>)}</React.Fragment>)}
     {figs && figs.length>0 && <div style={{margin:"4px 0 14px"}}>
       {figs.map((f,i)=><div key={i} className="figbox">
         <div dangerouslySetInnerHTML={{__html:f.svg}}/>
