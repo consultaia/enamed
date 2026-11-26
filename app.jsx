@@ -2217,36 +2217,40 @@ function idbAbrir(){ return new Promise((ok,erro)=>{ try{ const r=indexedDB.open
   r.onupgradeneeded=()=>{ try{ r.result.createObjectStore("kv"); }catch(e){} }; r.onsuccess=()=>ok(r.result); r.onerror=()=>erro(r.error); }catch(e){ erro(e); } }); }
 async function idbLer(k){ try{ const db=await idbAbrir(); return await new Promise(ok=>{ const t=db.transaction("kv","readonly").objectStore("kv").get(k); t.onsuccess=()=>ok(t.result||null); t.onerror=()=>ok(null); }); }catch(e){ return null; } }
 async function idbGravar(k,v){ try{ const db=await idbAbrir(); await new Promise(ok=>{ const tx=db.transaction("kv","readwrite"); tx.objectStore("kv").put(v,k); tx.oncomplete=()=>ok(); tx.onerror=()=>ok(); tx.onabort=()=>ok(); }); }catch(e){} }
-async function carregarQuestoesBanco(){
-  let assin=null;
+async function carregarQuestoesBanco(onProg){
+  const step=1000;
+  idbGravar("questoes",null); /* formato antigo (um bloco só): libera o espaço */
+  let total=null, ultimo="";
   try{ const [c,u]=await Promise.all([ sb.from("questoes").select("id",{count:"exact",head:true}),
       sb.from("questoes").select("id").order("id",{ascending:false}).limit(1) ]);
-    if(!c.error&&!u.error) assin=QUESTOES_VER+"|"+c.count+"|"+((u.data&&u.data[0]&&u.data[0].id)||""); }catch(e){}
-  const salvo=await idbLer("questoes");
-  if(salvo&&Array.isArray(salvo.rows)&&salvo.rows.length&&(assin===null||salvo.assin===assin)) return {data:salvo.rows};
-  /* baixa em páginas de 1000, quatro de cada vez */
-  const step=1000; let total=null;
-  try{ const c=await sb.from("questoes").select("id",{count:"exact",head:true}); if(!c.error) total=c.count; }catch(e){}
-  let all=[];
-  if(typeof total==="number"&&total>0){
-    const paginas=[]; for(let f=0;f<total;f+=step) paginas.push(f);
-    for(let i=0;i<paginas.length;i+=4){
-      const lote=await Promise.all(paginas.slice(i,i+4).map(f=>sb.from("questoes").select("*").order("id",{ascending:true}).range(f,f+step-1).then(r=>r,()=>({data:null,error:true}))));
-      if(lote.some(r=>r.error)){ if(salvo&&salvo.rows&&salvo.rows.length) return {data:salvo.rows}; break; }
-      lote.forEach(r=>{ all=all.concat(r.data||[]); });
-    }
-  } else {
-    for(let from=0;;from+=step){ const {data,error}=await sb.from("questoes").select("*").order("id",{ascending:true}).range(from,from+step-1);
-      if(error||!data||!data.length) break; all=all.concat(data); if(data.length<step) break; }
+    if(!c.error&&!u.error){ total=c.count; ultimo=(u.data&&u.data[0]&&u.data[0].id)||""; } }catch(e){}
+  const meta=await idbLer("questoes_meta");
+  const assin=(typeof total==="number")?(QUESTOES_VER+"|"+total+"|"+ultimo):null;
+  /* sem internet para conferir: usa o que tiver completo no aparelho */
+  const montar=async m=>{ let all=[]; for(let i=0;i<m.n;i++){ const pg=await idbLer("questoes_p"+i); if(!Array.isArray(pg)) return null; all=all.concat(pg); } return all; };
+  if(assin===null){ if(meta&&meta.feitas&&meta.feitas.length===meta.n){ const all=await montar(meta); if(all) return {data:all,cache:true}; } return {data:[]}; }
+  const n=Math.ceil(total/step);
+  /* mesma versão do banco: aproveita as partes já guardadas (retoma de onde parou) */
+  const feitas=new Set((meta&&meta.assin===assin&&Array.isArray(meta.feitas))?meta.feitas:[]);
+  if(!(meta&&meta.assin===assin)) await idbGravar("questoes_meta",{assin,n,feitas:[]});
+  const faltam=[]; for(let i=0;i<n;i++) if(!feitas.has(i)) faltam.push(i);
+  if(onProg) onProg({feitas:feitas.size,total:n,baixando:faltam.length>0});
+  for(let k=0;k<faltam.length;k+=4){
+    const lote=faltam.slice(k,k+4);
+    const res=await Promise.all(lote.map(i=>sb.from("questoes").select("*").order("id",{ascending:true}).range(i*step,i*step+step-1).then(r=>r,()=>({error:true}))));
+    for(let x=0;x<lote.length;x++){ const r=res[x]; if(r.error||!Array.isArray(r.data)) continue;
+      await idbGravar("questoes_p"+lote[x],r.data); feitas.add(lote[x]); }
+    await idbGravar("questoes_meta",{assin,n,feitas:[...feitas]});
+    if(onProg) onProg({feitas:feitas.size,total:n,baixando:true});
   }
-  if(!all.length&&salvo&&salvo.rows) return {data:salvo.rows};
-  if(all.length&&assin) idbGravar("questoes",{assin,rows:all});
-  return {data:all};
+  if(feitas.size<n) return {data:[]};
+  const all=await montar({n}); if(onProg) onProg(null);
+  return {data:all||[]};
 }
 /* Tela de carregamento com saída: se demorar, oferece tentar de novo ou sair e entrar de novo. */
 function TelaSincronizando(){
   const [demorou,setDemorou]=useState(false);
-  useEffect(()=>{ const t=setTimeout(()=>setDemorou(true),12000); return ()=>clearTimeout(t); },[]);
+  useEffect(()=>{ const t=setTimeout(()=>setDemorou(true),25000); return ()=>clearTimeout(t); },[]);
   return <div className="center"><div style={{textAlign:"center",maxWidth:320,padding:"0 16px"}}>
     <div className="muted">Sincronizando seu progresso...</div>
     {demorou && <div style={{marginTop:18}}>
@@ -3306,6 +3310,7 @@ function Shell({session}){
   const revisandoRef=useRef(false);
   useEffect(()=>{ revisandoRef.current=revisando; },[revisando]);
   const [pendentes,setPendentes]=useState(()=>obLer(uid).length);
+  const [progQ,setProgQ]=useState(null); // download do banco de questões em segundo plano
   const [marco,setMarco]=useState(null);
   const [meta,setMeta]=useState(()=>{try{return {...META_PADRAO,...JSON.parse(localStorage.getItem("preceptor_meta")||"{}")}}catch(e){return META_PADRAO}});
   const [metaDias,setMetaDias]=useState(()=>{try{return JSON.parse(localStorage.getItem("preceptor_meta_dias")||"[]")}catch(e){return []}});
@@ -3388,7 +3393,7 @@ function Shell({session}){
     /* se o acesso da faculdade acabou, os dias pagos guardados voltam antes de ler a assinatura */
     try{ const {data:dv}=await sb.rpc("devolver_dias_guardados"); if(dv&&dv.devolvidos>0){ setAvisoTurma("✅ O acesso da faculdade terminou e os seus "+dv.dias+" dias pagos voltaram."); try{ window.__funil&&window.__funil("dias_devolvidos",String(dv.dias)); }catch(e){} } }catch(e){}
     const [q,r,d,s,a,st,mt,md,va,stq,cad,pp,tg]=await Promise.all([
-      carregarQuestoesBanco().then(r=>r,()=>({data:[]})),
+      Promise.resolve({data:[]}),
       todasAsLinhas(()=>sb.from("respostas").select("*").eq("user_id",uid)),
       sb.from("dominio").select("*").eq("user_id",uid),
       todasAsLinhas(()=>sb.from("srs").select("*").eq("user_id",uid).order("questao_id",{ascending:true})),
@@ -3411,6 +3416,14 @@ function Shell({session}){
     qs=embaralharLista(qs);
     try{window.ENAMED_OFICIAL=embaralharLista(window.ENAMED_OFICIAL||[]);}catch(_e){}
     try{window.__ALLQ=qs.concat(window.ENAMED_OFICIAL||[]);}catch(_e){} setQuestoes(qs); __qsOk=true;
+    /* banco de questões completo: chega em segundo plano, sem travar a abertura */
+    carregarQuestoesBanco(p=>setProgQ(p)).then(qr=>{ try{ if(!qr||!Array.isArray(qr.data)||!qr.data.length){ setProgQ(null); return; }
+      let q2=qr.data.map(x=>({id:x.id,area:x.area,tema:x.tema,transv:normTransv(x.transv),dif:x.dificuldade,enun:x.enunciado,alts:x.alternativas,correta:x.correta,coment:x.comentario,premium:x.premium,imagem:x.imagem||null,anulada:!(x.correta>=0)}));
+      const ids=new Set(q2.map(x=>x.id)); SEED.forEach(sq=>{ if(!ids.has(sq.id)) q2.push(sq); });
+      q2=embaralharLista(q2);
+      try{ window.__ALLQ=q2.concat(window.ENAMED_OFICIAL||[]); }catch(_e){}
+      setQuestoes(q2); setProgQ(null);
+    }catch(e){ setProgQ(null); } },()=>setProgQ(null));
     const fila=obLer(uid);
     await obEnviar(sb,uid,setPendentes);
     setPendentes(obLer(uid).length);
@@ -3599,6 +3612,10 @@ function Shell({session}){
 
   return <div>
     {marco && <CelebraMarco marco={marco} uid={uid} onFechar={()=>setMarco(null)}/>}
+    {progQ&&progQ.baixando && <div style={{margin:"0 0 10px",padding:"8px 12px",borderRadius:10,fontSize:12.5,border:"1px solid var(--line)",background:"var(--panel)"}}>
+      <span className="muted">Baixando o banco completo de questões ({progQ.feitas} de {progQ.total} partes) — você já pode estudar; fica guardado no aparelho.</span>
+      <div className="bar" style={{marginTop:6}}><i style={{width:(progQ.total?progQ.feitas/progQ.total*100:0)+"%",background:"var(--acc)"}}/></div>
+    </div>}
     {pendentes>0 && <div onClick={()=>obEnviar(sb,uid,setPendentes)} title="Tocar para enviar agora"
       style={{display:"flex",alignItems:"center",gap:6,margin:"0 0 8px",fontSize:11.5,
               color:"var(--muted)",cursor:"pointer",opacity:.85}}>
