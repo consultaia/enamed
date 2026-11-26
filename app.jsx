@@ -2209,6 +2209,55 @@ function obGravar(uid,arr){
   try{ PLS.set("preceptor_ob_estouro_"+uid,String(arr.length)); }catch(e){}
 }
 /* Busca todas as páginas de uma consulta (o Supabase corta em 1000 linhas). */
+/* Banco de questões guardado no aparelho (IndexedDB): baixa só quando muda (contagem,
+   último id ou QUESTOES_VER), e o download, quando precisa, vai em paralelo. Antes o app
+   baixava ~36 MB a cada abertura e podia travar celulares mais simples. */
+const QUESTOES_VER="2026.11.26";
+function idbAbrir(){ return new Promise((ok,erro)=>{ try{ const r=indexedDB.open("preceptor",1);
+  r.onupgradeneeded=()=>{ try{ r.result.createObjectStore("kv"); }catch(e){} }; r.onsuccess=()=>ok(r.result); r.onerror=()=>erro(r.error); }catch(e){ erro(e); } }); }
+async function idbLer(k){ try{ const db=await idbAbrir(); return await new Promise(ok=>{ const t=db.transaction("kv","readonly").objectStore("kv").get(k); t.onsuccess=()=>ok(t.result||null); t.onerror=()=>ok(null); }); }catch(e){ return null; } }
+async function idbGravar(k,v){ try{ const db=await idbAbrir(); await new Promise(ok=>{ const tx=db.transaction("kv","readwrite"); tx.objectStore("kv").put(v,k); tx.oncomplete=()=>ok(); tx.onerror=()=>ok(); tx.onabort=()=>ok(); }); }catch(e){} }
+async function carregarQuestoesBanco(){
+  let assin=null;
+  try{ const [c,u]=await Promise.all([ sb.from("questoes").select("id",{count:"exact",head:true}),
+      sb.from("questoes").select("id").order("id",{ascending:false}).limit(1) ]);
+    if(!c.error&&!u.error) assin=QUESTOES_VER+"|"+c.count+"|"+((u.data&&u.data[0]&&u.data[0].id)||""); }catch(e){}
+  const salvo=await idbLer("questoes");
+  if(salvo&&Array.isArray(salvo.rows)&&salvo.rows.length&&(assin===null||salvo.assin===assin)) return {data:salvo.rows};
+  /* baixa em páginas de 1000, quatro de cada vez */
+  const step=1000; let total=null;
+  try{ const c=await sb.from("questoes").select("id",{count:"exact",head:true}); if(!c.error) total=c.count; }catch(e){}
+  let all=[];
+  if(typeof total==="number"&&total>0){
+    const paginas=[]; for(let f=0;f<total;f+=step) paginas.push(f);
+    for(let i=0;i<paginas.length;i+=4){
+      const lote=await Promise.all(paginas.slice(i,i+4).map(f=>sb.from("questoes").select("*").order("id",{ascending:true}).range(f,f+step-1).then(r=>r,()=>({data:null,error:true}))));
+      if(lote.some(r=>r.error)){ if(salvo&&salvo.rows&&salvo.rows.length) return {data:salvo.rows}; break; }
+      lote.forEach(r=>{ all=all.concat(r.data||[]); });
+    }
+  } else {
+    for(let from=0;;from+=step){ const {data,error}=await sb.from("questoes").select("*").order("id",{ascending:true}).range(from,from+step-1);
+      if(error||!data||!data.length) break; all=all.concat(data); if(data.length<step) break; }
+  }
+  if(!all.length&&salvo&&salvo.rows) return {data:salvo.rows};
+  if(all.length&&assin) idbGravar("questoes",{assin,rows:all});
+  return {data:all};
+}
+/* Tela de carregamento com saída: se demorar, oferece tentar de novo ou sair e entrar de novo. */
+function TelaSincronizando(){
+  const [demorou,setDemorou]=useState(false);
+  useEffect(()=>{ const t=setTimeout(()=>setDemorou(true),12000); return ()=>clearTimeout(t); },[]);
+  return <div className="center"><div style={{textAlign:"center",maxWidth:320,padding:"0 16px"}}>
+    <div className="muted">Sincronizando seu progresso...</div>
+    {demorou && <div style={{marginTop:18}}>
+      <div className="muted" style={{fontSize:13,marginBottom:12}}>Está demorando mais que o normal. Confira a internet ou tente uma das opções:</div>
+      <div className="row" style={{gap:8,justifyContent:"center"}}>
+        <button className="btn sm" onClick={()=>location.reload()}>Tentar de novo</button>
+        <button className="btn ghost sm" onClick={async()=>{ try{ await Promise.race([sb.auth.signOut({scope:"local"}),new Promise(r=>setTimeout(r,3000))]); }catch(e){} try{ Object.keys(localStorage).filter(k=>/^sb-.*-auth-token$/.test(k)).forEach(k=>localStorage.removeItem(k)); }catch(e){} location.reload(); }}>Sair e entrar de novo</button>
+      </div>
+    </div>}
+  </div></div>;
+}
 async function todasAsLinhas(consulta){
   let all=[], from=0; const step=1000;
   for(;;){
@@ -3334,10 +3383,12 @@ function Shell({session}){
 
   useEffect(()=>{(async()=>{
     setLoading(true);
+    let __qsOk=false;
+    try{
     /* se o acesso da faculdade acabou, os dias pagos guardados voltam antes de ler a assinatura */
     try{ const {data:dv}=await sb.rpc("devolver_dias_guardados"); if(dv&&dv.devolvidos>0){ setAvisoTurma("✅ O acesso da faculdade terminou e os seus "+dv.dias+" dias pagos voltaram."); try{ window.__funil&&window.__funil("dias_devolvidos",String(dv.dias)); }catch(e){} } }catch(e){}
     const [q,r,d,s,a,st,mt,md,va,stq,cad,pp,tg]=await Promise.all([
-      (async()=>{let all=[],from=0;const step=1000;for(;;){const{data,error}=await sb.from("questoes").select("*").order("id",{ascending:true}).range(from,from+step-1);if(error||!data||!data.length)break;all=all.concat(data);if(data.length<step)break;from+=step;}return{data:all};})(),
+      carregarQuestoesBanco().then(r=>r,()=>({data:[]})),
       todasAsLinhas(()=>sb.from("respostas").select("*").eq("user_id",uid)),
       sb.from("dominio").select("*").eq("user_id",uid),
       todasAsLinhas(()=>sb.from("srs").select("*").eq("user_id",uid).order("questao_id",{ascending:true})),
@@ -3359,7 +3410,7 @@ function Shell({session}){
     }
     qs=embaralharLista(qs);
     try{window.ENAMED_OFICIAL=embaralharLista(window.ENAMED_OFICIAL||[]);}catch(_e){}
-    try{window.__ALLQ=qs.concat(window.ENAMED_OFICIAL||[]);}catch(_e){} setQuestoes(qs);
+    try{window.__ALLQ=qs.concat(window.ENAMED_OFICIAL||[]);}catch(_e){} setQuestoes(qs); __qsOk=true;
     const fila=obLer(uid);
     await obEnviar(sb,uid,setPendentes);
     setPendentes(obLer(uid).length);
@@ -3382,6 +3433,11 @@ function Shell({session}){
     setSrs(sr);
     setAssinatura((a.data&&a.data[0])||{plano:"free",status:"ativa"});
     if(st&&st.data){ setStreak(st.data); try{localStorage.setItem("enamed_streak",JSON.stringify(st.data))}catch(e){} }
+    }catch(e){
+      /* qualquer falha no meio do carregamento não pode prender o aluno na tela de sincronização */
+      try{ window.__funil&&window.__funil("carregar_erro",String((e&&e.message)||e).slice(0,200)); }catch(_){}
+      if(!__qsOk){ try{ setQuestoes(SEED); }catch(_){} }
+    }
     setLoading(false);
   })()},[uid]);
 
@@ -3500,7 +3556,7 @@ function Shell({session}){
   const poolVisivel = acesso ? questoes : poolFree;
   const bloqueadasFree = questoes.length - poolFree.length;
 
-  if(loading) return <div className="center"><div className="muted">Sincronizando seu progresso...</div></div>;
+  if(loading) return <TelaSincronizando/>;
 
   /* Sem acesso (teste de 24h acabou ou assinatura venceu): o app fica bloqueado.
      Só dá para assinar, conferir um pagamento já feito ou falar com o suporte. */
