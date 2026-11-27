@@ -7102,7 +7102,7 @@ const OSCE_CASOS = [
           "Definiu o que adiaria a cirurgia (descompensação clínica, sintoma cardíaco novo)",
         ]},
     ],
-    contextoIA:"Caso OSCE de CONSULTA/AVALIAÇÃO PRÉ-OPERATÓRIA (herniorrafia eletiva em idoso HAS/DM). Pontos-chave: capacidade funcional em METs (≥4 = bom, subir 2 lances); classificação ASA (doença sistêmica leve controlada = ASA II); risco cardíaco pelo índice de Lee/RCRI (6 fatores: cirurgia alto risco, doença isquêmica, ICC, AVC/AIT, DM em insulina, creatinina >2,0). Exames pré-op são DIRECIONADOS às comorbidades, não bateria de rotina. Manejo: SUSPENDER metformina (acidose lática), jejum ASA 2-4-6-8 (2h claros, 4h leite materno, 6h leve, 8h gordurosa), controle glicêmico perioperatório (alvo ~140–180), profilaxia de TVP, antibioticoprofilaxia até 60 min antes da incisão quando indicada. Paciente estável com ≥4 METs e baixo risco não precisa de propedêutica cardíaca adicional."
+    contextoIA:"Caso OSCE de CONSULTA/AVALIAÇÃO PRÉ-OPERATÓRIA (herniorrafia eletiva em idoso HAS/DM). Pontos-chave: capacidade funcional em METs (≥4 = bom, subir 1 lance de escadas); classificação ASA (doença sistêmica leve controlada = ASA II); risco cardíaco pelo índice de Lee/RCRI (6 fatores: cirurgia alto risco, doença isquêmica, ICC, AVC/AIT, DM em insulina, creatinina >2,0). Exames pré-op são DIRECIONADOS às comorbidades, não bateria de rotina. Manejo: SUSPENDER metformina (acidose lática), jejum ASA 2-4-6-8 (2h claros, 4h leite materno, 6h leve, 8h gordurosa), controle glicêmico perioperatório (alvo ~140–180), profilaxia de TVP, antibioticoprofilaxia até 60 min antes da incisão quando indicada. Paciente estável com ≥4 METs e baixo risco não precisa de propedêutica cardíaca adicional."
   },
   {
     id:"hernias",
@@ -8263,8 +8263,8 @@ function PreparoOSCE({caso,aberto:ini}){
   if(!a) return null;
   return <div className="card" style={{marginBottom:12,borderColor:"var(--acc)"}}>
     <div className="row" style={{justifyContent:"space-between",alignItems:"center",cursor:"pointer",gap:10}} onClick={()=>setAberto(x=>!x)}>
-      <div><div className="tag" style={{color:"var(--acc)"}}>🧠 AULA DE RACIOCÍNIO CLÍNICO</div>
-        <div className="muted" style={{fontSize:12.5,marginTop:3}}>Como pensar nesta estação, as pegadinhas que mais caem e o que falar para pontuar.</div></div>
+      <div><div className="tag" style={{color:"var(--acc-txt)"}}>📖 TEORIA DA ESTAÇÃO · O RACIOCÍNIO DO OSCE</div>
+        <div className="muted" style={{fontSize:12.5,marginTop:3}}>Leia antes de começar: como conduzir os 7 minutos, as pegadinhas que mais caem e o que falar em voz alta para pontuar.</div></div>
       <span className="muted">{aberto?"▲":"▼"}</span>
     </div>
     {aberto && <div style={{marginTop:12}}>
@@ -8915,7 +8915,7 @@ function OSCEEstacao({caso, onVoltar}){
       {caso.exames && <div className="muted" style={{fontSize:12.5,marginTop:6}}>🩻 Nesta estação, os exames que você pedir aparecem na tela para você interpretar.</div>}
     </div>
 
-    {msgs.length===0 && <PreparoOSCE caso={caso}/>}
+    {msgs.length===0 && <PreparoOSCE caso={caso} aberto/>}
     <div className="card" style={{marginBottom:12}}>
       {msgs.length===0 &&
         <div className="muted" style={{fontSize:13.5}}>Comece se apresentando e iniciando a anamnese. Ex.: "Bom dia, sou o médico. O que trouxe o(a) senhor(a) aqui hoje?"</div>}
