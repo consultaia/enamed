@@ -406,5 +406,41 @@
    "https://preceptor.api.br/social/2026-11/m4_plano_4.jpg"
   ],
   "legenda": "Sua semana de estudo montada pra você 📅\n\nVocê conta o foco (ENAMED, N2, Revalida, TECM ou outra banca), a data da prova e os dias em que consegue estudar. O Preceptor monta cada dia com revisão, aula e treino dos temas em que você mais erra.\n\n🎁 Teste grátis por 24 h: preceptor.api.br (link na bio)\n\n#enamed #planodeestudos #residenciamedica #medicina #estudantedemedicina #internato"
+ },
+ {
+  "id": "2026-11-27_osce1_gancho",
+  "quando": "2026-11-27T09:30:00-03:00",
+  "tipo": "imagem",
+  "imagens": [
+   "https://preceptor.api.br/social/2026-11/osce_1.jpg"
+  ],
+  "legenda": "No OSCE, travar não é falta de estudo: é falta de treino falando. 🩺\nUm paciente, um examinador com checklist e 7 minutos no relógio. A teoria você já tem — o que decide é conduzir a estação em voz alta, na ordem certa.\nNo Preceptor são 84 estações para treinar antes da prova.\n👉 preceptor.api.br\n#OSCE #internato #medicina #estudantedemedicina #residenciamedica"
+ },
+ {
+  "id": "2026-11-27_osce2_checklist",
+  "quando": "2026-11-27T12:00:00-03:00",
+  "tipo": "imagem",
+  "imagens": [
+   "https://preceptor.api.br/social/2026-11/osce_2.jpg"
+  ],
+  "legenda": "O que o examinador do OSCE está marcando enquanto você fala? 📋\n1. Anamnese · 2. Exame físico · 3. Hipótese · 4. Exames · 5. Conduta\nCada etapa tem itens no checklist. Dica de ouro: o que você pensa e não diz, não pontua.\nSalva para revisar antes da sua estação. 🔖\n#OSCE #internato #medicina #checklist #provaprática"
+ },
+ {
+  "id": "2026-11-27_osce3_cetoacidose",
+  "quando": "2026-11-27T16:00:00-03:00",
+  "tipo": "imagem",
+  "imagens": [
+   "https://preceptor.api.br/social/2026-11/osce_3.jpg"
+  ],
+  "legenda": "Estação de cetoacidose: a ordem dos passos é o que reprova. ⚠️\n1) Volume primeiro (SF 0,9%)\n2) Potássio antes da insulina: K < 3,5 → repõe e segura a insulina (consenso 2024)\n3) Insulina 0,1 U/kg/h; glicemia < 250 → 0,05 U/kg/h + glicose no soro\n4) Resolução pela cetonemia: β-hidroxibutirato < 0,6 e pH ≥ 7,3 ou bicarbonato ≥ 18\nErro clássico: desligar a insulina porque a glicemia caiu.\nManda para quem vai fazer a estação de clínica. 🤝\n#OSCE #cetoacidose #clinicamedica #internato #medicina"
+ },
+ {
+  "id": "2026-11-27_osce4_paciente_simulado",
+  "quando": "2026-11-27T19:30:00-03:00",
+  "tipo": "imagem",
+  "imagens": [
+   "https://preceptor.api.br/social/2026-11/osce_4.jpg"
+  ],
+  "legenda": "Treine o OSCE com um paciente simulado antes da prova. 🗣️\nVocê conduz a consulta, o paciente responde, e o examinador corrige pelo checklist com nota e feedback. Ainda tem simulação de ACLS (megacode).\nClínica Médica · Cirurgia · GO · Pediatria · APS · Urgência e Saúde Mental.\nEstações com IA no PRO: R$ 89,90 por 6 meses, no Pix, sem renovação automática.\n👉 preceptor.api.br\n#OSCE #internato #medicina #simulacao #ACLS"
  }
 ]
